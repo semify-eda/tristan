@@ -1,0 +1,8 @@
+[submodule "core/core/cv32e40x"]
+	path = core/core/cv32e40x
+	url = git@github.com:mole99/cv32e40x.git
+	branch = tristan
+[submodule "core/cv32e40x"]
+	path = core/cv32e40x
+	url = git@github.com:mole99/cv32e40x.git
+	branch = tristan
