@@ -28,7 +28,7 @@ preprocessed.v: $(INCLUDE) $(RTL) $(RTL_CUSTOM)
 # --- ULX3S ---
 
 sim-ulx3s.vvp: $(SIM) $(TB)
-	iverilog -Wall -o $@ -g2012 $(SIM) $(TB) -s tb_top `yosys-config --datdir/ecp5/cells_sim.v`
+	iverilog -Wall -o $@ -g2012 $(SIM) $(TB) -s tb_top #`yosys-config --datdir/ecp5/cells_sim.v`
 
 sim-ulx3s: sim-ulx3s.vvp firmware/firmware.hex
 	vvp $^ -fst +fst +verbose
@@ -61,13 +61,13 @@ ulx3s.bit: ulx3s.config
 # --- Firmware ---
 
 firmware/%.o: firmware/%.c
-	$(TOOLCHAIN_PREFIX)gcc -c -mabi=ilp32 -march=rv32i -Os --std=gnu11 $(GCC_WARNS) -ffreestanding -nostdlib -flto -o $@ $<
+	$(TOOLCHAIN_PREFIX)gcc -c -mabi=ilp32 -march=rv32i -Os --std=gnu11 $(GCC_WARNS) -ffreestanding -nostdlib -o $@ $<
 
 firmware/start.o: firmware/start.S
 	$(TOOLCHAIN_PREFIX)gcc -c -mabi=ilp32 -march=rv32i -o $@ $<
 
 firmware/firmware.elf: $(FIRMWARE_OBJS) firmware/sections.lds
-	$(TOOLCHAIN_PREFIX)gcc  -Os -mabi=ilp32 -march=rv32i -ffreestanding -nostdlib -flto -o $@ \
+	$(TOOLCHAIN_PREFIX)gcc  -Os -mabi=ilp32 -march=rv32i -ffreestanding -nostdlib -o $@ \
 		-Wl,--build-id=none,-Bstatic,-T,firmware/sections.lds,-Map,firmware/firmware.map,--strip-debug \
 		$(FIRMWARE_OBJS) -lgcc
 
