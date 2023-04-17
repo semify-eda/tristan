@@ -1,5 +1,7 @@
 #include "instr.h"
 
+uint8_t g_custom_instructions = 0;
+
 /*
     Example:
     value = 00011100
@@ -8,17 +10,17 @@
     Note: Counts to LSB
 */
 
-#if (CUSTOM_INSTRUCTIONS == 1)
-inline int cntb(int value, int start_pos)
+int cntb(int value, int start_pos)
 {
-    return cntb_hard(value, start_pos);
+    if (g_custom_instructions)
+    {
+        return cntb_hard(value, start_pos);
+    }
+    else
+    {
+        return cntb_soft(value, start_pos);
+    }
 }
-#else
-inline int cntb(int value, int start_pos)
-{
-    return cntb_soft(value, start_pos);
-}
-#endif
 
 int cntb_soft(int value, int start_pos)
 {
@@ -35,6 +37,12 @@ int cntb_soft(int value, int start_pos)
     return counted_concurrent_bits;
 }
 
+#ifdef DISABLE_CUSTOM_INSTRUCTIONS
+int cntb_hard(int value, int start_pos)
+{
+  return cntb_soft(value, start_pos);
+}
+#else
 int cntb_hard(int value, int start_pos)
 {
     int counted_concurrent_bits;
@@ -43,9 +51,9 @@ int cntb_hard(int value, int start_pos)
                                                          "r" (start_pos));
     return counted_concurrent_bits;
 }
+#endif
 
-
-#if (CUSTOM_INSTRUCTIONS == 1)
+/*
 int wbits(uint8_t* d_8_src, int offset)
 {
     int result;
@@ -57,17 +65,19 @@ int wbits(uint8_t* d_8_src, int offset)
       );
 
     return result;
-}
-#else
+}*/
+
 
 /*
     You get a stream of unaligned signal bits like this:
     | s0 s1 s2 s3 | s0 s1 s2 s3 | s0 s1 s2 s3 | ...
     And you want to write all s0 into one stream, all s2 into one etc.
 */
+
+/*
 int wbits(uint8_t* d_8_src, int offset)
 {
-    /*int return_value;
+    *//*int return_value;
 
     // the following for loops store 32bit of all Signals
     for (uint8_t curr_sample = 0; curr_sample < n32_over_signals;
@@ -90,11 +100,11 @@ int wbits(uint8_t* d_8_src, int offset)
         }
     }
     
-    return return_value;*/
+    return return_value;*//*
     
     (void)d_8_src;
     (void)offset;
     
     return 42;
 }
-#endif
+*/

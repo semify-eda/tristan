@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-#define CUSTOM_INSTRUCTIONS 0
+extern uint8_t g_custom_instructions;
 
 #define OPCODE_CNTB 0x6B
 #define OPCODE_WBITS 0x07

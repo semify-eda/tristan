@@ -16,6 +16,37 @@ void test_cntb(void);
 
 int xorshift32(int x);
 
+void enable_mcycle(void);
+void enable_minstret(void);
+int get_cycle(void);
+
+void enable_mcycle(void)
+{
+    int mask = 1; // Clear bit 0
+
+    __asm__ volatile ("csrrc    zero, mcountinhibit, %0"  
+                          : /* output: none */ 
+                          : "r" (mask)  /* input : register */
+                          : /* clobbers: none */);
+}
+
+void enable_minstret(void)
+{
+    int mask = 4; // Clear bit 2
+
+    __asm__ volatile ("csrrc    zero, mcountinhibit, %0"  
+                          : /* output: none */ 
+                          : "r" (mask)  /* input : register */
+                          : /* clobbers: none */);
+}
+
+int get_cycle(void)
+{
+    int cycle;
+    __asm__ volatile ("rdcycle %0" : "=r"(cycle));
+    return cycle;
+}
+
 void prepare_data(uint8_t* data)
 {
 
@@ -151,6 +182,11 @@ void main(void)
     setLED(1);
     setLED(0);
 
+    // TODO It seems like CSRs and our custom instructions
+    //      don't work together
+    // enable_mcycle();
+    // enable_minstret();
+
     puts("----------------------------------------\n");
     puts("Bootup complete.\n");
     puts("----------------------------------------\n");
@@ -174,6 +210,8 @@ void main(void)
             puts("rle ........ Start run length encoding\n");
             puts("cntb ........Test cntb\n");
             puts("blink ...... Blink the onboard LED\n");
+            puts("hard ....... Enable custom instructions\n");
+            puts("soft ....... Disable custom instructions\n");
             puts("help ....... This command\n");
         }
         else if (strcmp("hello", cmd_buffer) == 0)
@@ -187,6 +225,14 @@ void main(void)
         else if (strcmp("cntb", cmd_buffer) == 0)
         {
             test_cntb();
+        }
+        else if (strcmp("hard", cmd_buffer) == 0)
+        {
+            g_custom_instructions = 1;
+        }
+        else if (strcmp("soft", cmd_buffer) == 0)
+        {
+            g_custom_instructions = 0;
         }
         else if (strcmp("blink", cmd_buffer) == 0)
         {
