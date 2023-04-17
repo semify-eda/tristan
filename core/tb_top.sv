@@ -18,8 +18,8 @@
 
 module tb_top
     #(parameter INSTR_RDATA_WIDTH = 32,
-      parameter SOC_ADDR_WIDTH = 16,
-      parameter RAM_ADDR_WIDTH = 12,
+      parameter SOC_ADDR_WIDTH = 24,
+      parameter RAM_ADDR_WIDTH = 14,
       parameter BAUDRATE       = 115200,
       parameter BOOT_ADDR  = 'h0/*'h80*/);
 
@@ -90,8 +90,7 @@ module tb_top
         end
         
         send_byte_ser("h");
-        #(SER_BIT_PERIOD_NS * 10 * 8);
-        
+        #(SER_BIT_PERIOD_NS * 10 * 8 * 10);
         $finish;
         
     end
