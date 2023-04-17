@@ -191,7 +191,7 @@ void main(void)
     puts("Bootup complete.\n");
     puts("----------------------------------------\n");
     puts("CV32E40X @ 25.00 MHz\n");
-    puts("Total Memory: 4 kiB\n");
+    puts("Total Memory: 16 kiB\n");
     puts("----------------------------------------\n");
 
     while (1) {
