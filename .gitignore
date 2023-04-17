@@ -57,3 +57,4 @@ preprocessed.v
 *.config
 *.json
 *.log
+*.bin
