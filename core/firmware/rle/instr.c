@@ -53,7 +53,7 @@ int cntb_hard(int value, int start_pos)
 }
 #endif
 
-/*
+
 int wbits(uint8_t* d_8_src, int offset)
 {
     int result;
@@ -65,7 +65,7 @@ int wbits(uint8_t* d_8_src, int offset)
       );
 
     return result;
-}*/
+}
 
 
 /*

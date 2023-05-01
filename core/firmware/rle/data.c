@@ -57,6 +57,69 @@ uint32_t read(bitstream* b_stream, uint32_t start_bit,
     return read_block;
 }
 
+/*void write_data_in_blocks(uint8_t* dest, bitstream* source_bs, uint8_t reverse_bits)
+{
+  // data neds to be written in revesed order beceause it was compressed taht way to prevent bit reversal 
+  
+  //uint32_t* d_32 = (uint32_t*)(d_8 + (data_size_mod_32 >> 3));
+  uint32_t* d_32 = (uint32_t*)dest;
+  uint8_t data_size_over_32 = DATA_SIZE >> 5;
+  uint32_t curr_sample_to_read;
+  uint32_t result = 0;
+
+  uint32_t offset = 0;
+  uint8_t* d_8_src = (uint8_t*)sig_uncomp;
+  
+  for (uint8_t curr_bit32_offset = 0; curr_bit32_offset < data_size_over_32; curr_bit32_offset++)
+  {      
+      //__asm__ volatile ("wbits %0, %1, %2\n"
+      //        : "=r" (result)
+      //        : "r"(d_8_src), "r"(offset)
+      //        : 
+      //);
+      
+      __asm__ volatile (".insn r 0x07, 0, 0, %0, %1, %2\n"
+              : "=r" (result)
+              : "r"(d_8_src), "r"(offset)
+              : 
+      );
+      
+    //result = wbits(d_8_src, offset);
+    
+    d_32[7 - curr_bit32_offset] = result;
+    d_8_src += 1; // works with 4 signals wlse offset for instruction
+  } 
+
+  uint8_t data_size_mod_32 = DATA_SIZE % 32;
+  if (data_size_mod_32)
+  {
+    uint8_t* d_8 = (uint8_t*)(d_32 + data_size_over_32);
+    
+    uint32_t n8_over_signals = 8 / SIGNALS; // how many time have the signals to be stored to get 8 bit
+
+    for (uint8_t curr_bit8_offset = 0; curr_bit8_offset < (data_size_mod_32 >> 3); curr_bit8_offset++)
+    {
+      //the following for loops store 8bit of all Signals
+      for (uint8_t curr_sample = 0; curr_sample < n8_over_signals; curr_sample++)
+      {
+        for (uint8_t curr_bstream = 0; curr_bstream < SIGNALS; curr_bstream++)
+        {
+          //read form highest addr to lowest addr out of bitstreams becasue stored inversed to
+          // avoid having to do bit reversal
+          if (reverse_bits)
+            curr_sample_to_read = (SAMPLES % 32) - curr_sample - 1 - curr_bit8_offset*n8_over_signals;
+          else
+            curr_sample_to_read = (SAMPLES % 32) + curr_bit8_offset*n8_over_signals;
+          
+          d_8[curr_bit8_offset] |= read(&(source_bs[curr_bstream]), curr_sample_to_read, 1) <<
+            (curr_sample*SIGNALS+curr_bstream);
+        } 
+      }
+    }
+  }
+
+}*/
+
 /*#ifdef CUSTOM_INSTRUCTIONS*/
 
 /*void write_data_in_blocks(uint8_t *dest, bitstream *source_bs,
@@ -160,6 +223,8 @@ uint32_t read(bitstream* b_stream, uint32_t start_bit,
 }*/
 /*#else*/
 
+// TODO this is the working implementation
+
 void write_data_in_blocks(uint8_t *dest, bitstream *source_bs,
                           uint8_t reverse_bits) {
     // data neds to be written in revesed order beceause it was compressed taht
@@ -234,6 +299,7 @@ void write_data_in_blocks(uint8_t *dest, bitstream *source_bs,
         }
     }
 }
+
 
 //#endif
 

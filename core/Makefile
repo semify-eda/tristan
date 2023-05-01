@@ -49,7 +49,7 @@ ulx3s.json: tech/rtl/cv32e40x_clock_gate.sv preprocessed.v ulx3s_top.sv cv32e40x
 yosys_verilog.v: tech/rtl/cv32e40x_clock_gate.sv preprocessed.v
 	yosys -l $(basename $@)-yosys.log -DSYNTHESIS -p 'read -sv tech/rtl/cv32e40x_clock_gate.sv preprocessed.v; hierarchy -top cv32e40x_top; proc; flatten; opt; fsm; opt; write_verilog -noattr yosys_verilog.v' 
 
-ulx3s.config: ulx3s.json
+ulx3s.config: ulx3s.json ulx3s_v20.lpf
 	nextpnr-ecp5 --85k --json $< \
 		--package CABGA381 \
 		--lpf ulx3s_v20.lpf \

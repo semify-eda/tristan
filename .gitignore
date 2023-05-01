@@ -58,3 +58,5 @@ preprocessed.v
 *.json
 *.log
 *.bin
+*.vvp
+*.fst
