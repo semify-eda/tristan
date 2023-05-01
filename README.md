@@ -1,10 +1,10 @@
 # TRISTAN
 
-# Core
-
-Contains the `CV32E40X` core and all additional material for an FPGA prototype.
+This repository contains the `CV32E40X` core and all additional material for an FPGA prototype and ASIC implementation.
 
 ## Instructions
+
+Test the core on the `ULX3S` FPGA:
 
 Run the simulation:
 
