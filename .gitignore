@@ -53,6 +53,7 @@ dkms.conf
 
 # FPGA
 preprocessed.v
+cv32e40x_yosys.v
 *.bit
 *.config
 *.json
@@ -60,3 +61,4 @@ preprocessed.v
 *.bin
 *.vvp
 *.fst
+*.fst.hier

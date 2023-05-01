@@ -181,6 +181,10 @@ void main(void)
     setLED(0);
     setLED(1);
     setLED(0);
+    
+    rle_test();
+    
+    setLED(1);
 
     // TODO It seems like CSRs and our custom instructions
     //      don't work together

@@ -64,7 +64,5 @@ module dp_ram
             end
         end
     end
-    
-    initial $readmemh("firmware/firmware.hex", mem);
 
 endmodule // dp_ram

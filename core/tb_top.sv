@@ -53,8 +53,8 @@ module tb_top
     initial begin: load_prog
         if($test$plusargs("verbose"))
             $display("[TESTBENCH] @ t=%0t: loading firmware %0s",
-                     $time, "firmware/firmware.hex");
-        $readmemh("firmware/firmware.hex", cv32e40x_soc.dp_ram_i.mem);
+                     $time, "core/firmware/firmware.hex");
+        $readmemh("core/firmware/firmware.hex", cv32e40x_soc.dp_ram_i.mem);
     end
 
     initial begin: clock_gen

@@ -59,7 +59,9 @@ module coproc import custom_instr_pkg::*;
   assign xif_mem.mem_req.addr = rs0_DP;
   assign xif_mem.mem_req.mode = 0;
   assign xif_mem.mem_req.we = 0;
+  assign xif_mem.mem_req.size = 0; // TODO
   assign xif_mem.mem_req.be = 0;
+  assign xif_mem.mem_req.attr = 0; // TODO
   assign xif_mem.mem_req.wdata = 0;
   assign xif_mem.mem_req.spec = 0;
 
@@ -71,47 +73,52 @@ module coproc import custom_instr_pkg::*;
   assign xif_result.result.ecswe = 0;
   assign xif_result.result.exc = 0;
   assign xif_result.result.exccode = 0;
+  assign xif_result.result.err = 0;
+  assign xif_result.result.dbg = 0;
 
   assign xif_result.result_valid = result_valid_SP;
   
   // hardware for cntb instruction
   cntb cntb_i
     (
-     .clk_i (clk_i),
-     .rst_ni (rst_ni),
-     .rd_o (rd_cntb_i),
-     .rs0_i (rs0_DP),
-     .rs1_i (rs1_DP),
-     .rd_i (rd_DP),
-     .start_i (cntb_start_o),
-     .cntb_done_o (cntb_done_i)
+     .clk_i     (clk_i),
+     .rst_ni    (rst_ni),
+     .rd_o      (rd_cntb_i),
+     .rs0_i     (rs0_DP),
+     .rs1_i     (rs1_DP),
+     .rd_i      (rd_DP),
+     .start_i   (cntb_start_o),
+     .cntb_done_o   (cntb_done_i)
      );
 
   // interface to memory intercation fsm
   if_rmem if_rmem_i(); 
   // hardware for stroing bits unaligned after decoding
   wbits wbits_i
-    ( .clk_i (clk_i),
-      .rst_ni (rst_ni),
-      .start_i (wbits_start_o),
-      .read_if (if_rmem_i),
-      .address_i (rs0_DP),
-      .inc_addr_o (inc_addr_i),
-      .offset (rs1_DP),
-      .rd_o (rd_wbits_i),
-      .rd_i (rd_DP),
-      .done_o (wbits_done_i)
+    (
+      .clk_i    (clk_i),
+      .rst_ni   (rst_ni),
+      .start_i  (wbits_start_o),
+      .read_if  (if_rmem_i),
+      .address_i    (rs0_DP),
+      .inc_addr_o   (inc_addr_i),
+      .offset   (rs1_DP),
+      .rd_o     (rd_wbits_i),
+      .rd_i     (rd_DP),
+      .done_o   (wbits_done_i)
      );
 
  
-  read_mem read_mem_i ( .clk_i (clk_i),
-                        .rst_ni (rst_ni),
-                        .read_if (if_rmem_i),
-                        .mem_req_last (xif_mem.mem_req.last),
-                        .mem_valid (xif_mem.mem_valid),
-                        .mem_result_valid (xif_mem_result.mem_result_valid),
-                        .mem_result_rdata (xif_mem_result.mem_result.rdata)
-                        );
+  read_mem read_mem_i
+  (
+      .clk_i    (clk_i),
+      .rst_ni   (rst_ni),
+      .read_if  (if_rmem_i),
+      .mem_req_last (xif_mem.mem_req.last),
+      .mem_valid    (xif_mem.mem_valid),
+      .mem_result_valid (xif_mem_result.mem_result_valid),
+      .mem_result_rdata (xif_mem_result.mem_result.rdata)
+  );
   
   
   
