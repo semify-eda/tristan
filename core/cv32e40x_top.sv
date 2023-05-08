@@ -1,7 +1,6 @@
 module cv32e40x_top import cv32e40x_pkg::*;
 #(
     parameter INSTR_RDATA_WIDTH = 32,
-              RAM_ADDR_WIDTH    = 20,
               BOOT_ADDR         = 32'h02000000 + 24'h200000,
               DM_HALTADDRESS    = 32'h1A11_0800,
               HART_ID           = 32'h0000_0000,

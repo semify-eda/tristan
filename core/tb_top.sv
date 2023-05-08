@@ -16,12 +16,9 @@
 `timescale 1ns/1ps
 `define TB_CORE
 
-module tb_top
-    #(parameter INSTR_RDATA_WIDTH = 32,
-      parameter SOC_ADDR_WIDTH = 24,
-      parameter RAM_ADDR_WIDTH = 14,
-      parameter BAUDRATE       = 115200,
-      parameter BOOT_ADDR  = 'h0/*'h80*/);
+module tb_top;
+
+    localparam BAUDRATE       = 115200;
 
     parameter time CLK_PHASE_HI       = 20;
     parameter time CLK_PHASE_LO       = 20;
@@ -50,12 +47,13 @@ module tb_top
 
     // we either load the provided firmware or execute a small test program that
     // doesn't do more than an infinite loop with some I/O
-    initial begin: load_prog
+    // TODO execute directly from SPI Flash
+    /*initial begin: load_prog
         if($test$plusargs("verbose"))
             $display("[TESTBENCH] @ t=%0t: loading firmware %0s",
                      $time, "core/firmware/firmware.hex");
         $readmemh("core/firmware/firmware.hex", cv32e40x_soc.dp_ram_i.mem);
-    end
+    end*/
 
     initial begin: clock_gen
         forever begin
@@ -83,10 +81,6 @@ module tb_top
 
         if($test$plusargs("verbose")) begin
             $display("reset deasserted", $time);
-        end
-
-        if ( !( (INSTR_RDATA_WIDTH == 128) || (INSTR_RDATA_WIDTH == 32) ) ) begin
-         $fatal(2, "invalid INSTR_RDATA_WIDTH, choose 32 or 128");
         end
         
         send_byte_ser("h");
@@ -119,13 +113,7 @@ module tb_top
     // wrapper for CV32E40X, the memory system and stdout peripheral
     cv32e40x_soc
     #(
-        .INSTR_RDATA_WIDTH (INSTR_RDATA_WIDTH),
-        .SOC_ADDR_WIDTH    (SOC_ADDR_WIDTH),
-        .RAM_ADDR_WIDTH    (RAM_ADDR_WIDTH),
-        .CLK_FREQ          (CLK_FREQ),
-        .BAUDRATE          (BAUDRATE),
-        .BOOT_ADDR         (BOOT_ADDR)
-     )
+    )
     cv32e40x_soc
     (
         .clk_i          ( core_clk     ),
@@ -141,7 +129,7 @@ module tb_top
     );
     
     spiflash #(
-        .INIT_F("firmware/firmware.hex"), // TODO
+        .INIT_F("core/firmware/firmware.hex"), // TODO
         .OFFSET(24'h200000)
     ) spiflash_inst (
         .csb    (cs),
