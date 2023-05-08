@@ -2,7 +2,7 @@ module cv32e40x_top import cv32e40x_pkg::*;
 #(
     parameter INSTR_RDATA_WIDTH = 32,
               RAM_ADDR_WIDTH    = 20,
-              BOOT_ADDR         = 'h0,//'h80,
+              BOOT_ADDR         = 32'h02000000 + 24'h200000,
               DM_HALTADDRESS    = 32'h1A11_0800,
               HART_ID           = 32'h0000_0000,
               NUM_MHPMCOUNTERS  = 1
@@ -57,16 +57,6 @@ module cv32e40x_top import cv32e40x_pkg::*;
         .X_RFW_WIDTH ( 32 ),
         .X_MISA      ( '0 )
     ) ext_if();
-    
-    /*typedef ext_if.x_compressed_req_t x_compressed_req_t;
-    typedef ext_if.x_compressed_resp_t x_compressed_resp_t;
-    typedef ext_if.x_issue_req_t x_issue_req_t;
-    typedef ext_if.x_issue_resp_t x_issue_resp_t;
-    typedef ext_if.x_commit_t x_commit_t;
-    typedef ext_if.x_mem_req_t x_mem_req_t;
-    typedef ext_if.x_mem_resp_t x_mem_resp_t;
-    typedef ext_if.x_mem_result_t x_mem_result_t;
-    typedef ext_if.x_result_t x_result_t;*/
 
     coproc coproc_inst
     (
@@ -79,64 +69,6 @@ module cv32e40x_top import cv32e40x_pkg::*;
         .xif_mem_result (ext_if.coproc_mem_result),
         .xif_result     (ext_if.coproc_result)
     );
-
-    /*
-    // Compressed interface
-    logic               compressed_valid;
-    logic               compressed_ready;
-    x_compressed_req_t  compressed_req;
-    x_compressed_resp_t compressed_resp;
-
-    // Issue interface
-    logic               issue_valid;
-    logic               issue_ready;
-    x_issue_req_t       issue_req;
-    x_issue_resp_t      issue_resp;
-
-    // Commit interface
-    logic               commit_valid;
-    x_commit_t          commit;
-
-    // Memory (request/response) interface
-    logic               mem_valid;
-    logic               mem_ready;
-    x_mem_req_t         mem_req;
-    x_mem_resp_t        mem_resp;
-
-    // Memory result interface
-    logic               mem_result_valid;
-    x_mem_result_t      mem_result;
-
-    // Result interface
-    logic               result_valid;
-    logic               result_ready;
-    x_result_t          result;
-
-    assign compressed_valid = ext_if.coproc_compressed.compressed_valid;
-    assign ext_if.coproc_compressed.compressed_ready = compressed_ready;
-    assign compressed_req = ext_if.coproc_compressed.compressed_req;
-    assign ext_if.coproc_compressed.compressed_resp = compressed_resp;
-
-    assign issue_valid = ext_if.coproc_issue.issue_valid;
-    assign ext_if.coproc_issue.issue_ready = issue_ready;
-    assign issue_req = ext_if.coproc_issue.issue_req;
-    assign ext_if.coproc_issue.issue_resp = issue_resp;
-
-    assign commit_valid = ext_if.coproc_commit.commit_valid;
-    assign commit = ext_if.coproc_commit.commit;
-
-    assign ext_if.coproc_mem.mem_valid = mem_valid;
-    assign mem_ready = ext_if.coproc_mem.mem_ready;
-    assign ext_if.coproc_mem.mem_req = mem_req;
-    assign mem_resp = ext_if.coproc_mem.mem_resp;
-
-    assign mem_result_valid = ext_if.coproc_mem_result.mem_result_valid;
-    assign mem_result = ext_if.coproc_mem_result.mem_result;
-    
-    assign ext_if.coproc_result.result_valid = result_valid;
-    assign result_ready = ext_if.coproc_result.result_ready;
-    assign ext_if.coproc_result.result = result;
-    */
 
     cv32e40x_core
     #(

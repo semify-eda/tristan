@@ -3,22 +3,38 @@ module cv32e40x_soc
  #(
      parameter SOC_ADDR_WIDTH    =  24,
                RAM_ADDR_WIDTH    =  14,
-               INSTR_RDATA_WIDTH = 128,  // width of read_data on instruction bus
+               INSTR_RDATA_WIDTH = 128,
                CLK_FREQ          = 25_000_000,
                BAUDRATE          = 115200,
-               BOOT_ADDR         = 'h0//'h80
+               BOOT_ADDR         = 32'h02000000 + 24'h200000
   )
 (
     // Clock and reset
     input  logic clk_i,
     input  logic rst_ni,
+    
+    // Blinky
     output logic led,
+    
+    // Uart
     output ser_tx,
-    input  ser_rx
+    input  ser_rx,
+    
+    // SPI signals
+    output sck,
+    output sdo,
+    input  sdi,
+    output cs
+    
+    // TODO move RAM outside
 );
+    localparam RAM_MASK         = 4'h0;
+    localparam SPI_FLASH_MASK   = 4'h1;
+    localparam UART_MASK        = 4'hA;
+    localparam BLINK_MASK       = 4'hF;
 
     logic ram_instr_req;
-    logic [SOC_ADDR_WIDTH-1:0] ram_instr_addr;
+    logic [SOC_ADDR_WIDTH-1:0]    ram_instr_addr;
     logic [INSTR_RDATA_WIDTH-1:0] ram_instr_rdata;
     
     logic ram_data_req;
@@ -32,9 +48,13 @@ module cv32e40x_soc
     logic instr_rvalid;
     logic data_rvalid;
 
-    cv32e40x_top /*#(
-        .BOOT_ADDR(BOOT_ADDR)
-    )*/ // BOOT_ADDR is 'h80
+    // ----------------------------------
+    //           CV32E40X Core
+    // ----------------------------------
+
+    cv32e40x_top #(
+        //.BOOT_ADDR(BOOT_ADDR) // set in module because of yosys
+    )
     cv32e40x_top_inst
     (
       // Clock and reset
@@ -69,12 +89,55 @@ module cv32e40x_soc
       .core_sleep_o     ()
     );
     
+    // ----------------------------------
+    //            Multiplexer
+    // ----------------------------------
+    
+    logic dp_ram_select_instr;
+    logic dp_ram_select_data;
+    logic select_led;
+    logic select_uart;
+    logic select_spi_flash;
 
-    wire dp_ram_select_instr;
-    wire dp_ram_select_data;
+    // TODO Update firmware
+    assign dp_ram_select_instr  = ram_instr_addr[23:20] == RAM_MASK;
+    assign dp_ram_select_data   = ram_data_addr[23:20]  == RAM_MASK;
+    assign select_spi_flash     = ram_data_addr[23:20]  == SPI_FLASH_MASK; // TODO data and instr
+    assign select_uart          = ram_data_addr[23:20]  == UART_MASK;
+    assign select_led           = ram_data_addr[23:20]  == BLINK_MASK;
+    
+    always_comb begin
+        if (dp_ram_select_data)
+            data_rdata = ram_data_rdata;
+        else if (select_led)
+            data_rdata = {{31{1'b0}}, led};
+        else if (select_uart_data)
+            data_rdata = uart_data_rdata_del;
+        else if (select_uart_busy)
+            data_rdata = {{31{1'b0}}, uart_busy};
+        else if (select_spi_flash)
+            data_rdata = spi_flash_rdata;
+        else
+        
+            data_rdata = 'x;
+    end
 
-    assign dp_ram_select_instr = ram_instr_addr[23:16] == 4'h0;
-    assign dp_ram_select_data = ram_data_addr[23:16] == 4'h0;
+    always_ff @(posedge clk_i, negedge rst_ni) begin
+        if (!rst_ni) begin
+            instr_rvalid <= 1'b0;
+            data_rvalid <= 1'b0;
+        end else begin
+            // TODO spi_flash_done
+        
+            instr_rvalid <= ram_instr_req;
+            data_rvalid <= ram_data_req;
+        end
+    end
+    
+
+    // ----------------------------------
+    //              DP RAM
+    // ----------------------------------
     
     // instantiate the ram
     dp_ram
@@ -98,9 +161,10 @@ module cv32e40x_soc
         .we_b_i    ( ram_data_we     ),
         .be_b_i    ( ram_data_be     )
     );
-     
-    logic select_led;
-    assign select_led = ram_data_addr == 24'h100000;
+    
+    // ----------------------------------
+    //           Blink LED
+    // ----------------------------------
      
     always_ff @(posedge clk_i, negedge rst_ni) begin
         if (!rst_ni) begin
@@ -112,14 +176,18 @@ module cv32e40x_soc
         end
     end
     
+    // ----------------------------------
+    //               UART
+    // ----------------------------------
+    
     logic select_uart_data;
-    assign select_uart_data = ram_data_addr == 24'h200000;
+    logic select_uart_busy;
+    
+    assign select_uart_data = select_uart && ram_data_addr[15:0]  == 16'h0000;
+    assign select_uart_busy = select_uart && ram_data_addr[15:0]  == 16'h0004;
     
     logic [31:0] uart_data_rdata;
     logic [31:0] uart_data_rdata_del;
-    
-    logic select_uart_busy;
-    assign select_uart_busy = ram_data_addr == 24'h200004;
     
     logic uart_busy;
     
@@ -154,27 +222,72 @@ module cv32e40x_soc
         uart_data_rdata_del <= uart_data_rdata;
     end
     
-    always_comb begin
-        if (dp_ram_select_data)
-            data_rdata = ram_data_rdata;
-        else if (select_led)
-            data_rdata = {{31{1'b0}}, led};
-        else if (select_uart_data)
-            data_rdata = uart_data_rdata_del;
-        else if (select_uart_busy)
-            data_rdata = {{31{1'b0}}, uart_busy};
-        else
-            data_rdata = 'x;
-    end
+    // ----------------------------------
+    //           SPI Flash
+    // ----------------------------------
+    
+    logic [31: 0] spi_flash_rdata;
+    logic spi_flash_done;
+    logic spi_flash_initialized;
+    
+`ifdef SYNTHESIS
+    spi_flash spi_flash_inst (
+        .clk,
+        .reset      (!rst_ni),
 
+        .addr_in    (ram_data_addr[15:0]),          // address of word # TODO increase
+        .data_out   (spi_flash_rdata),              // received word
+        .strobe     (select_spi_flash && mem_rstrb),    // start transmission
+        .done       (spi_flash_done),               // pulse, transmission done
+        .initialized(spi_flash_initialized),        // initial cmds sent
+
+        // SPI signals
+        .sck,
+        .sdo,
+        .sdi,
+        .cs
+    );
+    
+`else
+    // TODO SPI Flash does not want to simulate correctly
+    //      use this as a workaround
+    
+    localparam INIT_F = "firmware/firmware.hex";
+    localparam OFFSET = 24'h200000;
+    
+	// 16 MB (128Mb) Flash
+	reg [7:0] memory [0:16*1024*1024-1];
+	initial begin
+		$readmemh(INIT_F, memory, OFFSET);
+	end
+	
+	logic [7:0] counter;
+	
+	// TODO arbitrate access
+	
+	
     always_ff @(posedge clk_i, negedge rst_ni) begin
         if (!rst_ni) begin
-            instr_rvalid <= 1'b0;
-            data_rvalid <= 1'b0;
+            spi_flash_done <= 1'b0;
+            spi_flash_initialized = 1'b1;
+            counter <= '0;
         end else begin
-            instr_rvalid <= ram_instr_req;
-            data_rvalid <= ram_data_req;
-        end
+            spi_flash_done <= 1'b0;
+            counter <= '0;
+	        if (select_spi_flash && (ram_instr_req || ram_data_req)) begin // TODO
+	            spi_flash_rdata <= {memory[(ram_instr_addr[23:2]<<2) + 3], 
+	                                memory[(ram_instr_addr[23:2]<<2) + 2], 
+	                                memory[(ram_instr_addr[23:2]<<2) + 1], 
+	                                memory[(ram_instr_addr[23:2]<<2)]};   // TODO ram_data_addr
+	            
+	            counter <= counter +1;
+	            
+	            if (counter > 100)
+                spi_flash_done <= 1'b1;
+            end
+	    end
     end
+
+`endif
 
 endmodule

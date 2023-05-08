@@ -113,6 +113,8 @@ module tb_top
     logic led;
     logic ser_tx;
     logic ser_rx = 1'b1;
+    logic sck, sdi, cs;
+    wire  sdo;
 
     // wrapper for CV32E40X, the memory system and stdout peripheral
     cv32e40x_soc
@@ -130,7 +132,24 @@ module tb_top
         .rst_ni         ( core_rst_n   ),
         .led,
         .ser_tx,
-        .ser_rx
+        .ser_rx,
+        
+        .sck,
+        .sdo,
+        .sdi,
+        .cs
+    );
+    
+    spiflash #(
+        .INIT_F("firmware/firmware.hex"), // TODO
+        .OFFSET(24'h200000)
+    ) spiflash_inst (
+        .csb    (cs),
+        .clk    (sck),
+        .io0    (sdo), // MOSI
+        .io1    (sdi), // MISO
+        .io2    (),
+        .io3    ()
     );
     
     logic [7:0] recv_byte = 0;

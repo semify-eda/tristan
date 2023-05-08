@@ -16,7 +16,7 @@ INCLUDE = core/cv32e40x/rtl/include/cv32e40x_pkg.sv core/custom/include/custom_i
 RTL = $(wildcard core/cv32e40x/rtl/*.sv) core/cv32e40x_top.sv
 RTL_CUSTOM = $(wildcard core/custom/*.sv)
 
-SIM = cv32e40x_yosys.v core/cv32e40x_soc.sv core/dp_ram.sv core/simpleuart.v
+SIM = cv32e40x_yosys.v core/cv32e40x_soc.sv core/dp_ram.sv core/simpleuart.v core/spi_flash/tb/spiflash.v
 
 TB = core/tb_top.sv
 
