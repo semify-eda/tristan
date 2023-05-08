@@ -52,7 +52,7 @@ module cv32e40x_soc
     //           CV32E40X Core
     // ----------------------------------
 
-    assign soc_instr_gnt = soc_instr_req;// && spi_flash_done; // TODO quick hack
+    assign soc_instr_gnt = soc_instr_req; // && spi_flash_done; // TODO quick hack
     assign soc_data_gnt  = soc_data_req; // always grant on request
 
 
@@ -150,12 +150,12 @@ module cv32e40x_soc
             soc_data_rvalid <= soc_data_req;
             
             // SPI Flash has latency
-            if (select_instr_spiflash) begin
+            /*if (select_instr_spiflash) begin
                 soc_instr_rvalid <= spi_flash_done;
             end
             if (select_data_spiflash) begin
                 soc_data_rvalid <= spi_flash_done;
-            end
+            end*/
         end
     end
     
@@ -336,6 +336,8 @@ module cv32e40x_soc
                     spi_flash_done <= 1'b1;
                     counter <= 1'b0;
                 end
+                
+                spi_flash_done <= 1'b1; // TODO remove
             end
 	    end
     end
