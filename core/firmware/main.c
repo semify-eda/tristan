@@ -182,7 +182,7 @@ void main(void)
     setLED(1);
     setLED(0);
     
-    rle_test();
+    //rle_test();
     
     setLED(1);
 

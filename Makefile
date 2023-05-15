@@ -34,7 +34,7 @@ sim-ulx3s: sim-ulx3s.vvp core/firmware/firmware.hex
 	vvp $^ -fst +fst +verbose
 	
 view-ulx3s:
-	gtkwave tb_top.fst
+	gtkwave tb_top.fst --save tb_top.gtkw 
 
 synth-ulx3s: ulx3s.json
 
@@ -60,7 +60,7 @@ ulx3s.bit: ulx3s.config
 
 # --- Firmware ---
 
-core/firmware/%.o: core/firmware/%.c
+core/firmware/%.o: core/firmware/%.c core/firmware/%.h
 	$(TOOLCHAIN_PREFIX)gcc -c -mabi=ilp32 -march=rv32i -Os --std=gnu11 $(GCC_WARNS) -ffreestanding -nostdlib -o $@ $<
 
 core/firmware/start.o: core/firmware/start.S

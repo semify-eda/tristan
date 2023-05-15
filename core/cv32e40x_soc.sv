@@ -52,8 +52,18 @@ module cv32e40x_soc
     //           CV32E40X Core
     // ----------------------------------
 
-    assign soc_instr_gnt = soc_instr_req; // && spi_flash_done; // TODO quick hack
-    assign soc_data_gnt  = soc_data_req; // always grant on request
+    always_ff @(posedge clk_i, negedge rst_ni) begin
+        if (!rst_ni) begin
+            soc_instr_gnt <= 1'b0;
+            soc_data_gnt <= 1'b0;
+        end else begin
+            soc_instr_gnt <= soc_instr_req && !soc_instr_gnt && !soc_data_req; // TODO only for SPI
+            soc_data_gnt <= soc_data_req && !soc_data_gnt;
+        end
+    end
+
+    //assign soc_instr_gnt = soc_instr_req && !soc_data_req; // && spi_flash_done; // TODO quick hack
+    //assign soc_data_gnt  = soc_data_req; // always grant on request
 
 
     cv32e40x_top #(
@@ -146,8 +156,8 @@ module cv32e40x_soc
             soc_data_rvalid <= 1'b0;
         end else begin
             // Generally data is available one cycle after req
-            soc_instr_rvalid <= soc_instr_req;
-            soc_data_rvalid <= soc_data_req;
+            soc_instr_rvalid <= soc_instr_gnt;
+            soc_data_rvalid <= soc_data_gnt;
             
             // SPI Flash has latency
             /*if (select_instr_spiflash) begin
@@ -177,14 +187,14 @@ module cv32e40x_soc
     (
         .clk_i     ( clk_i           ),
 
-        .en_a_i    ( soc_instr_req & select_instr_ram ),
+        .en_a_i    ( soc_instr_gnt & select_instr_ram ),
         .addr_a_i  ( soc_instr_addr  ),
         .wdata_a_i ( '0              ),	// Not writing so ignored
         .rdata_a_o ( ram_instr_rdata ),
         .we_a_i    ( '0              ),
         .be_a_i    ( 4'b1111         ),	// Always want 32-bits
 
-        .en_b_i    ( soc_data_req & select_data_ram ),
+        .en_b_i    ( soc_data_gnt & select_data_ram ),
         .addr_b_i  ( soc_data_addr   ),
         .wdata_b_i ( soc_data_wdata  ),
         .rdata_b_o ( ram_data_rdata  ),
@@ -200,7 +210,7 @@ module cv32e40x_soc
         if (!rst_ni) begin
             led <= 1'b1;
         end else begin
-            if (soc_data_req && select_data_led && soc_data_we) begin
+            if (soc_data_gnt && select_data_led && soc_data_we) begin
                 led <= soc_data_wdata[0];
             end
         end
@@ -241,8 +251,8 @@ module cv32e40x_soc
         .reg_div_di ('0),
         .reg_div_do (),
 
-        .reg_dat_we (soc_data_req && select_data_uart_data && soc_data_we),
-        .reg_dat_re (soc_data_req && select_data_uart_data && !soc_data_we),
+        .reg_dat_we (soc_data_gnt && select_data_uart_data && soc_data_we),
+        .reg_dat_re (soc_data_gnt && select_data_uart_data && !soc_data_we),
         .reg_dat_di (soc_data_wdata),
         .reg_dat_do (uart_soc_data_rdata),
         .reg_dat_wait (uart_busy)
@@ -298,20 +308,20 @@ module cv32e40x_soc
 	
 	// Arbitrate access, data has precedence
     logic [SOC_ADDR_WIDTH-1:0] spi_addr;
-    logic spi_req;
+    logic spi_gnt;
     
     always_comb begin
         spi_addr = '0;
-        spi_req  = '0;
-    
-        if (select_data_spiflash && soc_data_req) begin
-            spi_addr = soc_data_addr;
-            spi_req = soc_data_req;
+        spi_gnt  = '0;
+        
+        if (select_instr_spiflash && soc_instr_gnt) begin
+            spi_addr = soc_instr_addr;
+            spi_gnt = soc_instr_gnt;
         end
         
-        if (select_instr_spiflash && soc_instr_req) begin
-            spi_addr = soc_instr_addr;
-            spi_req = soc_instr_req;
+        if (select_data_spiflash && soc_data_gnt) begin
+            spi_addr = soc_data_addr;
+            spi_gnt = soc_data_gnt;
         end
     end
 	
@@ -324,7 +334,7 @@ module cv32e40x_soc
         end else begin
             spi_flash_done <= 1'b0;
             counter <= '0;
-	        if (spi_req) begin
+	        if (spi_gnt) begin
 	            spi_flash_rdata <= {memory[(spi_addr[23:2]<<2) + 3], 
 	                                memory[(spi_addr[23:2]<<2) + 2], 
 	                                memory[(spi_addr[23:2]<<2) + 1], 
