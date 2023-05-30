@@ -21,11 +21,11 @@ assert len(bindata) % 4 == 0
 for i in range(nwords):
     if i < len(bindata) // 4:
         w = bindata[4*i : 4*i+4]
-        print("%02x%02x%02x%02x" % (w[3], w[2], w[1], w[0]))
-        #print("%02x" % (w[0]))
-        #print("%02x" % (w[1]))
-        #print("%02x" % (w[2]))
-        #print("%02x" % (w[3]))
+        #print("%02x%02x%02x%02x" % (w[3], w[2], w[1], w[0]))
+        print("%02x" % w[0])
+        print("%02x" % w[1])
+        print("%02x" % w[2])
+        print("%02x" % w[3])
     else:
         print("0")
 
