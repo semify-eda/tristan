@@ -60,7 +60,7 @@ ulx3s.bit: ulx3s.config
 
 # --- Firmware ---
 
-core/firmware/%.o: core/firmware/%.c core/firmware/%.h
+core/firmware/%.o: core/firmware/%.c
 	$(TOOLCHAIN_PREFIX)gcc -c -mabi=ilp32 -march=rv32i -Os --std=gnu11 $(GCC_WARNS) -ffreestanding -nostdlib -o $@ $<
 
 core/firmware/start.o: core/firmware/start.S
