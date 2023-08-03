@@ -43,8 +43,8 @@ build-ulx3s: ulx3s.bit
 upload-ulx3s: ulx3s.bit
 	openFPGALoader --board=ulx3s ulx3s.bit
 
-ulx3s.json: core/tech/rtl/cv32e40x_clock_gate.sv preprocessed.v fpga/ulx3s_top.sv core/cv32e40x_soc.sv core/dp_ram.sv core/simpleuart.v core/firmware/firmware.hex
-	yosys -l $(basename $@)-yosys.log -DSYNTHESIS -p 'synth_ecp5 -top ulx3s_top -json $@' core/tech/rtl/cv32e40x_clock_gate.sv preprocessed.v fpga/ulx3s_top.sv core/cv32e40x_soc.sv core/dp_ram.sv core/simpleuart.v
+ulx3s.json: core/tech/rtl/cv32e40x_clock_gate.sv preprocessed.v fpga/ulx3s_top.sv core/cv32e40x_soc.sv core/dp_ram.sv core/simpleuart.v core/spi_flash/rtl/spi_flash.sv core/firmware/firmware.hex
+	yosys -l $(basename $@)-yosys.log -DSYNTHESIS -p 'synth_ecp5 -top ulx3s_top -json $@' core/tech/rtl/cv32e40x_clock_gate.sv preprocessed.v fpga/ulx3s_top.sv core/cv32e40x_soc.sv core/dp_ram.sv core/simpleuart.v core/spi_flash/rtl/spi_flash.sv
 
 cv32e40x_yosys.v: core/tech/rtl/cv32e40x_clock_gate.sv preprocessed.v
 	yosys -l $(basename $@)-yosys.log -DSYNTHESIS -p 'read -sv core/tech/rtl/cv32e40x_clock_gate.sv preprocessed.v; hierarchy -top cv32e40x_top; proc; flatten; opt; fsm; opt; write_verilog -noattr cv32e40x_yosys.v' 
