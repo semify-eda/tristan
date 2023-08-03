@@ -1,4 +1,4 @@
 [submodule "core/cv32e40x"]
 	path = core/cv32e40x
-	url = git@github.com:semify-eda/cv32e40x.git
+	url = https://github.com/semify-eda/cv32e40x.git
 	branch = tristan
