@@ -1,3 +1,5 @@
+`default_nettype none
+
 module cv32e40x_top import cv32e40x_pkg::*;
 #(
     parameter INSTR_RDATA_WIDTH = 32,

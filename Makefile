@@ -12,11 +12,26 @@ GCC_WARNS  = -Werror -Wall -Wextra -Wshadow -Wundef -Wpointer-arith -Wcast-qual 
 GCC_WARNS += -Wredundant-decls -Wstrict-prototypes -Wmissing-prototypes #-pedantic # -Wconversion
 
 # Sources
-INCLUDE = core/cv32e40x/rtl/include/cv32e40x_pkg.sv core/custom/include/custom_instr_pkg.sv
-RTL = $(wildcard core/cv32e40x/rtl/*.sv) core/cv32e40x_top.sv
+INCLUDE = core/cv32e40x/rtl/include/cv32e40x_pkg.sv \
+	core/custom/include/custom_instr_pkg.sv
+
+RTL = 	$(wildcard core/cv32e40x/rtl/*.sv) \
+	core/cv32e40x_top.sv
+
 RTL_CUSTOM = $(wildcard core/custom/*.sv)
 
-SIM = cv32e40x_yosys.v core/cv32e40x_soc.sv core/dp_ram.sv core/simpleuart.v core/spi_flash/tb/spiflash.v
+RTL_FPGA = fpga/ulx3s_top.sv \
+	preprocessed.v \
+	core/tech/rtl/cv32e40x_clock_gate.sv \
+	core/cv32e40x_soc.sv \
+	core/dp_ram.sv core/simpleuart.v \
+	core/spi_flash/rtl/spi_flash.sv
+
+SIM = 	cv32e40x_yosys.v \
+	core/cv32e40x_soc.sv \
+	core/dp_ram.sv \
+	core/simpleuart.v \
+	core/spi_flash/tb/spiflash.v
 
 TB = core/tb_top.sv
 
@@ -26,6 +41,10 @@ preprocessed.v: $(INCLUDE) $(RTL) $(RTL_CUSTOM)
 	sv2v -v $(INCLUDE) $(RTL) $(RTL_CUSTOM) > preprocessed.v
 
 # --- ULX3S ---
+
+# For the simulation
+cv32e40x_yosys.v: core/tech/rtl/cv32e40x_clock_gate.sv preprocessed.v
+	yosys -l $(basename $@)-yosys.log -DSYNTHESIS -p 'read -sv core/tech/rtl/cv32e40x_clock_gate.sv preprocessed.v; hierarchy -top cv32e40x_top; proc; flatten; opt; fsm; opt; write_verilog -noattr cv32e40x_yosys.v' 
 
 sim-ulx3s.vvp: $(SIM) $(TB)
 	iverilog -Wall -o $@ -g2012 $(SIM) $(TB) -s tb_top #`yosys-config --datdir/ecp5/cells_sim.v`
@@ -40,14 +59,12 @@ synth-ulx3s: ulx3s.json
 
 build-ulx3s: ulx3s.bit
 
-upload-ulx3s: ulx3s.bit
-	openFPGALoader --board=ulx3s ulx3s.bit
+upload-ulx3s: ulx3s.bit core/firmware/firmware.bin
+	openFPGALoader --board=ulx3s -f ulx3s.bit
+	openFPGALoader --board=ulx3s -f -o 0x200000 core/firmware/firmware.bin
 
-ulx3s.json: core/tech/rtl/cv32e40x_clock_gate.sv preprocessed.v fpga/ulx3s_top.sv core/cv32e40x_soc.sv core/dp_ram.sv core/simpleuart.v core/spi_flash/rtl/spi_flash.sv core/firmware/firmware.hex
-	yosys -l $(basename $@)-yosys.log -DSYNTHESIS -p 'synth_ecp5 -top ulx3s_top -json $@' core/tech/rtl/cv32e40x_clock_gate.sv preprocessed.v fpga/ulx3s_top.sv core/cv32e40x_soc.sv core/dp_ram.sv core/simpleuart.v core/spi_flash/rtl/spi_flash.sv
-
-cv32e40x_yosys.v: core/tech/rtl/cv32e40x_clock_gate.sv preprocessed.v
-	yosys -l $(basename $@)-yosys.log -DSYNTHESIS -p 'read -sv core/tech/rtl/cv32e40x_clock_gate.sv preprocessed.v; hierarchy -top cv32e40x_top; proc; flatten; opt; fsm; opt; write_verilog -noattr cv32e40x_yosys.v' 
+ulx3s.json: $(RTL_FPGA)
+	yosys -l $(basename $@)-yosys.log -DSYNTHESIS -p 'synth_ecp5 -top ulx3s_top -json $@' $(RTL_FPGA)
 
 ulx3s.config: ulx3s.json fpga/ulx3s_v20.lpf
 	nextpnr-ecp5 --85k --json $< \
@@ -56,7 +73,7 @@ ulx3s.config: ulx3s.json fpga/ulx3s_v20.lpf
 		--textcfg $@
 
 ulx3s.bit: ulx3s.config
-	ecppack $< $@
+	ecppack $< $@ --compress
 
 # --- Firmware ---
 

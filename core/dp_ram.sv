@@ -9,6 +9,8 @@
 // CONDITIONS OF ANY KIND, either express or implied. See the License for the
 // specific language governing permissions and limitations under the License.
 
+`default_nettype none
+
 module dp_ram
     #(parameter ADDR_WIDTH = 8,
       parameter INSTR_RDATA_WIDTH = 128)

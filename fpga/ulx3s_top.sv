@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 `timescale 1ns / 1ps
+`default_nettype none
 
 module ulx3s_top (
     input clk_25mhz,
@@ -11,7 +12,7 @@ module ulx3s_top (
 
     input  [6:0] btn,
     output [7:0] led,
-    
+
     // SPI Flash
     `ifndef SYNTHESIS
     output flash_clk,
@@ -22,28 +23,53 @@ module ulx3s_top (
     output flash_holdn,
     output flash_wpn
 );
-    localparam FREQUENCY = 25_000_000;
-    localparam SOC_ADDR_WIDTH    =  24;
+
+    logic clk;
+    logic reset_n;
+
+    assign clk = clk_25mhz;
+    assign reset_n = btn[0];
+
+    logic [23-1:0] counter;
+
+    // Health indicator
+    always_ff @(posedge clk, negedge reset_n) begin
+        if (!reset_n) begin
+            counter <= '0;
+        end else begin
+            counter <= counter + 1;
+        end
+    end
+    
+    assign led[1] = counter[23-1];
+
+    localparam CLK_FREQ = 25_000_000;
+    localparam BAUDRATE = 115200;
+    localparam SOC_ADDR_WIDTH    =  32;
     localparam RAM_ADDR_WIDTH    =  14;
     localparam INSTR_RDATA_WIDTH =  32;
-    localparam BOOT_ADDR         = 'h0;
+    localparam BOOT_ADDR         = 32'h02000000 + 24'h200000; // TODO set inside cv32e40x_top
 
     // wrapper for CV32E40X, the memory system and stdout peripheral
     cv32e40x_soc
     #(
-        .INSTR_RDATA_WIDTH (INSTR_RDATA_WIDTH),
         .SOC_ADDR_WIDTH    (SOC_ADDR_WIDTH),
         .RAM_ADDR_WIDTH    (RAM_ADDR_WIDTH),
+        .INSTR_RDATA_WIDTH (INSTR_RDATA_WIDTH),
+        .CLK_FREQ          (CLK_FREQ),
+        .BAUDRATE          (BAUDRATE),
         .BOOT_ADDR         (BOOT_ADDR)
      )
-    cv32e40x_soc
+    cv32e40x_soc_inst
     (
-        .clk_i          ( clk_25mhz    ),
-        .rst_ni         ( btn[0]       ),
+        .clk_i          ( clk          ),
+        .rst_ni         ( reset_n      ),
+
         .led            ( led[0]       ),
+
         .ser_tx         ( ftdi_rxd     ),
         .ser_rx         ( ftdi_txd     ),
-         
+
         // SPI signals
         .sck (flash_clk),
         .sdo (flash_mosi),

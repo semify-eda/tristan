@@ -13,6 +13,7 @@
 // Contributor: Robert Balas <balasr@student.ethz.ch>
 //              Jeremy Bennett <jeremy.bennett@embecosm.com>
 
+`default_nettype none
 `timescale 1ns/1ps
 `define TB_CORE
 

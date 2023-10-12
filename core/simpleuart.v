@@ -16,6 +16,8 @@
  *  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
  */
+ 
+ `default_nettype none
 
 module simpleuart #(parameter integer DEFAULT_DIV = 1) (
 	input clk,

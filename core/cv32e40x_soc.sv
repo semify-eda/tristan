@@ -1,13 +1,16 @@
+`default_nettype none
+
+`timescale 1ns/1ps
 
 module cv32e40x_soc
- #(
-     parameter SOC_ADDR_WIDTH    =  32,
-               RAM_ADDR_WIDTH    =  14,
-               INSTR_RDATA_WIDTH = 128,
-               CLK_FREQ          = 25_000_000,
-               BAUDRATE          = 115200,
-               BOOT_ADDR         = 32'h02000000 + 24'h200000
-  )
+#(
+    parameter SOC_ADDR_WIDTH    =  32,
+    parameter RAM_ADDR_WIDTH    =  14,
+    parameter INSTR_RDATA_WIDTH = 128,
+    parameter CLK_FREQ          = 25_000_000,
+    parameter BAUDRATE          = 115200,
+    parameter BOOT_ADDR         = 32'h02000000 + 24'h200000
+)
 (
     // Clock and reset
     input  logic clk_i,
@@ -156,7 +159,7 @@ module cv32e40x_soc
     (
       // Clock and reset
       .clk_i        (clk_i      ),
-      .rst_ni       (rst_ni     ),
+      .rst_ni       (rst_ni),
 
       // Instruction memory interface
       .instr_req_o      (cpu_instr_req      ),
@@ -182,7 +185,7 @@ module cv32e40x_soc
       .debug_req_i      (1'b0),
 
       // CPU control signals
-      .fetch_enable_i   (1'b1),
+      .fetch_enable_i   (spi_flash_initialized),
       .core_sleep_o     ()
     );
     
@@ -339,12 +342,12 @@ module cv32e40x_soc
     // TODO arbiter
 
     spi_flash spi_flash_inst (
-        .clk,
+        .clk        (clk_i),
         .reset      (!rst_ni),
 
-        .addr_in    (soc_addr[15:0]),          // address of word # TODO increase
+        .addr_in    (soc_addr[23:0]),          // address of word
         .data_out   (spi_flash_rdata),              // received word
-        .strobe     (select_data_spiflash && mem_rstrb),    // start transmission
+        .strobe     (select_spiflash && soc_req),    // start transmission
         .done       (spi_flash_done),               // pulse, transmission done
         .initialized(spi_flash_initialized),        // initial cmds sent
 
@@ -370,11 +373,16 @@ module cv32e40x_soc
 	
 	logic [7:0] counter;
 	
+	initial begin
+        spi_flash_initialized   <= 1'b0;
+        #1000;
+        spi_flash_initialized   <= 1'b1;
+	end
+	
     always_ff @(posedge clk_i, negedge rst_ni) begin
         if (!rst_ni) begin
             spi_flash_done          <= 1'b0;
             spi_flash_done_delayed  <= 1'b0;
-            spi_flash_initialized   <= 1'b1;
             counter                 <= '0;
             spi_flash_rdata         <= '0;
         end else begin
@@ -382,7 +390,7 @@ module cv32e40x_soc
             counter                 <= '0;
             spi_flash_done_delayed  <= spi_flash_done;
             
-	        if (select_spiflash && soc_req) begin
+	        if (select_spiflash && soc_req && spi_flash_initialized) begin
 	            spi_flash_rdata <= {memory[(soc_addr[23:2]<<2) + 3], 
 	                                memory[(soc_addr[23:2]<<2) + 2], 
 	                                memory[(soc_addr[23:2]<<2) + 1], 
