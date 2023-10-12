@@ -1,6 +1,6 @@
 `default_nettype none
 
-module dp_ram
+module sp_ram
 #(
     parameter ADDR_WIDTH = 8
 )

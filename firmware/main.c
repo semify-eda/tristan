@@ -191,6 +191,12 @@ void main(void)
     // enable_mcycle();
     // enable_minstret();
 
+    test_cntb();
+    
+    setLED(0);
+    setLED(1);
+    setLED(0);
+
     puts("----------------------------------------\n");
     puts("Bootup complete.\n");
     puts("----------------------------------------\n");

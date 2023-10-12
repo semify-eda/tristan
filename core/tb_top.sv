@@ -20,6 +20,10 @@
 module tb_top;
 
     localparam BAUDRATE       = 115200;
+    localparam SOC_ADDR_WIDTH    =  32;
+    localparam RAM_ADDR_WIDTH    =  14;
+    localparam INSTR_RDATA_WIDTH =  32;
+    localparam BOOT_ADDR         = 32'h02000000 + 24'h200000; // TODO set inside cv32e40x_top
 
     parameter time CLK_PHASE_HI       = 20;
     parameter time CLK_PHASE_LO       = 20;
@@ -30,6 +34,8 @@ module tb_top;
     parameter time RESET_DEL = STIM_APPLICATION_DEL;
     parameter int  RESET_WAIT_CYCLES  = 4;
     parameter int  SER_BIT_PERIOD_NS = 1_000_000_000 / BAUDRATE;
+
+
 
     // clock and reset for tb
     logic                   core_clk;
@@ -85,7 +91,7 @@ module tb_top;
         end
         
         send_byte_ser("h");
-        #(SER_BIT_PERIOD_NS * 10 * 8 * 10);
+        #(SER_BIT_PERIOD_NS * 10 * 8 * 10 * 10);
         $finish;
         
     end
@@ -114,6 +120,12 @@ module tb_top;
     // wrapper for CV32E40X, the memory system and stdout peripheral
     cv32e40x_soc
     #(
+        .SOC_ADDR_WIDTH    (SOC_ADDR_WIDTH),
+        .RAM_ADDR_WIDTH    (RAM_ADDR_WIDTH),
+        .INSTR_RDATA_WIDTH (INSTR_RDATA_WIDTH),
+        .CLK_FREQ          (CLK_FREQ),
+        .BAUDRATE          (BAUDRATE),
+        .BOOT_ADDR         (BOOT_ADDR)
     )
     cv32e40x_soc
     (
@@ -126,11 +138,40 @@ module tb_top;
         .sck,
         .sdo,
         .sdi,
-        .cs
+        .cs,
+        
+        .ram_en_o       (ram_en),
+        .ram_addr_o     (ram_addr),
+        .ram_wdata_o    (ram_wdata),
+        .ram_rdata_i    (ram_rdata),
+        .ram_we_o       (ram_we),
+        .ram_be_o       (ram_be)
+    );
+    
+    logic                       ram_en;
+    logic [RAM_ADDR_WIDTH-1:0]  ram_addr;
+    logic [31:0]                ram_wdata;
+    logic [31:0]                ram_rdata;
+    logic                       ram_we;
+    logic [3:0]                 ram_be;
+    
+    sp_ram
+    #(
+        .ADDR_WIDTH  (RAM_ADDR_WIDTH)
+    ) sp_ram_i
+    (
+        .clk_i      (core_clk),
+
+        .en_i       (ram_en),
+        .addr_i     (ram_addr),
+        .wdata_i    (ram_wdata),
+        .rdata_o    (ram_rdata),
+        .we_i       (ram_we),
+        .be_i       (ram_be)
     );
     
     spiflash #(
-        .INIT_F("core/firmware/firmware.hex"), // TODO
+        .INIT_F("firmware/firmware.hex"), // TODO
         .OFFSET(24'h200000)
     ) spiflash_inst (
         .csb    (cs),

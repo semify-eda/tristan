@@ -90,10 +90,10 @@ module ulx3s_top (
     logic                       ram_we;
     logic [3:0]                 ram_be;
     
-    dp_ram
+    sp_ram
     #(
         .ADDR_WIDTH  (RAM_ADDR_WIDTH)
-    ) dp_ram_i
+    ) sp_ram_i
     (
         .clk_i      (clk),
 
@@ -103,7 +103,7 @@ module ulx3s_top (
         .rdata_o    (ram_rdata),
         .we_i       (ram_we),
         .be_i       (ram_be)
-     );
+    );
     
     `ifdef SYNTHESIS
     wire flash_clk;
