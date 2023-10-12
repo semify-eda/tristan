@@ -4,9 +4,9 @@
 
 module cv32e40x_soc
 #(
-    parameter SOC_ADDR_WIDTH    =  32,
-    parameter RAM_ADDR_WIDTH    =  14,
-    parameter INSTR_RDATA_WIDTH = 128,
+    parameter SOC_ADDR_WIDTH    = 32,
+    parameter RAM_ADDR_WIDTH    = 14,
+    parameter INSTR_RDATA_WIDTH = 32,
     parameter CLK_FREQ          = 25_000_000,
     parameter BAUDRATE          = 115200,
     parameter BOOT_ADDR         = 32'h02000000 + 24'h200000
@@ -20,16 +20,22 @@ module cv32e40x_soc
     output logic led,
     
     // Uart
-    output ser_tx,
-    input  ser_rx,
+    output logic ser_tx,
+    input  logic ser_rx,
     
     // SPI signals
-    output sck,
-    output sdo,
-    input  sdi,
-    output cs
+    output logic sck,
+    output logic sdo,
+    input  logic sdi,
+    output logic cs,
     
-    // TODO connect RAM from outside
+    // Single port RAM
+    output logic                  ram_en_o,
+    output logic [RAM_ADDR_WIDTH-1:0] ram_addr_o,
+    output logic [31:0]           ram_wdata_o,
+    input  logic [31:0]           ram_rdata_i,
+    output logic                  ram_we_o,
+    output logic [3:0]            ram_be_o
 );
     localparam RAM_MASK         = 4'h0;
     localparam SPI_FLASH_MASK   = 4'h2;
@@ -149,9 +155,6 @@ module cv32e40x_soc
         end
     end
 
-    //assign soc_instr_gnt = soc_instr_req && !soc_req; // && spi_flash_done; // TODO quick hack
-    //assign soc_gnt  = soc_req; // always grant on request
-
     cv32e40x_top #(
         //.BOOT_ADDR(BOOT_ADDR) // set in module because of yosys
     )
@@ -203,9 +206,7 @@ module cv32e40x_soc
     assign select_spiflash     = soc_addr[31:24]  == SPI_FLASH_MASK;
     assign select_uart         = soc_addr[31:24]  == UART_MASK;
     assign select_led          = soc_addr[31:24]  == BLINK_MASK;
-    
-    // TODO Problem: address can change after gnt, but rvalid/rdata depends on it
-    // TODO don't delay for ram?
+
     always_comb begin
         if (select_ram)
             soc_rdata = ram_rdata;
@@ -234,39 +235,22 @@ module cv32e40x_soc
             end
         end
     end
-    
 
     // ----------------------------------
-    //              DP RAM
+    //              SP RAM
     // ----------------------------------
-    
-    // TODO remove instruction port from RAM?
     
     logic [31:0] ram_rdata;
     logic [INSTR_RDATA_WIDTH-1:0] ram_instr_rdata;
-    
-    // instantiate the ram
-    dp_ram
-        #(.ADDR_WIDTH (RAM_ADDR_WIDTH),
-          .INSTR_RDATA_WIDTH(INSTR_RDATA_WIDTH))
-    dp_ram_i
-    (
-        .clk_i     ( clk_i           ),
 
-        .en_a_i    ( '0 ),
-        .addr_a_i  ( '0  ),
-        .wdata_a_i ( '0              ),	// Not writing so ignored
-        .rdata_a_o (  ),
-        .we_a_i    ( '0              ),
-        .be_a_i    ( 4'b1111         ),	// Always want 32-bits
+    // Connect external single port RAM
 
-        .en_b_i    ( soc_gnt && select_ram ),
-        .addr_b_i  ( soc_addr   ),
-        .wdata_b_i ( soc_wdata  ),
-        .rdata_b_o ( ram_rdata  ),
-        .we_b_i    ( soc_we     ),
-        .be_b_i    ( soc_be     )
-    );
+    assign ram_en_o = soc_gnt && select_ram;
+    assign ram_addr_o = soc_addr;
+    assign ram_wdata_o = soc_wdata;
+    assign ram_rdata = ram_rdata_i;
+    assign ram_we_o = soc_we;
+    assign ram_be_o = soc_be;
     
     // ----------------------------------
     //           Blink LED
@@ -336,26 +320,22 @@ module cv32e40x_soc
     logic spi_flash_done;
 	logic spi_flash_done_delayed;
     logic spi_flash_initialized;
-    
-//`ifdef SYNTHESIS
-
-    // TODO arbiter
 
     spi_flash spi_flash_inst (
         .clk        (clk_i),
         .reset      (!rst_ni),
 
-        .addr_in    (soc_addr[23:0]),          // address of word
+        .addr_in    (soc_addr[23:0]),               // address of word
         .data_out   (spi_flash_rdata),              // received word
-        .strobe     (select_spiflash && soc_req_pulse),    // start transmission
+        .strobe     (select_spiflash && soc_req_pulse), // start transmission
         .done       (spi_flash_done),               // pulse, transmission done
         .initialized(spi_flash_initialized),        // initial cmds sent
 
         // SPI signals
-        .sck,
-        .sdo,
-        .sdi,
-        .cs
+        .sck        (sck),
+        .sdo        (sdo),
+        .sdi        (sdi),
+        .cs         (cs)
     );
     
     logic soc_req_pulse;
@@ -371,57 +351,5 @@ module cv32e40x_soc
             soc_req_delayed <= soc_req;
         end
     end
-    
-/*`else
-    // TODO SPI Flash does not want to simulate correctly
-    //      use this as a workaround
-    
-    localparam INIT_F = "core/firmware/firmware.hex";
-    localparam OFFSET = 24'h200000;
-    
-	// 16 MB (128Mb) Flash
-	reg [7:0] memory [0:16*1024*1024-1];
-	initial begin
-		$readmemh(INIT_F, memory, OFFSET);
-	end
-	
-	logic [7:0] counter;
-	
-	initial begin
-        spi_flash_initialized   <= 1'b0;
-        #1000;
-        spi_flash_initialized   <= 1'b1;
-	end
-	
-    always_ff @(posedge clk_i, negedge rst_ni) begin
-        if (!rst_ni) begin
-            spi_flash_done          <= 1'b0;
-            spi_flash_done_delayed  <= 1'b0;
-            counter                 <= '0;
-            spi_flash_rdata         <= '0;
-        end else begin
-            spi_flash_done          <= 1'b0;
-            counter                 <= '0;
-            spi_flash_done_delayed  <= spi_flash_done;
-            
-	        if (select_spiflash && soc_req && spi_flash_initialized) begin
-	            spi_flash_rdata <= {memory[(soc_addr[23:2]<<2) + 3], 
-	                                memory[(soc_addr[23:2]<<2) + 2], 
-	                                memory[(soc_addr[23:2]<<2) + 1], 
-	                                memory[(soc_addr[23:2]<<2)]};
-	            
-	            counter <= counter + 1;
-	            
-	            if (counter > 100) begin
-                    spi_flash_done <= 1'b1;
-                    counter <= 1'b0;
-                end
-                
-                // spi_flash_done <= !spi_flash_done; // TODO remove
-            end
-	    end
-    end
-
-`endif*/
 
 endmodule

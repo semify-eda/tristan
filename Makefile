@@ -1,12 +1,12 @@
 TOOLCHAIN_PREFIX ?= riscv32-unknown-elf-
 PYTHON ?= python3
 
-FIRMWARE_OBJS = core/firmware/start.o \
-                core/firmware/main.o \
-                core/firmware/util.o \
-                core/firmware/rle/data.o \
-                core/firmware/rle/rle.o \
-                core/firmware/rle/instr.o
+FIRMWARE_OBJS = firmware/start.o \
+                firmware/main.o \
+                firmware/util.o \
+                firmware/rle/data.o \
+                firmware/rle/rle.o \
+                firmware/rle/instr.o
 
 GCC_WARNS  = -Werror -Wall -Wextra -Wshadow -Wundef -Wpointer-arith -Wcast-qual #-Wcast-align -Wwrite-strings
 GCC_WARNS += -Wredundant-decls -Wstrict-prototypes -Wmissing-prototypes #-pedantic # -Wconversion
@@ -20,12 +20,13 @@ RTL = 	$(wildcard core/cv32e40x/rtl/*.sv) \
 
 RTL_CUSTOM = $(wildcard core/custom/*.sv)
 
-RTL_FPGA = fpga/ulx3s_top.sv \
-	preprocessed.v \
-	core/tech/rtl/cv32e40x_clock_gate.sv \
-	core/cv32e40x_soc.sv \
-	core/dp_ram.sv core/simpleuart.v \
-	core/spi_flash/rtl/spi_flash.sv
+RTL_FPGA = fpga/ulx3s/ulx3s_top.sv \
+           fpga/sp_ram.sv \
+           preprocessed.v \
+           core/tech/rtl/cv32e40x_clock_gate.sv \
+           core/cv32e40x_soc.sv \
+           core/simpleuart.v \
+           core/spi_flash/rtl/spi_flash.sv
 
 SIM = 	cv32e40x_yosys.v \
 	core/cv32e40x_soc.sv \
@@ -50,7 +51,7 @@ cv32e40x_yosys.v: core/tech/rtl/cv32e40x_clock_gate.sv preprocessed.v
 sim-ulx3s.vvp: $(SIM) $(TB)
 	iverilog -Wall -o $@ -g2012 $(SIM) $(TB) -s tb_top #`yosys-config --datdir/ecp5/cells_sim.v`
 
-sim-ulx3s: sim-ulx3s.vvp core/firmware/firmware.hex
+sim-ulx3s: sim-ulx3s.vvp firmware/firmware.hex
 	vvp $^ -fst +fst +verbose
 	
 view-ulx3s:
@@ -60,17 +61,17 @@ synth-ulx3s: ulx3s.json
 
 build-ulx3s: ulx3s.bit
 
-upload-ulx3s: ulx3s.bit core/firmware/firmware.bin
+upload-ulx3s: ulx3s.bit firmware/firmware.bin
 	openFPGALoader --board=ulx3s -f ulx3s.bit
-	openFPGALoader --board=ulx3s -f -o 0x200000 core/firmware/firmware.bin
+	openFPGALoader --board=ulx3s -f -o 0x200000 firmware/firmware.bin
 
 ulx3s.json: $(RTL_FPGA)
 	yosys -l $(basename $@)-yosys.log -DSYNTHESIS -p 'synth_ecp5 -top ulx3s_top -json $@' $(RTL_FPGA)
 
-ulx3s.config: ulx3s.json fpga/ulx3s_v20.lpf
+ulx3s.config: ulx3s.json fpga/ulx3s/ulx3s_v20.lpf
 	nextpnr-ecp5 --85k --json $< \
 		--package CABGA381 \
-		--lpf fpga/ulx3s_v20.lpf \
+		--lpf fpga/ulx3s/ulx3s_v20.lpf \
 		--textcfg $@
 
 ulx3s.bit: ulx3s.config
@@ -78,26 +79,26 @@ ulx3s.bit: ulx3s.config
 
 # --- Firmware ---
 
-core/firmware/%.o: core/firmware/%.c
+firmware/%.o: firmware/%.c
 	$(TOOLCHAIN_PREFIX)gcc -c -mabi=ilp32 -march=rv32i -Os --std=gnu11 $(GCC_WARNS) -ffreestanding -nostdlib -o $@ $<
 
-core/firmware/start.o: core/firmware/start.S
+firmware/start.o: firmware/start.S
 	$(TOOLCHAIN_PREFIX)gcc -c -mabi=ilp32 -march=rv32i -o $@ $<
 
-core/firmware/firmware.elf: $(FIRMWARE_OBJS) core/firmware/sections.lds
+firmware/firmware.elf: $(FIRMWARE_OBJS) firmware/sections.lds
 	$(TOOLCHAIN_PREFIX)gcc  -Os -mabi=ilp32 -march=rv32i -ffreestanding -nostdlib -o $@ \
-		-Wl,--build-id=none,-Bstatic,-T,core/firmware/sections.lds,-Map,core/firmware/firmware.map,--strip-debug \
+		-Wl,--build-id=none,-Bstatic,-T,firmware/sections.lds,-Map,firmware/firmware.map,--strip-debug \
 		$(FIRMWARE_OBJS) -lgcc
 
-core/firmware/firmware.bin: core/firmware/firmware.elf
+firmware/firmware.bin: firmware/firmware.elf
 	$(TOOLCHAIN_PREFIX)objcopy -O binary $< $@
 
-core/firmware/firmware.hex: core/firmware/firmware.bin core/firmware/makehex.py
-	$(PYTHON) core/firmware/makehex.py $< 4096 > $@
+firmware/firmware.hex: firmware/firmware.bin firmware/makehex.py
+	$(PYTHON) firmware/makehex.py $< 4096 > $@
 
 # --- General ---
 
 .PHONY: sim-ulx3s view-ulx3s synth-ulx3s build-ulx3s upload-ulx3s
 
 clean:
-	rm -f *.vvp *.fst *.fst.hier *.vcd *.log *.json *.asc *.bin *.bit core/firmware/*.o core/firmware/rle/*.o core/firmware/*.elf core/firmware/*.bin core/firmware/*.hex core/firmware/firmware.map ulx3s.config preprocessed.v cv32e40x_yosys.v
+	rm -f *.vvp *.fst *.fst.hier *.vcd *.log *.json *.asc *.bin *.bit firmware/*.o firmware/rle/*.o firmware/*.elf firmware/*.bin firmware/*.hex firmware/firmware.map ulx3s.config preprocessed.v cv32e40x_yosys.v
