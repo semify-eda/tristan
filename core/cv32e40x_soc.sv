@@ -337,7 +337,7 @@ module cv32e40x_soc
 	logic spi_flash_done_delayed;
     logic spi_flash_initialized;
     
-`ifdef SYNTHESIS
+//`ifdef SYNTHESIS
 
     // TODO arbiter
 
@@ -347,7 +347,7 @@ module cv32e40x_soc
 
         .addr_in    (soc_addr[23:0]),          // address of word
         .data_out   (spi_flash_rdata),              // received word
-        .strobe     (select_spiflash && soc_req),    // start transmission
+        .strobe     (select_spiflash && soc_req_pulse),    // start transmission
         .done       (spi_flash_done),               // pulse, transmission done
         .initialized(spi_flash_initialized),        // initial cmds sent
 
@@ -358,7 +358,21 @@ module cv32e40x_soc
         .cs
     );
     
-`else
+    logic soc_req_pulse;
+    assign soc_req_pulse = soc_req && !soc_req_delayed;
+    logic soc_req_delayed;
+    
+    always_ff @(posedge clk_i, negedge rst_ni) begin
+        if (!rst_ni) begin
+            spi_flash_done_delayed <= 1'b0;
+            soc_req_delayed <= 1'b0;
+        end else begin
+            spi_flash_done_delayed <= spi_flash_done;
+            soc_req_delayed <= soc_req;
+        end
+    end
+    
+/*`else
     // TODO SPI Flash does not want to simulate correctly
     //      use this as a workaround
     
@@ -408,6 +422,6 @@ module cv32e40x_soc
 	    end
     end
 
-`endif
+`endif*/
 
 endmodule

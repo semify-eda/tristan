@@ -31,6 +31,7 @@ SIM = 	cv32e40x_yosys.v \
 	core/cv32e40x_soc.sv \
 	core/dp_ram.sv \
 	core/simpleuart.v \
+	core/spi_flash/rtl/spi_flash.sv \
 	core/spi_flash/tb/spiflash.v
 
 TB = core/tb_top.sv
