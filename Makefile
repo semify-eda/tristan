@@ -12,30 +12,30 @@ GCC_WARNS  = -Werror -Wall -Wextra -Wshadow -Wundef -Wpointer-arith -Wcast-qual 
 GCC_WARNS += -Wredundant-decls -Wstrict-prototypes -Wmissing-prototypes #-pedantic # -Wconversion
 
 # Sources
-INCLUDE = common/cv32e40x/rtl/include/cv32e40x_pkg.sv \
-	common/custom/include/custom_instr_pkg.sv
+INCLUDE = core/cv32e40x/rtl/include/cv32e40x_pkg.sv \
+	core/custom/include/custom_instr_pkg.sv
 
-RTL = 	$(wildcard common/cv32e40x/rtl/*.sv) \
-	common/cv32e40x_top.sv
+RTL = 	$(wildcard core/cv32e40x/rtl/*.sv) \
+	core/cv32e40x_top.sv
 
-RTL_CUSTOM = $(wildcard common/custom/*.sv)
+RTL_CUSTOM = $(wildcard core/custom/*.sv)
 
 RTL_FPGA = fpga/ulx3s/ulx3s_top.sv \
            fpga/sp_ram.sv \
            preprocessed.v \
-           common/tech/rtl/cv32e40x_clock_gate.sv \
-           common/cv32e40x_soc.sv \
-           common/simpleuart.v \
-           common/spi_flash/rtl/spi_flash.sv
+           core/tech/rtl/cv32e40x_clock_gate.sv \
+           core/cv32e40x_soc.sv \
+           core/simpleuart.v \
+           core/spi_flash/rtl/spi_flash.sv
 
 SIM = 	cv32e40x_yosys.v \
-	common/cv32e40x_soc.sv \
-	common/simpleuart.v \
-	common/spi_flash/rtl/spi_flash.sv \
-	common/spi_flash/tb/spiflash.v \
+	core/cv32e40x_soc.sv \
+	core/simpleuart.v \
+	core/spi_flash/rtl/spi_flash.sv \
+	core/spi_flash/tb/spiflash.v \
         fpga/sp_ram.sv \
 
-TB = common/tb_top.sv
+TB = core/tb_top.sv
 
 # --- Preprocess ---
 
@@ -45,8 +45,8 @@ preprocessed.v: $(INCLUDE) $(RTL) $(RTL_CUSTOM)
 # --- ULX3S ---
 
 # For the simulation
-cv32e40x_yosys.v: common/tech/rtl/cv32e40x_clock_gate.sv preprocessed.v
-	yosys -l $(basename $@)-yosys.log -DSYNTHESIS -p 'read -sv common/tech/rtl/cv32e40x_clock_gate.sv preprocessed.v; hierarchy -top cv32e40x_top; proc; flatten; opt; fsm; opt; write_verilog -noattr cv32e40x_yosys.v' 
+cv32e40x_yosys.v: core/tech/rtl/cv32e40x_clock_gate.sv preprocessed.v
+	yosys -l $(basename $@)-yosys.log -DSYNTHESIS -p 'read -sv core/tech/rtl/cv32e40x_clock_gate.sv preprocessed.v; hierarchy -top cv32e40x_top; proc; flatten; opt; fsm; opt; write_verilog -noattr cv32e40x_yosys.v' 
 
 sim-ulx3s.vvp: $(SIM) $(TB)
 	iverilog -Wall -o $@ -g2012 $(SIM) $(TB) -s tb_top #`yosys-config --datdir/ecp5/cells_sim.v`
