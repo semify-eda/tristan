@@ -62,3 +62,6 @@ cv32e40x_yosys.v
 *.vvp
 *.fst
 *.fst.hier
+
+__pycache__
+sim_build
