@@ -12,6 +12,8 @@ module ulx3s_top (
 
     input  [6:0] btn,
     output [7:0] led,
+    
+    output [27:0] gp,
 
     // SPI Flash
     `ifndef SYNTHESIS
@@ -42,6 +44,11 @@ module ulx3s_top (
     end
     
     assign led[1] = counter[23-1];
+    assign led[0] = blinky;
+    
+    // For measurements
+    logic blinky;
+    assign gp = {blinky, 26'b0};
 
     localparam CLK_FREQ = 25_000_000;
     localparam BAUDRATE = 115200;
@@ -65,7 +72,7 @@ module ulx3s_top (
         .clk_i          ( clk          ),
         .rst_ni         ( reset_n      ),
 
-        .led            ( led[0]       ),
+        .led            ( blinky       ),
 
         .ser_tx         ( ftdi_rxd     ),
         .ser_rx         ( ftdi_txd     ),
