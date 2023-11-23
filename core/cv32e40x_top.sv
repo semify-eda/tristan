@@ -51,7 +51,7 @@ module cv32e40x_top import cv32e40x_pkg::*;
 
     localparam X_NUM_RS = 2;
 
-    if_xif #(
+    cv32e40x_if_xif #(
         .X_NUM_RS    ( X_NUM_RS ),
         .X_MEM_WIDTH ( 32 ),
         .X_RFR_WIDTH ( 32 ),

@@ -191,7 +191,7 @@ void main(void)
     // enable_mcycle();
     // enable_minstret();
 
-    test_cntb();
+    //test_cntb();
     
     setLED(0);
     setLED(1);
