@@ -4,12 +4,12 @@ PYTHON ?= python3
 FIRMWARE_OBJS = firmware/start.o \
                 firmware/main.o \
                 firmware/util.o \
-                firmware/rle/data.o \
-                firmware/rle/rle.o \
-                firmware/rle/instr.o
+                firmware/csr.o \
+                firmware/cntb_test.o \
+                firmware/instr.o
 
-GCC_WARNS  = -Werror -Wall -Wextra -Wshadow -Wundef -Wpointer-arith -Wcast-qual #-Wcast-align -Wwrite-strings
-GCC_WARNS += -Wredundant-decls -Wstrict-prototypes -Wmissing-prototypes #-pedantic # -Wconversion
+GCC_WARNS  = -Werror -Wall -Wextra -Wshadow -Wundef -Wpointer-arith -Wcast-qual -Wcast-align -Wwrite-strings
+GCC_WARNS += -Wredundant-decls -Wstrict-prototypes -Wmissing-prototypes -pedantic # -Wconversion
 
 # Sources
 INCLUDE = core/cv32e40x/rtl/include/cv32e40x_pkg.sv

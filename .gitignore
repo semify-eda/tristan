@@ -65,3 +65,4 @@ cv32e40x_yosys.v
 
 __pycache__
 sim_build
+abc.history

@@ -85,3 +85,11 @@ void setLED(int value)
 {
     BASE_LED = value;
 }
+
+int xorshift32(int x) {
+    x |= x == 0;   // if x == 0, set x = 1 instead
+    x ^= (x & 0x0007ffff) << 13;
+    x ^= x >> 17;
+    x ^= (x & 0x07ffffff) << 5;
+    return x & 0xffffffff;
+}
