@@ -18,22 +18,23 @@ async def reset_dut(rst_ni, duration_ns):
     rst_ni.value = 1
     rst_ni._log.info("Reset complete")
 
-def cntb_soft(value, index):
+# Cntb software model
+def cntb_soft(word, index):
     count = 0
-    bit_value = (value >> index) & 1
+    bit_word = (word >> index) & 1
     
     while (index > 0):
         index -= 1
-        next_bit = (value >> index) & 1
-        if (next_bit != bit_value):
+        next_bit = (word >> index) & 1
+        if (next_bit != bit_word):
             break
         count += 1
 
     return count
 
 @cocotb.test()
-async def simple_test(dut):
-    """ Simple test for modular_multiplier """
+async def randomized_test(dut):
+    """ Randomized test for ctnb """
 
     # Start the clock
     c = Clock(dut.clk_i, 10, 'ns')
@@ -41,8 +42,8 @@ async def simple_test(dut):
 
     # Reset values
     dut.start_i.value = 0
-    dut.rs0_i.value = 0
-    dut.rs1_i.value = 0
+    dut.word_i.value = 0
+    dut.index_i.value = 0
     
     # Execution will block until reset_dut has completed
     await reset_dut(dut.rst_ni, 50)
@@ -54,23 +55,23 @@ async def simple_test(dut):
     for i in range(1000):
 
         # Get new input
-        value = random.randint(0, 2**32-1) # Value
+        word = random.randint(0, 2**32-1) # Value
         index = random.randint(0, 31) # Index
-        result = cntb_soft(value, index)
+        result = cntb_soft(word, index)
         
         # Start counting
         dut.start_i.value = 1
-        dut.rs0_i.value = value
-        dut.rs1_i.value = index
+        dut.word_i.value = word
+        dut.index_i.value = index
         
         # Wait for completion
         await RisingEdge(dut.done_o)
         dut.start_i.value = 0
         
-        dut._log.info(f"Value: {dut.rs0_i.value}, Index: {index}")
-        dut._log.info(f"Result: {dut.rd_o.value.integer}")
+        dut._log.info(f"Word: {dut.word_i.value}, Index: {dut.index_i.value}")
+        dut._log.info(f"Result: {dut.result_o.value.integer}")
         
-        assert(dut.rd_o.value == result)
+        assert(dut.result_o.value == result)
         
         # Wait for 2 clock cycles
         for i in range(2):
@@ -82,13 +83,12 @@ def test_runner():
     proj_path = Path(__file__).resolve().parent
 
     verilog_sources = [
-        proj_path / "include/custom_instr_pkg.sv",
-        proj_path / "cntb2.sv"
+        proj_path / "cntb.sv"
     ]
     defines = [
         ("COCOTB", 1)
     ]
-    hdl_toplevel = "cntb2"
+    hdl_toplevel = "cntb"
     build_args=["--trace-fst", "--trace-structs"]
 
     runner = get_runner(sim)
@@ -103,7 +103,7 @@ def test_runner():
 
     runner.test(
         hdl_toplevel=hdl_toplevel,
-        test_module="tb_cntb2,"
+        test_module="tb_cntb,"
     )
 
 if __name__ == "__main__":

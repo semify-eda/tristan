@@ -12,8 +12,7 @@ GCC_WARNS  = -Werror -Wall -Wextra -Wshadow -Wundef -Wpointer-arith -Wcast-qual 
 GCC_WARNS += -Wredundant-decls -Wstrict-prototypes -Wmissing-prototypes #-pedantic # -Wconversion
 
 # Sources
-INCLUDE = core/cv32e40x/rtl/include/cv32e40x_pkg.sv \
-	core/custom/include/custom_instr_pkg.sv
+INCLUDE = core/cv32e40x/rtl/include/cv32e40x_pkg.sv
 
 RTL = 	$(wildcard core/cv32e40x/rtl/*.sv) \
 	core/cv32e40x_top.sv

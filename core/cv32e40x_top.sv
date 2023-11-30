@@ -61,14 +61,14 @@ module cv32e40x_top import cv32e40x_pkg::*;
 
     coproc coproc_inst
     (
-        .clk_i          (clk_i),
-        .rst_ni         (rst_ni),
-        .xif_compressed (ext_if.coproc_compressed),
-        .xif_issue      (ext_if.coproc_issue),
-        .xif_commit     (ext_if.coproc_commit),
-        .xif_mem        (ext_if.coproc_mem),
-        .xif_mem_result (ext_if.coproc_mem_result),
-        .xif_result     (ext_if.coproc_result)
+        .clk_i              (clk_i),
+        .rst_ni             (rst_ni),
+        .xif_compressed_if  (ext_if.coproc_compressed),
+        .xif_issue_if       (ext_if.coproc_issue),
+        .xif_commit_if      (ext_if.coproc_commit),
+        .xif_mem_if         (ext_if.coproc_mem),
+        .xif_mem_result_if  (ext_if.coproc_mem_result),
+        .xif_result_if      (ext_if.coproc_result)
     );
 
     cv32e40x_core
