@@ -1,15 +1,17 @@
 TOOLCHAIN_PREFIX ?= riscv32-unknown-elf-
 PYTHON ?= python3
 
-FIRMWARE_OBJS = firmware/start.o \
-                firmware/main.o \
-                firmware/util.o \
-                firmware/csr.o \
-                firmware/cntb_test.o \
-                firmware/instr.o
+FIRMWARE_SRCS := firmware/start.c \
+                 firmware/main.c \
+                 firmware/util.c \
+                 firmware/csr.c \
+                 firmware/cntb_test.c \
+                 firmware/instr.c
+
+FIRMWARE_OBJS = $(patsubst %.c,%.o,$(FIRMWARE_SRCS))
 
 GCC_WARNS  = -Werror -Wall -Wextra -Wshadow -Wundef -Wpointer-arith -Wcast-qual -Wcast-align -Wwrite-strings
-GCC_WARNS += -Wredundant-decls -Wstrict-prototypes -Wmissing-prototypes -pedantic # -Wconversion
+GCC_WARNS += -Wredundant-decls -Wstrict-prototypes -Wmissing-prototypes -pedantic #-Wconversion
 
 # Sources
 INCLUDE = core/cv32e40x/rtl/include/cv32e40x_pkg.sv
@@ -100,4 +102,4 @@ firmware/firmware.hex: firmware/firmware.bin firmware/makehex.py
 .PHONY: sim-ulx3s view-ulx3s synth-ulx3s build-ulx3s upload-ulx3s
 
 clean:
-	rm -f *.vvp *.fst *.fst.hier *.vcd *.log *.json *.asc *.bin *.bit firmware/*.o firmware/rle/*.o firmware/*.elf firmware/*.bin firmware/*.hex firmware/firmware.map ulx3s.config preprocessed.v cv32e40x_yosys.v
+	rm -f *.vvp *.fst *.fst.hier *.vcd *.log *.json *.asc *.bin *.bit firmware/*.o firmware/*.elf firmware/*.bin firmware/*.hex firmware/firmware.map ulx3s.config preprocessed.v cv32e40x_yosys.v abc.history

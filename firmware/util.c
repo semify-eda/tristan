@@ -14,7 +14,7 @@ void print(int n)
         print(n/10);
  
     // Print the last digit
-    putc(n%10 + '0');
+    putc(n%10 + ((int)'0'));
 }
 
 int strcmp(const char* x, const char* y)
@@ -86,7 +86,7 @@ void setLED(int value)
     BASE_LED = value;
 }
 
-int xorshift32(int x) {
+unsigned xorshift32(unsigned int x) {
     x |= x == 0;   // if x == 0, set x = 1 instead
     x ^= (x & 0x0007ffff) << 13;
     x ^= x >> 17;

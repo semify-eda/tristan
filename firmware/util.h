@@ -12,6 +12,6 @@ void putc(char c);
 void puts(const char* s);
 int gets(char* const buffer, int len);
 void setLED(int value);
-int xorshift32(int x);
+unsigned int xorshift32(unsigned int x);
 
 #endif

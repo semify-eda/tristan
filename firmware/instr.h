@@ -7,8 +7,8 @@ extern uint8_t g_custom_instructions;
 
 #define OPCODE_CNTB 0x6B
 
-int cntb(int value, int start_pos);
-int cntb_soft(int value, int start_pos);
-int cntb_hard(int value, int start_pos);
+int cntb(unsigned int value, unsigned int start_pos);
+int cntb_soft(unsigned int value, unsigned int start_pos);
+int cntb_hard(unsigned int value, unsigned int start_pos);
 
 #endif
