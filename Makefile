@@ -41,7 +41,7 @@ TB = core/tb_top.sv
 # --- Preprocess ---
 
 preprocessed.v: $(INCLUDE) $(RTL) $(RTL_CUSTOM)
-	sv2v -v $(INCLUDE) $(RTL) $(RTL_CUSTOM) > preprocessed.v
+	sv2v -v $(INCLUDE) $(RTL) $(RTL_CUSTOM) -w preprocessed.v
 
 # --- ULX3S ---
 
