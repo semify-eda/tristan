@@ -2,6 +2,7 @@
 #include "csr.h"
 #include "instr.h"
 #include "cntb_test.h"
+#include "rle_test.h"
 
 void main(void);
 
@@ -60,6 +61,12 @@ void main(void)
         else if (strcmp("hello", cmd_buffer) == 0)
         {
             puts("Hello World!\n");
+        }
+        else if (strcmp("rle", cmd_buffer) == 0)
+        {
+            setLED(1);
+            rle_test();
+            setLED(0);
         }
         else if (strcmp("cntb", cmd_buffer) == 0)
         {
