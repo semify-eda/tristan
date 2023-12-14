@@ -121,15 +121,16 @@ module cv32e40x_top import cv32e40x_pkg::*;
      .data_exokay_i          ( 1'b1                  ),
 
       // Cycle count
-      .mcycle_o              (mcycle_o               ),
+      .mcycle_o              ( mcycle_o              ),
+      .time_i                ( 64'b0                 ),
 
       // eXtension interface
-      .xif_compressed_if     (ext_if                 ),
-      .xif_issue_if          (ext_if                 ),
-      .xif_commit_if         (ext_if                 ),
-      .xif_mem_if            (ext_if                 ),
-      .xif_mem_result_if     (ext_if                 ),
-      .xif_result_if         (ext_if                 ),
+      .xif_compressed_if     ( ext_if                ),
+      .xif_issue_if          ( ext_if                ),
+      .xif_commit_if         ( ext_if                ),
+      .xif_mem_if            ( ext_if                ),
+      .xif_mem_result_if     ( ext_if                ),
+      .xif_result_if         ( ext_if                ),
 
       // Basic interrupt architecture
       .irq_i                 ( {32{1'b0}}            ),
