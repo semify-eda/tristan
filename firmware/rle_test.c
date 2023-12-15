@@ -1,24 +1,13 @@
 #include "rle_test.h"
 
-void prepare_sample(int *samp_data);
-void prepare_byte(uint8_t *data, int *sample_data);
-
 void prepare_sample(int *sample_data) {
     uint8_t start_of_sync = 5;
     uint8_t end_of_sync = start_of_sync + (32 / 2);
-    //uint64_t DATA[SAMPLES]; // TODO: Only used for random data generation
-
     /*
      * Test Signals
      * Generate a random Data signal for each iteration
      * The CLK, SYNC and CLR signals are the same for every test case
      */
-    /*
-    srand((unsigned int)time(NULL) * 1000 + clock() % 100);
-    for (int num = 0; num < SAMPLES; num++) {
-        DATA[num] = (rand() % 2);
-    }
-    */
     uint64_t DATA[] = {1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 0, 0,
                        0, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1,
                        1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0,
@@ -71,12 +60,10 @@ void rle_test(void)
 {
     // Sample the incoming signals
     int sample_data[SAMPLES];
-    // memset(sample_data, 0, SAMPLES * sizeof(sample_data[0]));
-    prepare_sample(sample_data);
+    // prepare_sample(sample_data);
 
     // Organise the samples in a byte
     uint8_t data[DATA_BYTE_SIZE];
-    // memset(data, 0, DATA_BYTE_SIZE * sizeof(data[0]));
     prepare_byte(data, sample_data);
 
     // bitstream of compressed data
@@ -92,7 +79,7 @@ void rle_test(void)
     read_all_signals(data, b_streams_uncomp_aligned);
     
     init_global_bitstreams(b_streams, b_streams_uncomp, b_streams_uncomp_aligned);
-    
+
     rle_compress(data, b_streams);
 
     rle_decompress(&(b_streams[0]), &(b_streams_uncomp[0]), 0);

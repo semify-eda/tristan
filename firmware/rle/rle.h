@@ -1,17 +1,7 @@
 #ifndef RLE_H
 #define RLE_H
 
-#include <stdint.h>
-#include <math.h>
-
-#ifdef DEBUG
-#include <stdio.h>
-#include <stdlib.h>
-#include <assert.h>
-#endif
-
 #include "data.h"
-#include "instr.h"
 
 // how many bits are used besides the counter bits
 // to store one rle compressed block

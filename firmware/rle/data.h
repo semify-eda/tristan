@@ -1,8 +1,7 @@
 #ifndef data_h
 #define data_h
 
-#include <stdint.h>
-#include "instr.h"
+#include <instr.h>
 
 #define SAMPLES 64
 #define SIGNALS 4
@@ -36,8 +35,7 @@ extern uint8_t test_aligned_sigs[SIGNALS][(SAMPLES>>3) + 1];
 
 void init_global_bitstreams(bitstream* b_streams, bitstream* b_streams_uncomp, bitstream* b_streams_uncomp_aligned);
 
-uint8_t store_in_not_byte_aligned_output(bitstream* b_stream, uint8_t number_of_bits,
-                                          uint32_t value_to_store, uint8_t unaligned_bits);
+uint8_t store_in_not_byte_aligned_output(bitstream* b_stream, uint8_t number_of_bits, uint32_t value_to_store, uint8_t unaligned_bits);
 
 void write(bitstream* b_stream, uint8_t number_of_bits, uint32_t value_to_store);
 

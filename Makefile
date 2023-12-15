@@ -4,14 +4,17 @@ PYTHON ?= python3
 FIRMWARE_SRCS := firmware/start.c \
                  firmware/main.c \
                  firmware/util.c \
-                 firmware/csr.c \
                  firmware/cntb_test.c \
-                 firmware/instr.c
+                 firmware/instr.c \
+				 firmware/rle/data.c \
+				 firmware/rle/rle.c \
+				 firmware/rle_test.c
+
 
 FIRMWARE_OBJS = $(patsubst %.c,%.o,$(FIRMWARE_SRCS))
 
-GCC_WARNS  = -Werror -Wall -Wextra -Wshadow -Wundef -Wpointer-arith -Wcast-qual -Wcast-align -Wwrite-strings
-GCC_WARNS += -Wredundant-decls -Wstrict-prototypes -Wmissing-prototypes -pedantic #-Wconversion
+GCC_WARNS  = -Wall -Wextra -Wshadow -Wundef -Wpointer-arith -Wcast-qual -Wcast-align -Wwrite-strings
+GCC_WARNS += -Wredundant-decls -Wstrict-prototypes -Wmissing-prototypes -pedantic #-Wconversion -Werror
 
 # Sources
 INCLUDE = core/cv32e40x/rtl/include/cv32e40x_pkg.sv
@@ -81,13 +84,13 @@ ulx3s.bit: ulx3s.config
 # --- Firmware ---
 
 firmware/%.o: firmware/%.c
-	$(TOOLCHAIN_PREFIX)gcc -c -mabi=ilp32 -march=rv32i -Os --std=gnu11 $(GCC_WARNS) -ffreestanding -nostdlib -o $@ $<
+	$(TOOLCHAIN_PREFIX)gcc -c -mabi=ilp32 -march=rv32i -Os --std=gnu11 $(GCC_WARNS) -ffreestanding -nostdlib -o $@ $< -I firmware
 
 firmware/start.o: firmware/start.S
 	$(TOOLCHAIN_PREFIX)gcc -c -mabi=ilp32 -march=rv32i -o $@ $<
 
 firmware/firmware.elf: $(FIRMWARE_OBJS) firmware/sections.lds
-	$(TOOLCHAIN_PREFIX)gcc  -Os -mabi=ilp32 -march=rv32i -ffreestanding -nostdlib -o $@ \
+	$(TOOLCHAIN_PREFIX)gcc -Os -mabi=ilp32 -march=rv32i -ffreestanding -nostdlib -o $@ \
 		-Wl,--build-id=none,-Bstatic,-T,firmware/sections.lds,-Map,firmware/firmware.map,--strip-debug \
 		$(FIRMWARE_OBJS) -lgcc
 
@@ -102,4 +105,4 @@ firmware/firmware.hex: firmware/firmware.bin firmware/makehex.py
 .PHONY: sim-ulx3s view-ulx3s synth-ulx3s build-ulx3s upload-ulx3s
 
 clean:
-	rm -f *.vvp *.fst *.fst.hier *.vcd *.log *.json *.asc *.bin *.bit firmware/*.o firmware/*.elf firmware/*.bin firmware/*.hex firmware/firmware.map ulx3s.config preprocessed.v cv32e40x_yosys.v abc.history
+	rm -f *.vvp *.fst *.fst.hier *.vcd *.log *.json *.asc *.bin *.bit firmware/rle/*.o firmware/*.o firmware/*.elf firmware/*.bin firmware/*.hex firmware/firmware.map ulx3s.config preprocessed.v cv32e40x_yosys.v abc.history

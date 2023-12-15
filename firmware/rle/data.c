@@ -14,7 +14,7 @@ uint32_t read(bitstream* b_stream, uint32_t start_bit, uint8_t num_bits_to_read)
 
     uint8_t left_bytes_of_block = num_bits_to_read >> 3;
 
-    uint8_t mask = 0b1;
+    uint8_t mask = 1;
     uint8_t bits_last_block = start_bit % 8;
     uint8_t bits_curr_block = 8 - bits_last_block;
     for (uint8_t curr_bit = 1; curr_bit < bits_curr_block; curr_bit++) {

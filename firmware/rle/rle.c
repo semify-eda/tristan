@@ -1,7 +1,7 @@
 #include "rle.h"
 
 #define MAX_CNT 5
-#define MAX_CNT_VAL (int)(pow(2, MAX_CNT) - 1)
+#define MAX_CNT_VAL 31
 
 uint8_t bits_rle_block_g;
 uint64_t block_len[SIGNALS][64];
@@ -15,12 +15,6 @@ uint64_t block_len[SIGNALS][64];
 uint8_t count_consecutive_occurrences(uint8_t start_pos, uint32_t curr_value, uint32_t previous_count) 
 {
     volatile uint8_t cnt = 0;
-
-    __asm__ volatile ("cntb %0, %1, %2 \n"
-                    : "=r"(cnt)
-                    : "r"(curr_value), "r"(start_pos)
-                    :
-    );
 
     cnt = cntb(curr_value, start_pos);
     cnt += previous_count;
