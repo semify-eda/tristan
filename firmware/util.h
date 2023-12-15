@@ -7,6 +7,7 @@
 
 void print(int n);
 int strcmp(const char* x, const char* y);
+void  *memset(void *b, int c, int len);
 char getc(void);
 void putc(char c);
 void puts(const char* s);

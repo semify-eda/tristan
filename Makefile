@@ -84,13 +84,13 @@ ulx3s.bit: ulx3s.config
 # --- Firmware ---
 
 firmware/%.o: firmware/%.c
-	$(TOOLCHAIN_PREFIX)gcc -c -mabi=ilp32 -march=rv32i -Os --std=gnu11 $(GCC_WARNS) -ffreestanding -nostdlib -o $@ $< -I firmware
+	$(TOOLCHAIN_PREFIX)gcc -c -mabi=ilp32 -march=rv32i -O3 --std=gnu11 $(GCC_WARNS) -ffreestanding -nostdlib -o $@ $< -I firmware
 
 firmware/start.o: firmware/start.S
-	$(TOOLCHAIN_PREFIX)gcc -c -mabi=ilp32 -march=rv32i -o $@ $<
+	$(TOOLCHAIN_PREFIX)gcc -c -O3 -mabi=ilp32 -march=rv32i -ffreestanding -nostdlib -o $@ $<
 
 firmware/firmware.elf: $(FIRMWARE_OBJS) firmware/sections.lds
-	$(TOOLCHAIN_PREFIX)gcc -Os -mabi=ilp32 -march=rv32i -ffreestanding -nostdlib -o $@ \
+	$(TOOLCHAIN_PREFIX)gcc -O3 -mabi=ilp32 -march=rv32i -ffreestanding -nostdlib -o $@ \
 		-Wl,--build-id=none,-Bstatic,-T,firmware/sections.lds,-Map,firmware/firmware.map,--strip-debug \
 		$(FIRMWARE_OBJS) -lgcc
 
