@@ -157,6 +157,7 @@ void rle_compress(uint8_t *dat, bitstream *b_streams_) {
         uint8_t not_compressed = 0;
         uint32_t read_sig_next = read_one_signal(dat, curr_signal, rounds_bit32_blocks - 1);
         // printf("\n\nRead signal: 0x%.0x, Block: %d", read_sig_next, rounds_bit32_blocks - 1);
+        puts("\n\nRead signal: "); print(read_sig_next); puts(" Block: "); print(rounds_bit32_blocks - 1);
         int8_t bits_already_stored = 0;
         uint32_t previous_count = 0;
         int8_t block_flag = 0;
@@ -168,12 +169,13 @@ void rle_compress(uint8_t *dat, bitstream *b_streams_) {
                 read_sig_next = read_one_signal(dat, curr_signal, curr_32_bit_block - 1);
             }
             
-            /*
+            
             // Only used for debugging
             if (curr_32_bit_block == 0) {
-                printf("\n\nRead signal: 0x%.0x, Block: %d", read_sig_next, curr_32_bit_block);
+                //printf("\n\nRead signal: 0x%.0x, Block: %d", read_sig_next, curr_32_bit_block);
+                puts("\n\nRead signal: "); print(read_sig_next); puts(" Block: "); print(curr_32_bit_block);
             }
-            */
+            
 
             int8_t curr_bit = 31 - bits_already_stored;
             bits_already_stored = 0; // reset it to zero again if once subtracted from former uncompressed block store
@@ -213,6 +215,7 @@ void rle_compress(uint8_t *dat, bitstream *b_streams_) {
                 
                 count = count_consecutive_occurrences(curr_bit, read_sig, previous_count);
                 // printf("\nStart position: %d\tConsecutive bits count: %d", curr_bit, count);
+                puts("\nStart position: "); print(curr_bit); puts("\tConsecutive bits count: "); print(count);
                 
                 if (count == (uint32_t)MAX_CNT_VAL) {
                     curr_bit_next = -1;  
