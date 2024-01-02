@@ -115,13 +115,15 @@ void write_digit_and_count_to_output(uint8_t digit, uint32_t count,
     uint8_t num_bits_to_write = bits_rle_block_g;
     compressed_block = digit;
     compressed_block |= count << VALUE_POSITION;
+
     if (count <= (uint32_t)bits_rle_block_g - 1) {
-        num_bits_to_write = 5;
+        num_bits_to_write = MAX_CNT;
         if (not_compressed) {
             num_bits_to_write = count + 2;
-
-            if (count == 0)
+            
+            if (count == 0){
                 num_bits_to_write += 1;
+            }
         }
     }
     compressed_block |= not_compressed << (num_bits_to_write-1);

@@ -191,12 +191,9 @@ uint8_t test_comp_equal_uncomp(uint8_t *data, uint8_t *data_after_decomp) {
         if (data[curr_block32] != data_after_decomp[curr_block32]) {
             equal = 0;
         }
-        /*
-        printf("Test block: %d", curr_block32);
-        printf("\nData before compression: 0x%.0x\t", data[curr_block32]);
-        printf("\nData after compression: 0x%.0x\t", data_after_decomp[curr_block32]); 
-        printf("\n");
-        */
+        puts("Test block:  ");print(curr_block32);putc('\n');
+        puts("Data before compression:  ");print(data[curr_block32]);putc('\n');
+        puts("Data after compression:  ");print(data_after_decomp[curr_block32]);putc('\n');
     }
 
     uint8_t data_size_mod_32 = DATA_SIZE % 32;

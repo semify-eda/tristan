@@ -151,8 +151,9 @@ void rle_test(void)
     
     init_global_bitstreams(b_streams, b_streams_uncomp, b_streams_uncomp_aligned);
 
+    puts("\n--- Start RLE Compression ---\n");
     rle_compress(data, b_streams);
-
+    puts("\n--- RLE Compression Completed ---\n");
     // Print compressed data from bitstream
     uart_print_compressed(b_streams);
 
