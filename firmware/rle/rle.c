@@ -116,7 +116,7 @@ void write_digit_and_count_to_output(uint8_t digit, uint32_t count,
     compressed_block = digit;
     compressed_block |= count << VALUE_POSITION;
     if (count <= (uint32_t)bits_rle_block_g - 1) {
-        num_bits_to_write = 5;  //TODO: change to a dynamic value
+        num_bits_to_write = 5;
         if (not_compressed) {
             num_bits_to_write = count + 2;
 

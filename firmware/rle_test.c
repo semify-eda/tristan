@@ -1,6 +1,6 @@
 #include "rle_test.h"
 
-void prepare_sample(int *sample_data) {
+void prepare_sample(uint64_t *sample_data) {
     puts("\n --- Prepare Samples ---\n");
     puts("-----------------------------\n");
     uint8_t start_of_sync = 5;
@@ -10,42 +10,41 @@ void prepare_sample(int *sample_data) {
      * Generate a random Data signal for each iteration
      * The CLK, SYNC and CLR signals are the same for every test case
      */
-    uint64_t DATA[] = {1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 0, 0,
-                       0, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1,
-                       1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0,
-                       1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0,
-                       0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1};
+    int DATA[] = {1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1,
+                    1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1,
+                    1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0};
     
  
-    uint64_t CLK[] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-                      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-                      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-                      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+    int CLK[] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 
+                    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
 
-    uint64_t SYNC[] = {1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
-                       1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
-                       1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
-                       1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0};
+    int SYNC[] = {1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
+                    1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
+                    1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
+                    1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0};
 
-    uint64_t CLR[] = {1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
-                      1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
-                      1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
-                      1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0};
+    int CLR[] = {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
     for (uint8_t curr_samp = 0; curr_samp < SAMPLES; curr_samp++) {
         // Load CLK
         sample_data[curr_samp] |= CLK[curr_samp] << 0;
-        puts("Data sample after CLK: ");print(sample_data[curr_samp]);puts(" for sample: ");print(curr_samp);
+        puts("Data sample after CLK: ");print(sample_data[curr_samp]);puts(" for sample: ");print(curr_samp);putc('\n');
         // Load SNYC
         if ((start_of_sync >= 5) && (start_of_sync < end_of_sync))
             sample_data[curr_samp] |= SYNC[curr_samp] << 1;
-        puts("Data sample after SYNC: ");print(sample_data[curr_samp]);puts(" for sample: ");print(curr_samp);
+        puts("Data sample after SYNC: ");print(sample_data[curr_samp]);puts(" for sample: ");print(curr_samp);putc('\n');
         // Load DATA
         sample_data[curr_samp] |= DATA[curr_samp] << 2;
-        puts("Data sample after DATA: ");print(sample_data[curr_samp]);puts(" for sample: ");print(curr_samp);
+        puts("Data sample after DATA: ");print(sample_data[curr_samp]);puts(" for sample: ");print(curr_samp);putc('\n');
         // Load CLR
         sample_data[curr_samp] |= CLR[curr_samp] << 3;
-        puts("Data sample after CLR: ");print(sample_data[curr_samp]);puts(" for sample: ");print(curr_samp);
+        puts("Data sample after CLR: ");print(sample_data[curr_samp]);puts(" for sample: ");print(curr_samp);putc('\n');
         puts("-----------------------------\n");
     }
 }
@@ -55,7 +54,7 @@ void prepare_sample(int *sample_data) {
  * -------------------------
  *  Take the sampled data and store it as bytes
  */
-void prepare_byte(uint8_t *data, int *sample_data) {
+void prepare_byte(uint8_t *data, uint64_t *sample_data) {
     puts("\n --- Store Samples in Byte format ---\n");
     puts("-----------------------------\n");
     for (uint8_t sample = 0; sample < SAMPLES; sample++) {
@@ -81,7 +80,7 @@ void debug_print_rle_compressed_blocks(bitstream *compressed_b_stream, uint8_t s
 
     for (uint32_t b_slice = 0; b_slice < block_size; b_slice++) {
         if (block_len[sig][b_slice] == 0)
-            return 0;
+            return;
 
         uint32_t not_compressed_mask = 0x1 << (block_len[sig][b_slice] - 1);
         uint32_t counter_mask = 0b10;
@@ -91,7 +90,6 @@ void debug_print_rle_compressed_blocks(bitstream *compressed_b_stream, uint8_t s
             counter_mask |= counter_mask << 1;
         }
 
-        uint32_t uncompressed_bits_mask = counter_mask | 0x1;
         uint32_t curr_rle_block = read(compressed_b_stream, curr_block, block_len[sig][b_slice]);
         uint32_t count = (curr_rle_block & counter_mask) >> 1;
         value_to_store = curr_rle_block & 0b1;
@@ -120,7 +118,7 @@ void uart_print_compressed(bitstream* b_streams)
 void rle_test(void)
 {
     // Sample the incoming signals
-    int sample_data[SAMPLES];
+    uint64_t sample_data[SAMPLES];
     prepare_sample(sample_data);
 
     // Organise the samples in a byte
