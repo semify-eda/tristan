@@ -112,14 +112,10 @@ void write_digit_and_count_to_output(uint8_t digit, uint32_t count,
                                      bitstream *b_stream, uint8_t not_compressed, 
                                      int8_t signal, int8_t size_pos) {
     uint32_t compressed_block;
-    uint8_t num_bits_to_write = bits_rle_block_g;
+    uint8_t num_bits_to_write = bits_rle_block_g - 1;
     compressed_block = digit;
     compressed_block |= count << VALUE_POSITION;
-    /*
-    if (count == MAX_CNT_VAL){
-        num_bits_to_write += 1;
-    }
-    */
+
     if (count <= (uint32_t)bits_rle_block_g - 1) {
         num_bits_to_write = MAX_CNT;
         if (not_compressed) {
@@ -130,10 +126,10 @@ void write_digit_and_count_to_output(uint8_t digit, uint32_t count,
                 num_bits_to_write += 1;
         }
     }
-    compressed_block |= not_compressed << (num_bits_to_write-1);
+    // compressed_block |= not_compressed << (num_bits_to_write-1);
     puts("\nBits to write: "); print(num_bits_to_write); putc('\n');
     block_len[signal][size_pos] = (num_bits_to_write); // Save the number of bits used for compression
-    puts("\nData to store: ");print(compressed_block); puts(" NOT_COMP: "); print(not_compressed);
+    puts("Data to store: ");print(compressed_block); puts(" NOT_COMP: "); print(not_compressed);
     puts(" CNT_VAL: "); print(count); puts(" BIT: "); print(digit);
     write(b_stream, (num_bits_to_write), compressed_block);
 }
@@ -255,7 +251,7 @@ void rle_compress(uint8_t *dat, bitstream *b_streams_) {
                 size_pos += 1;
             }
         }
-        // puts("Compressed size: ");print(b_streams_[curr_signal].curr_size);puts(" for signal: ");print(curr_signal);putc('\n'):
+        puts("\nCompressed size: ");print(b_streams_[curr_signal].curr_size);puts(" for signal: ");print(curr_signal);putc('\n');
     }
 }
 
@@ -274,11 +270,11 @@ void rle_decompress(bitstream *b_stream, bitstream *b_stream_uncompressed, int8_
         if (block_len[sig][b_slice] == 0){
             return;
         }
-        // uint32_t not_compressed_mask = 0x1 << (block_len[sig][b_slice]);  // -1 / -2
+        // uint32_t not_compressed_mask = 0x1 << (block_len[sig][b_slice]);  // -1 / -2  |  0 / -1
         uint32_t counter_mask = 2;  //0b10
 
         uint32_t value_to_store = 0;
-        for (uint8_t curr_bit = 1; curr_bit < (block_len[sig][b_slice] - 2); curr_bit++) {
+        for (uint8_t curr_bit = 1; curr_bit < (block_len[sig][b_slice] - 1); curr_bit++) {
             counter_mask |= counter_mask << 1;
         }
 

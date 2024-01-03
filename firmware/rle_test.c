@@ -79,11 +79,11 @@ void debug_print_rle_compressed_blocks(bitstream *compressed_b_stream, uint8_t s
         if (block_len[sig][b_slice] == 0)
             return;
 
-        uint32_t not_compressed_mask = 0x1 << (block_len[sig][b_slice] - 1);    // -1 / -2
+        uint32_t not_compressed_mask = 0x1 << (block_len[sig][b_slice]);    // -1 / -2  |  0 / -1
         uint32_t counter_mask = 2;  // 0b10
         uint32_t value_to_store = 0;
 
-        for (uint8_t curr_bit = 1; curr_bit < (block_len[sig][b_slice] - 2); curr_bit++) {
+        for (uint8_t curr_bit = 1; curr_bit < (block_len[sig][b_slice] - 1); curr_bit++) {
             counter_mask |= counter_mask << 1;
         }
 
