@@ -10,23 +10,23 @@ void prepare_sample(uint64_t *sample_data) {
      * Generate a random Data signal for each iteration
      * The CLK, SYNC and CLR signals are the same for every test case
      */
-    int DATA[] = {1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 0, 0,
+    uint8_t DATA[] = {1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 0, 0,
                     0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1,
                     1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1,
                     1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0};
     
  
-    int CLK[] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    uint8_t CLK[] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
                     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 
                     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
                     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
 
-    int SYNC[] = {1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
+    uint8_t SYNC[] = {1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
                     1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
                     1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
                     1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0};
 
-    int CLR[] = {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    uint8_t CLR[] = {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                     1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                     1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                     1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -59,15 +59,12 @@ void prepare_byte(uint8_t *data, uint64_t *sample_data) {
     puts("-----------------------------\n");
     for (uint8_t sample = 0; sample < SAMPLES; sample++) {
         if (sample % 2 == 1) {
-            // printf("First Sample: %d\tSecond Sample: %d\tData byte: %d\n", (sample/2)*2, sample, sample/2);
             puts("First Sample: ");print((sample/2)*2);puts("\tSecond Sample: ");print(sample);puts("\tData byte: ");print(sample/2);putc('\n');
             
             data[sample / 2] |= sample_data[(sample / 2) * 2];
-            // printf("Byte Data: 0x%.0x  Sampled data: 0x%.0x\n", data[sample / 2], sample_data[(sample / 2) * 2]);
             puts("Byte Data:  ");print(data[sample / 2]);puts("\tSampled data: ");print( sample_data[(sample / 2) * 2]);putc('\n');
             
             data[sample / 2] |= sample_data[sample] << 4;
-            // printf("Byte Data: 0x%.0x  Sampled data: 0x%.0x\n", data[sample / 2], sample_data[sample]);
             puts("Byte Data:  ");print(data[sample / 2]);puts("\tSampled data: ");print( sample_data[sample]);putc('\n');
             puts("-----------------------------\n");
         }
@@ -82,8 +79,8 @@ void debug_print_rle_compressed_blocks(bitstream *compressed_b_stream, uint8_t s
         if (block_len[sig][b_slice] == 0)
             return;
 
-        uint32_t not_compressed_mask = 0x1 << (block_len[sig][b_slice] - 1);
-        uint32_t counter_mask = 0b10;
+        uint32_t not_compressed_mask = 0x1 << (block_len[sig][b_slice] - 1);    // -1 / -2
+        uint32_t counter_mask = 2;  // 0b10
         uint32_t value_to_store = 0;
 
         for (uint8_t curr_bit = 1; curr_bit < (block_len[sig][b_slice] - 2); curr_bit++) {
@@ -92,12 +89,12 @@ void debug_print_rle_compressed_blocks(bitstream *compressed_b_stream, uint8_t s
 
         uint32_t curr_rle_block = read(compressed_b_stream, curr_block, block_len[sig][b_slice]);
         uint32_t count = (curr_rle_block & counter_mask) >> 1;
-        value_to_store = curr_rle_block & 0b1;
+        value_to_store = curr_rle_block & 1;  // 0b1
 
         if (curr_rle_block & not_compressed_mask) {
-            puts("Uncompressed data: CNT_VAL: "); print(count); puts("\tBIT_VAL: "); print(value_to_store); putc('\n');
+            puts("Uncompressed data: CNT_VAL: ");print(count);puts("\tBIT_VAL: ");print(value_to_store);putc('\n');
         } else {
-            puts("Compressed data: CNT_VAL: "); print(count); puts("\tBIT_VAL: "); print(value_to_store); putc('\n');
+            puts("Compressed data: CNT_VAL: ");print(count);puts("\tBIT_VAL: ");print(value_to_store);putc('\n');
         }
         curr_block += block_len[sig][b_slice];
     }
@@ -146,7 +143,7 @@ void rle_test(void)
     // bitstream of uncompressed aligned data
     bitstream b_streams_uncomp_aligned[SIGNALS];
 
-    // stores bits of signals alligned in bitsreams
+    // stores bits of signals aligned in bitsreams
     read_all_signals(data, b_streams_uncomp_aligned);
     
     init_global_bitstreams(b_streams, b_streams_uncomp, b_streams_uncomp_aligned);

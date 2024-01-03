@@ -51,7 +51,6 @@ uint32_t read(bitstream* b_stream, uint32_t start_bit, uint8_t num_bits_to_read)
         read_byte = read_byte >> (8 - bits_not_read);
         read_block |= read_byte;
     }
-    // printf("Block Read: 0x%.0x\t", read_block);
     return read_block;
 }
 
@@ -138,7 +137,6 @@ uint8_t store_in_not_byte_aligned_output(bitstream *b_stream, uint8_t number_of_
 
     b_stream->d_out[offset] |= byte_after_change;
     b_stream->curr_size += stored_bits;
-    // printf("\nStored unaligned bits: 0x%.0x", b_stream->d_out[offset]);
 
     return number_of_bits - stored_bits;
 }
@@ -160,7 +158,6 @@ void write(bitstream *b_stream, uint8_t number_of_bits, uint32_t value_to_store)
     {
         shift_right -= 8;
         b_stream->d_out[curr_byte + curr_byte_size] = (uint8_t)(value_to_store >> (shift_right));
-        // printf("\nStored aligned byte  = 0x%.0x\n", b_stream->d_out[curr_byte + curr_byte_size]);
         b_stream->curr_size += 8; // 8bit were written to output
     }
 
@@ -170,19 +167,16 @@ void write(bitstream *b_stream, uint8_t number_of_bits, uint32_t value_to_store)
     {
         // Store compressed bits unaligned, MSB first 
         b_stream->d_out[curr_byte_size] = (uint8_t)(value_to_store << (8 - remainder_bits));
-        // printf("\nStored aligned bits = 0x%.0x | remainder was 0x%.0x\n", b_stream->d_out[curr_byte_size], remainder_bits);
         
         // the rest of the bits are stored
         b_stream->curr_size += remainder_bits;
     }/* else {
-        printf("\nNo remainder\n");    
+        puts("\nNo remainder\n");    
     }
     */
 }
 
 uint8_t test_comp_equal_uncomp(uint8_t *data, uint8_t *data_after_decomp) {
-    // uint32_t* d_32_before_comp_decomp = (uint32_t*)data;
-    // uint32_t* d_32_after_comp_decompr = (uint32_t*)data_after_decomp;
     uint8_t equal = 1;
     uint8_t data_size_over_32 = DATA_SIZE >> 5;
 
