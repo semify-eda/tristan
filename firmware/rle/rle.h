@@ -16,7 +16,7 @@ extern uint32_t max_cnt_g;
 //how many bits one compressed block of rle has
 extern uint8_t bits_rle_block_g;
 // save the number of bits that were used for compressing the signals
-extern uint64_t block_len[SIGNALS][64];
+extern uint8_t block_len[SIGNALS][64];
 
 uint32_t read_one_signal(uint8_t* data_in, uint8_t signal_select, int8_t offset);
 

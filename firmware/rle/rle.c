@@ -4,7 +4,7 @@
 #define MAX_CNT_VAL 31
 
 uint8_t bits_rle_block_g;
-uint64_t block_len[SIGNALS][64];
+uint8_t block_len[SIGNALS][64];
 
 
 /*

@@ -180,7 +180,7 @@ uint8_t test_comp_equal_uncomp(uint8_t *data, uint8_t *data_after_decomp) {
     uint8_t equal = 1;
     uint8_t data_size_over_32 = DATA_SIZE >> 5;
 
-    for (uint32_t curr_block32 = 0; curr_block32 < data_size_over_32 * 4; curr_block32++) 
+    for (uint8_t curr_block32 = 0; curr_block32 < data_size_over_32 * 4; curr_block32++) 
     {
         if (data[curr_block32] != data_after_decomp[curr_block32]) {
             equal = 0;
@@ -196,7 +196,7 @@ uint8_t test_comp_equal_uncomp(uint8_t *data, uint8_t *data_after_decomp) {
         uint8_t *d_8_before_comp_decomp = (data + data_size_over_32 * 4);
         uint8_t *d_8_after_comp_decompr = (data_after_decomp + data_size_over_32 * 4);
         // read last bytes of data
-        for (uint32_t curr_block8 = 0; curr_block8 < ((data_size_mod_32) >> 3); curr_block8++) 
+        for (uint8_t curr_block8 = 0; curr_block8 < ((data_size_mod_32) >> 3); curr_block8++) 
         {
             if (d_8_before_comp_decomp[curr_block8] != d_8_after_comp_decompr[curr_block8])
                 equal = 0;
