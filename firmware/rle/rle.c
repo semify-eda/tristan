@@ -112,24 +112,25 @@ void write_digit_and_count_to_output(uint8_t digit, uint32_t count,
                                      bitstream *b_stream, uint8_t not_compressed, 
                                      int8_t signal, int8_t size_pos) {
     uint32_t compressed_block;
-    uint8_t num_bits_to_write = bits_rle_block_g - 1;
+    uint8_t num_bits_to_write = MAX_CNT;
     compressed_block = digit;
     compressed_block |= count << VALUE_POSITION;
 
-    if (count <= (uint32_t)bits_rle_block_g - 1) {
-        num_bits_to_write = MAX_CNT;
-        if (not_compressed) {
-            num_bits_to_write = count + 2;
-            if (count == MAX_CNT)
-                num_bits_to_write = MAX_CNT;
-            if (count == 0)
-                num_bits_to_write += 1;
-        }
+    if (count > 0xF) {
+        num_bits_to_write += 1;
+    }
+
+    if (count <= (uint32_t)bits_rle_block_g) {
+        num_bits_to_write = 4;
+        if((4 > count) && (count > 1))
+            num_bits_to_write = 3;
+        if ((count == 1) || (count == 0))
+            num_bits_to_write = 2;
     }
     // compressed_block |= not_compressed << (num_bits_to_write-1);
     puts("\nBits to write: "); print(num_bits_to_write); putc('\n');
     block_len[signal][size_pos] = (num_bits_to_write); // Save the number of bits used for compression
-    puts("Data to store: ");print(compressed_block); puts(" NOT_COMP: "); print(not_compressed);
+    puts("Data to store: ");print(compressed_block); puts(" -> NOT_COMP: "); print(not_compressed);
     puts(" CNT_VAL: "); print(count); puts(" BIT: "); print(digit);
     write(b_stream, (num_bits_to_write), compressed_block);
 }
@@ -159,7 +160,7 @@ void rle_compress(uint8_t *dat, bitstream *b_streams_) {
         uint32_t count = 0;
         uint8_t not_compressed = 0;
         uint32_t read_sig_next = read_one_signal(dat, curr_signal, rounds_bit32_blocks - 1);
-        puts("\n\nRead signal: "); print(read_sig_next); puts(" Block: "); print(rounds_bit32_blocks - 1);
+        puts("\n\nRead signal: "); print(read_sig_next); puts(", Block: "); print(rounds_bit32_blocks - 1);
         int8_t bits_already_stored = 0;
         uint32_t previous_count = 0;
         int8_t block_flag = 0;
@@ -174,7 +175,7 @@ void rle_compress(uint8_t *dat, bitstream *b_streams_) {
             
             // Only used for debugging
             if (curr_32_bit_block == 0) {
-                puts("\n\nRead signal: "); print(read_sig_next); puts(" Block: "); print(curr_32_bit_block);
+                puts("\n\nRead signal: "); print(read_sig_next); puts(", Block: "); print(curr_32_bit_block);
             }
             
 
@@ -270,21 +271,21 @@ void rle_decompress(bitstream *b_stream, bitstream *b_stream_uncompressed, int8_
         if (block_len[sig][b_slice] == 0){
             return;
         }
-        // uint32_t not_compressed_mask = 0x1 << (block_len[sig][b_slice]);  // -1 / -2  |  0 / -1
-        uint32_t counter_mask = 2;  //0b10
-
+        
+        uint32_t counter_mask = 2;
         uint32_t value_to_store = 0;
+
         for (uint8_t curr_bit = 1; curr_bit < (block_len[sig][b_slice] - 1); curr_bit++) {
             counter_mask |= counter_mask << 1;
         }
 
         uint32_t curr_rle_block = read(b_stream, curr_block, block_len[sig][b_slice]);
         uint32_t count = (curr_rle_block & counter_mask) >> 1;
-        value_to_store = curr_rle_block & 1;  // 0b1
+        value_to_store = curr_rle_block & 1;
 
         /*
         // Used for debugging only
-        if (curr_rle_block & not_compressed_mask) {
+        if (count < ((uint32_t)bits_rle_block_g - 1)){
             puts("Uncompressed data: CNT_VAL: ");print(count);puts("\tBIT_VAL: ");print(value_to_store);putc('\n');
         } else {
             puts("Compressed data: CNT_VAL: ");print(count);puts("\tBIT_VAL: ");print(value_to_store);putc('\n');

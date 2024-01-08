@@ -21,35 +21,39 @@ void prepare_sample(uint64_t *sample_data) {
                     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
                     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
 
-    uint8_t SYNC[] = {1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
-                    1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
-                    1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
-                    1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0};
+    uint8_t SYNC[] = {1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                      1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
-    uint8_t CLR[] = {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                    1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                    1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                    1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    uint8_t CLR[] = {0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                     0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
     for (uint8_t curr_samp = 0; curr_samp < SAMPLES; curr_samp++) {
         // Load CLK
-        sample_data[curr_samp] |= CLK[curr_samp] << 0;
+        sample_data[curr_samp] = CLK[curr_samp];
+        puts("CLK: ");print(CLK[curr_samp]);putc('\n');
         puts("Data sample after CLK: ");print(sample_data[curr_samp]);puts(" for sample: ");print(curr_samp);putc('\n');
         // Load SNYC
         if ((start_of_sync >= 5) && (start_of_sync < end_of_sync))
             sample_data[curr_samp] |= SYNC[curr_samp] << 1;
+        puts("SYNC: ");print(SYNC[curr_samp]);putc('\n');
         puts("Data sample after SYNC: ");print(sample_data[curr_samp]);puts(" for sample: ");print(curr_samp);putc('\n');
         // Load DATA
         sample_data[curr_samp] |= DATA[curr_samp] << 2;
+        puts("DATA: ");print(DATA[curr_samp]);putc('\n');
         puts("Data sample after DATA: ");print(sample_data[curr_samp]);puts(" for sample: ");print(curr_samp);putc('\n');
         // Load CLR
         sample_data[curr_samp] |= CLR[curr_samp] << 3;
+        puts("CLR: ");print(CLR[curr_samp]);putc('\n');
         puts("Data sample after CLR: ");print(sample_data[curr_samp]);puts(" for sample: ");print(curr_samp);putc('\n');
         puts("-----------------------------\n");
     }
 }
 
-/*
+/* 
  * Function: prepare_byte
  * -------------------------
  *  Take the sampled data and store it as bytes
@@ -79,7 +83,6 @@ void debug_print_rle_compressed_blocks(bitstream *compressed_b_stream, uint8_t s
         if (block_len[sig][b_slice] == 0)
             return;
 
-        uint32_t not_compressed_mask = 0x1 << (block_len[sig][b_slice]);    // -1 / -2  |  0 / -1
         uint32_t counter_mask = 2;  // 0b10
         uint32_t value_to_store = 0;
 
@@ -91,7 +94,7 @@ void debug_print_rle_compressed_blocks(bitstream *compressed_b_stream, uint8_t s
         uint32_t count = (curr_rle_block & counter_mask) >> 1;
         value_to_store = curr_rle_block & 1;  // 0b1
 
-        if (curr_rle_block & not_compressed_mask) {
+        if (count < ((uint32_t)bits_rle_block_g - 1)){
             puts("Uncompressed data: CNT_VAL: ");print(count);puts("\tBIT_VAL: ");print(value_to_store);putc('\n');
         } else {
             puts("Compressed data: CNT_VAL: ");print(count);puts("\tBIT_VAL: ");print(value_to_store);putc('\n');
@@ -178,6 +181,6 @@ void rle_test(void)
 
     uint8_t test_passed = test_comp_equal_uncomp(data, data_after_decomp);
     
-    if (test_passed) puts("Test passed.\n");
-    else puts("Test failed.\n");
+    if (test_passed) puts("\nTest passed.\n");
+    else puts("\nTest failed.\n");
 }

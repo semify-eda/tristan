@@ -12,7 +12,7 @@ void  *memset(void *b, int c, int len)
   return(b);
 }
 
-void print(int n)
+void print(unsigned int n)
 {
     // If number is smaller than 0, put a - sign
     // and change number to positive
@@ -26,7 +26,7 @@ void print(int n)
         print(n/10);
  
     // Print the last digit
-    putc(n%10 + ((int)'0'));
+    putc(n%10 + ((unsigned)'0'));
 }
 
 int strcmp(const char* x, const char* y)

@@ -5,7 +5,7 @@
 #define UART_DATA (*((volatile int*)(0x0A000000)))
 #define UART_BUSY (*((volatile int*)(0x0A000004)))
 
-void print(int n);
+void print(unsigned int n);
 int strcmp(const char* x, const char* y);
 void  *memset(void *b, int c, int len);
 char getc(void);
