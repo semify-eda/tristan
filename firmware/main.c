@@ -86,7 +86,7 @@ void main(void)
             {
                 setLED(i+1);
                 volatile int cnt = 0;
-                while (cnt++ < 300000);
+                while (cnt++ < 30000);
             }
             setLED(0);
         }

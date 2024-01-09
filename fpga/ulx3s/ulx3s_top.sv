@@ -48,7 +48,7 @@ module ulx3s_top (
     
     // For measurements
     logic blinky;
-    assign gp = {blinky, 26'b0};
+    assign gp = {blinky, 27'b0};
 
     localparam CLK_FREQ = 25_000_000;
     localparam BAUDRATE = 115200;
