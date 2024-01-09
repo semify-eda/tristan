@@ -35,16 +35,16 @@ module sram_wrapper #(
     output [NUM_INSTANCES-1:0]                          clk0,
     output [NUM_INSTANCES-1:0]                          csb0,
     output [NUM_INSTANCES-1:0]                          web0,
-    output [NUM_INSTANCES-1:0][NUM_WMASKS-1:0]          wmask0,
-    output [NUM_INSTANCES-1:0][ADDR_WIDTH_DEFAULT-1:0]  addr0,
-    output [NUM_INSTANCES-1:0][DATA_WIDTH-1:0]          din0,
-    input  [NUM_INSTANCES-1:0][DATA_WIDTH-1:0]          dout0,
+    output [(NUM_INSTANCES*NUM_WMASKS)-1:0]             wmask0,
+    output [(NUM_INSTANCES*ADDR_WIDTH_DEFAULT)-1:0]     addr0,
+    output [(NUM_INSTANCES*DATA_WIDTH)-1:0]             din0,
+    input  [(NUM_INSTANCES*DATA_WIDTH)-1:0]             dout0,
 
     // Port 1: R
     output [NUM_INSTANCES-1:0]                          clk1,
     output [NUM_INSTANCES-1:0]                          csb1,
-    output [NUM_INSTANCES-1:0][ADDR_WIDTH_DEFAULT-1:0]  addr1,
-    input  [NUM_INSTANCES-1:0][DATA_WIDTH-1:0]          dout1
+    output [(NUM_INSTANCES*ADDR_WIDTH_DEFAULT)-1:0]     addr1,
+    input  [(NUM_INSTANCES*DATA_WIDTH)-1:0]             dout1
 );
 
     // Extract the upper part of the address used for enabling individual macros
@@ -82,18 +82,18 @@ module sram_wrapper #(
             assign clk0[i]   = soc_clk0;
             assign csb0[i]   = soc_csb0 || !enable_port0;
             assign web0[i]   = soc_web0;
-            assign wmask0[i] = soc_wmask0;
-            assign addr0[i]  = soc_addr0;
-            assign din0[i]   = soc_din0;
+            assign wmask0[i * NUM_WMASKS+:NUM_WMASKS] = soc_wmask0;
+            assign addr0[i * ADDR_WIDTH_DEFAULT+:ADDR_WIDTH_DEFAULT]  = soc_addr0;
+            assign din0[i * DATA_WIDTH+:DATA_WIDTH]   = soc_din0;
             
             assign clk1[i]   = soc_clk1;
             assign csb1[i]   = soc_csb1 || !enable_port1;
-            assign addr1[i]  = soc_addr1;
+            assign addr1[i * ADDR_WIDTH_DEFAULT+:ADDR_WIDTH_DEFAULT]  = soc_addr1;
         end
     
     endgenerate
     
-    assign soc_dout0 = dout0[upper_addr_port0_d];
-    assign soc_dout1 = dout1[upper_addr_port1_d];
+    assign soc_dout0 = dout0[upper_addr_port0_d * DATA_WIDTH+:DATA_WIDTH];
+    assign soc_dout1 = dout1[upper_addr_port1_d * DATA_WIDTH+:DATA_WIDTH];
 
 endmodule

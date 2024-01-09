@@ -46,9 +46,6 @@ TB = core/tb_top.sv
 preprocessed.v: $(INCLUDE) $(RTL) $(RTL_CUSTOM)
 	sv2v -v $(INCLUDE) $(RTL) $(RTL_CUSTOM) -w $@
 
-asic/sram/rtl/sram_wrapper.v: asic/sram/rtl/sram_wrapper.sv
-	sv2v -v $< -w $@
-
 # --- ULX3S ---
 
 # For the simulation

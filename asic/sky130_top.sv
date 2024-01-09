@@ -1,6 +1,11 @@
 `default_nettype none
 
-module sky130_top (
+module sky130_top #(
+    parameter SRAM_NUM_INSTANCES = 4,
+    parameter NUM_WMASKS = 4,
+    parameter DATA_WIDTH = 32,
+    parameter ADDR_WIDTH_DEFAULT = 9
+)(
     // Clock and reset
     input  logic clk_i,
     input  logic rst_ni,
@@ -19,38 +24,23 @@ module sky130_top (
     output logic cs,
 
     // Port 0: RW
-    output                                sram0_clk0,
-    output                                sram0_csb0,
-    output                                sram0_web0,
-    output [4-1:0]                        sram0_wmask0,
-    output [9-1:0]                        sram0_addr0,
-    output [32-1:0]                       sram0_din0,
-    input  [32-1:0]                       sram0_dout0,
+    output [SRAM_NUM_INSTANCES-1:0]                          sram_clk0,
+    output [SRAM_NUM_INSTANCES-1:0]                          sram_csb0,
+    output [SRAM_NUM_INSTANCES-1:0]                          sram_web0,
+    output [(SRAM_NUM_INSTANCES*NUM_WMASKS)-1:0]             sram_wmask0,
+    output [(SRAM_NUM_INSTANCES*ADDR_WIDTH_DEFAULT)-1:0]     sram_addr0,
+    output [(SRAM_NUM_INSTANCES*DATA_WIDTH)-1:0]             sram_din0,
+    input  [(SRAM_NUM_INSTANCES*DATA_WIDTH)-1:0]             sram_dout0,
 
     // Port 1: R
-    output                                sram0_clk1,
-    output                                sram0_csb1,
-    output [9-1:0]                        sram0_addr1,
-    input  [32-1:0]                       sram0_dout1,
-    
-    // Port 0: RW
-    output                                sram1_clk0,
-    output                                sram1_csb0,
-    output                                sram1_web0,
-    output [4-1:0]                        sram1_wmask0,
-    output [9-1:0]                        sram1_addr0,
-    output [32-1:0]                       sram1_din0,
-    input  [32-1:0]                       sram1_dout0,
-
-    // Port 1: R
-    output                                sram1_clk1,
-    output                                sram1_csb1,
-    output [9-1:0]                        sram1_addr1,
-    input  [32-1:0]                       sram1_dout1
+    output [SRAM_NUM_INSTANCES-1:0]                          sram_clk1,
+    output [SRAM_NUM_INSTANCES-1:0]                          sram_csb1,
+    output [(SRAM_NUM_INSTANCES*ADDR_WIDTH_DEFAULT)-1:0]     sram_addr1,
+    input  [(SRAM_NUM_INSTANCES*DATA_WIDTH)-1:0]             sram_dout1
 );
 
     localparam SOC_ADDR_WIDTH    = 32;
-    localparam RAM_ADDR_WIDTH    = 10; // TODO 14
+    localparam RAM_ADDR_WIDTH    = ADDR_WIDTH_DEFAULT + $clog2(SRAM_NUM_INSTANCES);
     localparam CLK_FREQ          = 25_000_000;
     localparam BAUDRATE          = 115200;
 
@@ -63,7 +53,8 @@ module sky130_top (
     logic [3:0]                 ram_be_o;
     
     sram_wrapper #(
-        .ADDR_WIDTH         (RAM_ADDR_WIDTH)
+        .ADDR_WIDTH         (RAM_ADDR_WIDTH),
+        .NUM_INSTANCES      (SRAM_NUM_INSTANCES)
     ) sram_wrapper_inst (
 
         // --- Connections to SoC ---
@@ -86,19 +77,19 @@ module sky130_top (
         // --- Connections to SRAM macros ---
 
         // Port 0: RW
-        .clk0       ({sram1_clk0, sram0_clk0}),
-        .csb0       ({sram1_csb0, sram0_csb0}),
-        .web0       ({sram1_web0, sram0_web0}),
-        .wmask0     ({sram1_wmask0, sram0_wmask0}),
-        .addr0      ({sram1_addr0, sram0_addr0}),
-        .din0       ({sram1_din0, sram0_din0}),
-        .dout0      ({sram1_dout0, sram0_dout0}),
+        .clk0       (sram_clk0),
+        .csb0       (sram_csb0),
+        .web0       (sram_web0),
+        .wmask0     (sram_wmask0),
+        .addr0      (sram_addr0),
+        .din0       (sram_din0),
+        .dout0      (sram_dout0),
 
         // Port 1: R
-        .clk1       ({sram1_clk1, sram0_clk1}),
-        .csb1       ({sram1_csb1, sram0_csb1}),
-        .addr1      ({sram1_addr1, sram0_addr1}),
-        .dout1      ({sram1_dout1, sram0_dout1})
+        .clk1       (sram_clk1),
+        .csb1       (sram_csb1),
+        .addr1      (sram_addr1),
+        .dout1      (sram_dout1)
     );
 
     cv32e40x_soc
