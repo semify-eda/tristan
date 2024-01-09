@@ -45,4 +45,3 @@ int cntb_hard(unsigned int value, unsigned int start_pos)
                                                          "r" (start_pos));
     return counted_concurrent_bits;
 }
-
