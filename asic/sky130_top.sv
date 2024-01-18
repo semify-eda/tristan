@@ -1,7 +1,7 @@
 `default_nettype none
 
 module sky130_top #(
-    parameter SRAM_NUM_INSTANCES = 4,
+    parameter SRAM_NUM_INSTANCES = 8,
     parameter NUM_WMASKS = 4,
     parameter DATA_WIDTH = 32,
     parameter ADDR_WIDTH_DEFAULT = 9
