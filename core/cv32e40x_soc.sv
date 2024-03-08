@@ -27,15 +27,7 @@ module cv32e40x_soc
     output logic sck,
     output logic sdo,
     input  logic sdi,
-    output logic cs,
-    
-    // Single port RAM
-    output logic                  ram_en_o,
-    output logic [RAM_ADDR_WIDTH-1:0] ram_addr_o,
-    output logic [31:0]           ram_wdata_o,
-    input  logic [31:0]           ram_rdata_i,
-    output logic                  ram_we_o,
-    output logic [3:0]            ram_be_o
+    output logic cs
 );
     localparam RAM_MASK         = 4'h0;
     localparam SPI_FLASH_MASK   = 4'h2;
@@ -237,20 +229,30 @@ module cv32e40x_soc
     end
 
     // ----------------------------------
-    //              SP RAM
+    //              DP RAM
     // ----------------------------------
     
     logic [31:0] ram_rdata;
-    logic [INSTR_RDATA_WIDTH-1:0] ram_instr_rdata;
 
     // Connect external single port RAM
+    
+    sram_dualport #(
+        .ADDRWIDTH (RAM_ADDR_WIDTH),
+        .BYTE_ENABLE (1)
+    ) sram_dualport_i (
+      .clk      (clk_i),
 
-    assign ram_en_o = soc_gnt && select_ram;
-    assign ram_addr_o = soc_addr;
-    assign ram_wdata_o = soc_wdata;
-    assign ram_rdata = ram_rdata_i;
-    assign ram_we_o = soc_we;
-    assign ram_be_o = soc_be;
+      .addr_a   (soc_addr[RAM_ADDR_WIDTH-1:0]),
+      .we_a     (soc_gnt && select_ram && soc_we),
+      .be_a     (soc_be),
+      .d_a      (soc_wdata),
+      .q_a      (ram_rdata),
+
+      .addr_b   ('0),
+      .we_b     ('0),
+      .d_b      ('0),
+      .q_b      ()
+    );
     
     // ----------------------------------
     //           Blink LED

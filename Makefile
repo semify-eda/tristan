@@ -26,6 +26,7 @@ RTL_CUSTOM = $(wildcard core/custom/*.sv)
 
 RTL_FPGA = fpga/ulx3s/ulx3s_top.sv \
            fpga/sp_ram.sv \
+           fpga/sram_dualport.sv \
            preprocessed.v \
            core/tech/rtl/cv32e40x_clock_gate.sv \
            core/cv32e40x_soc.sv \
@@ -38,6 +39,7 @@ SIM = 	cv32e40x_yosys.v \
 	core/spi_flash/rtl/spi_flash.sv \
 	core/spi_flash/tb/spiflash.v \
         fpga/sp_ram.sv \
+   	fpga/sram_dualport.sv
 
 TB = core/tb_top.sv
 
