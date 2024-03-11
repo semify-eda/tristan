@@ -31,8 +31,8 @@ module sram_dualport #(
   generate
     if (INITFILEEN) begin
       initial begin
-        // $readmemh(INITFILE, ram);
-        $readmemb(INITFILE, ram);
+        $readmemh(INITFILE, ram);
+        //$readmemb(INITFILE, ram);
       end//init
     end else begin
       initial begin

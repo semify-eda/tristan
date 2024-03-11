@@ -13,17 +13,7 @@ module ulx3s_top (
     input  [6:0] btn,
     output [7:0] led,
     
-    output [27:0] gp,
-
-    // SPI Flash
-    `ifndef SYNTHESIS
-    output flash_clk,
-    `endif
-    output flash_csn,
-    output flash_mosi,
-    input  flash_miso,
-    output flash_holdn,
-    output flash_wpn
+    output [27:0] gp
 );
 
     logic clk;
@@ -75,23 +65,7 @@ module ulx3s_top (
         .led            ( blinky       ),
 
         .ser_tx         ( ftdi_rxd     ),
-        .ser_rx         ( ftdi_txd     ),
-
-        .sck            (flash_clk),
-        .sdo            (flash_mosi),
-        .sdi            (flash_miso),
-        .cs             (flash_csn)
+        .ser_rx         ( ftdi_txd     )
     );
-    
-    `ifdef SYNTHESIS
-    wire flash_clk;
-    USRMCLK u1 (
-        .USRMCLKI(flash_clk),
-        .USRMCLKTS(1'b0) // no tristate
-    );
-    `endif
-
-    assign flash_wpn = 1'b0; // Write Protect
-    assign flash_holdn = 1'b1; // No reset
 
 endmodule

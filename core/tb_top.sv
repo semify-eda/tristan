@@ -137,24 +137,7 @@ module tb_top;
         .rst_ni         ( core_rst_n   ),
         .led,
         .ser_tx,
-        .ser_rx,
-        
-        .sck,
-        .sdo,
-        .sdi,
-        .cs
-    );
-    
-    spiflash #(
-        .INIT_F("firmware/firmware.hex"), // TODO
-        .OFFSET(24'h200000)
-    ) spiflash_inst (
-        .csb    (cs),
-        .clk    (sck),
-        .io0    (flash_io0), // MOSI
-        .io1    (sdi), // MISO
-        .io2    (),
-        .io3    ()
+        .ser_rx
     );
     
     logic [7:0] recv_byte = 0;
