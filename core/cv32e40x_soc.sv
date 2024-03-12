@@ -5,11 +5,12 @@
 module cv32e40x_soc
 #(
     parameter SOC_ADDR_WIDTH    = 32,
-    parameter RAM_ADDR_WIDTH    = 14,
+    parameter INSTR_ADDR_WIDTH  = 12+2, // in words (+2)
+    parameter RAM_ADDR_WIDTH    = 12+2, // in words (+2)
     parameter INSTR_RDATA_WIDTH = 32,
     parameter CLK_FREQ          = 25_000_000,
     parameter BAUDRATE          = 115200,
-    parameter BOOT_ADDR         = 32'h02000000 + 24'h200000
+    parameter BOOT_ADDR         = 32'h02000000 //+ 24'h200000
 )
 (
     // Clock and reset
@@ -21,21 +22,7 @@ module cv32e40x_soc
     
     // Uart
     output logic ser_tx,
-    input  logic ser_rx,
-    
-    // SPI signals
-    output logic sck,
-    output logic sdo,
-    input  logic sdi,
-    output logic cs,
-    
-    // Single port RAM
-    output logic                  ram_en_o,
-    output logic [RAM_ADDR_WIDTH-1:0] ram_addr_o,
-    output logic [31:0]           ram_wdata_o,
-    input  logic [31:0]           ram_rdata_i,
-    output logic                  ram_we_o,
-    output logic [3:0]            ram_be_o
+    input  logic ser_rx
 );
     localparam RAM_MASK         = 4'h0;
     localparam SPI_FLASH_MASK   = 4'h2;
@@ -79,11 +66,6 @@ module cv32e40x_soc
         end else begin
             // Grant if we have not already granted
             soc_gnt <= soc_req && !soc_gnt && !soc_rvalid;
-            
-            // SPI Flash is not single-cycle
-            if (select_spiflash) begin
-                soc_gnt <= spi_flash_done && !soc_gnt && !soc_rvalid;
-            end
         end
     end
     
@@ -188,7 +170,7 @@ module cv32e40x_soc
       .debug_req_i      (1'b0),
 
       // CPU control signals
-      .fetch_enable_i   (spi_flash_initialized),
+      .fetch_enable_i   (1'b1),
       .core_sleep_o     ()
     );
     
@@ -217,7 +199,7 @@ module cv32e40x_soc
         else if (select_uart_busy)
             soc_rdata = {{31{1'b0}}, uart_busy};
         else if (select_spiflash)
-            soc_rdata = spi_flash_rdata;
+            soc_rdata = instr_rdata;
         else
             soc_rdata = 'x;
     end
@@ -228,29 +210,58 @@ module cv32e40x_soc
         end else begin
             // Generally data is available one cycle after req
             soc_rvalid <= soc_gnt;
-            
-            // SPI Flash has latency, first gnt then rvalid
-            if (select_spiflash) begin
-                soc_rvalid <= spi_flash_done_delayed;
-            end
         end
     end
 
     // ----------------------------------
-    //              SP RAM
+    //           DP BRAM - Instr
+    // ----------------------------------
+    
+    logic [31:0] instr_rdata;
+    
+    sram_dualport #(
+        .INITFILEEN     (1),
+        .INITFILE       ("firmware/firmware.hex"),
+        .ADDRWIDTH      (INSTR_ADDR_WIDTH),
+        .BYTE_ENABLE    (1)
+    ) instr_dualport_i (
+      .clk      (clk_i),
+
+      .addr_a   (soc_addr[INSTR_ADDR_WIDTH+1:2]), // TODO word aligned
+      .we_a     (soc_gnt && select_spiflash && soc_we),
+      .be_a     (soc_be),
+      .d_a      (soc_wdata),
+      .q_a      (instr_rdata),
+
+      .addr_b   ('0),
+      .we_b     ('0),
+      .d_b      ('0),
+      .q_b      ()
+    );
+
+    // ----------------------------------
+    //           DP BRAM - Data
     // ----------------------------------
     
     logic [31:0] ram_rdata;
-    logic [INSTR_RDATA_WIDTH-1:0] ram_instr_rdata;
+    
+    sram_dualport #(
+        .ADDRWIDTH (RAM_ADDR_WIDTH),
+        .BYTE_ENABLE (1)
+    ) ram_dualport_i (
+      .clk      (clk_i),
 
-    // Connect external single port RAM
+      .addr_a   (soc_addr[RAM_ADDR_WIDTH+1:2]),
+      .we_a     (soc_gnt && select_ram && soc_we),
+      .be_a     (soc_be),
+      .d_a      (soc_wdata),
+      .q_a      (ram_rdata),
 
-    assign ram_en_o = soc_gnt && select_ram;
-    assign ram_addr_o = soc_addr;
-    assign ram_wdata_o = soc_wdata;
-    assign ram_rdata = ram_rdata_i;
-    assign ram_we_o = soc_we;
-    assign ram_be_o = soc_be;
+      .addr_b   ('0),
+      .we_b     ('0),
+      .d_b      ('0),
+      .q_b      ()
+    );
     
     // ----------------------------------
     //           Blink LED
@@ -310,46 +321,6 @@ module cv32e40x_soc
     
     always @(posedge clk_i) begin
         uart_soc_rdata_del <= uart_soc_rdata;
-    end
-    
-    // ----------------------------------
-    //           SPI Flash
-    // ----------------------------------
-    
-    logic [31: 0] spi_flash_rdata;
-    logic spi_flash_done;
-	logic spi_flash_done_delayed;
-    logic spi_flash_initialized;
-
-    spi_flash spi_flash_inst (
-        .clk        (clk_i),
-        .reset      (!rst_ni),
-
-        .addr_in    (soc_addr[23:0]),               // address of word
-        .data_out   (spi_flash_rdata),              // received word
-        .strobe     (select_spiflash && soc_req_pulse), // start transmission
-        .done       (spi_flash_done),               // pulse, transmission done
-        .initialized(spi_flash_initialized),        // initial cmds sent
-
-        // SPI signals
-        .sck        (sck),
-        .sdo        (sdo),
-        .sdi        (sdi),
-        .cs         (cs)
-    );
-    
-    logic soc_req_pulse;
-    assign soc_req_pulse = soc_req && !soc_req_delayed;
-    logic soc_req_delayed;
-    
-    always_ff @(posedge clk_i, negedge rst_ni) begin
-        if (!rst_ni) begin
-            spi_flash_done_delayed <= 1'b0;
-            soc_req_delayed <= 1'b0;
-        end else begin
-            spi_flash_done_delayed <= spi_flash_done;
-            soc_req_delayed <= soc_req;
-        end
     end
 
 endmodule
