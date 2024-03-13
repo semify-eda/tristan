@@ -14,7 +14,7 @@ Now to enable all tools you need to source `environment` of your oss-cad-suite i
 
 	> source /path/to/oss-cad-suite/environment
 
-To compile the firmware you will need a RISC-V toolchain. Head over to [RISC-V GNU Compiler Toolchain](https://github.com/riscv-collab/riscv-gnu-toolchain) and build the compiler for `riscv32i`. Finally install it or add it to your `PATH` variable.
+To compile the firmware you will need a RISC-V toolchain. Head over to [RISC-V GNU Compiler Toolchain](https://github.com/riscv-collab/riscv-gnu-toolchain) and configure the compiler with the flag `--with-arch=rv32ia`. Finally install it or add it to your `PATH` variable.
 
 ## Instructions
 
