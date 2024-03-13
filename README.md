@@ -4,17 +4,22 @@ This repository contains the `CV32E40X` core and all additional material for an 
 
 ## Setup
 
-To run the simulation and perform the synthesis you need to make sure to have the latest of the open source tools.
+To run simulation and perform synthesis you need to have the latest versions of the following open source tools:
 
-The easiest way is to install the latest build of the [oss-cad-suite](https://github.com/YosysHQ/oss-cad-suite-build).
+##### OSS CAD Suite
+- Install the latest build of the [oss-cad-suite](https://github.com/YosysHQ/oss-cad-suite-build).
 
-Additionally you will need [sv2v](https://github.com/zachjs/sv2v). Either build the latest release or download the artifacts. Place the binary inside the `bin/` folder of your oss-cad-suite installation.
+##### SV2V
+- You will need [sv2v](https://github.com/zachjs/sv2v). Either build the latest release or download the artifacts. Place the binary inside the `bin/` folder of your oss-cad-suite installation.
 
-Now to enable all tools you need to source `environment` of your oss-cad-suite installation.
+##### RISC-V Compiler Toolchain
+- To compile the firmware you will need the RISC-V toolchain. Head over to [RISC-V GNU Compiler Toolchain](https://github.com/riscv-collab/riscv-gnu-toolchain) and clone the latest release.
+- After cloning the repo you must configure the cross-compiler for the RV32IA architecture. Run:
+    > `sudo ./configure --prefix=/opt/riscv --with-arch=rv32ia`
+- Build the compiler for the newlib target using `make` 
 
-	> source /path/to/oss-cad-suite/environment
+To enable all tools, add  `/opt/riscv/riscv32-unknown-elf/bin` and `/usr/src/oss-cad-suite/bin` to your `PATH` variable
 
-To compile the firmware you will need a RISC-V toolchain. Head over to [RISC-V GNU Compiler Toolchain](https://github.com/riscv-collab/riscv-gnu-toolchain) and configure the compiler with the flag `--with-arch=rv32ia`. Finally install it or add it to your `PATH` variable.
 
 ## Instructions
 
