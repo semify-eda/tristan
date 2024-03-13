@@ -18,7 +18,7 @@ To run simulation and perform synthesis you need to have the latest versions of 
     > `sudo ./configure --prefix=/opt/riscv --with-arch=rv32ia`
 - Build the compiler for the newlib target using `make` 
 
-To enable all tools, add  `/opt/riscv/riscv32-unknown-elf/bin` and `/usr/src/oss-cad-suite/bin` to your `PATH` variable
+To enable all tools, add  `/opt/riscv/riscv32-unknown-elf/bin` and `/opt/riscv/bin` and `/usr/src/oss-cad-suite/bin` to your `PATH` variable
 
 
 ## Instructions
