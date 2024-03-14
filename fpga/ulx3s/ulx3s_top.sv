@@ -13,17 +13,7 @@ module ulx3s_top (
     input  [6:0] btn,
     output [7:0] led,
     
-    output [27:0] gp,
-
-    // SPI Flash
-    `ifndef SYNTHESIS
-    output flash_clk,
-    `endif
-    output flash_csn,
-    output flash_mosi,
-    input  flash_miso,
-    output flash_holdn,
-    output flash_wpn
+    output [27:0] gp
 );
 
     logic clk;
@@ -75,52 +65,7 @@ module ulx3s_top (
         .led            ( blinky       ),
 
         .ser_tx         ( ftdi_rxd     ),
-        .ser_rx         ( ftdi_txd     ),
-
-        .sck            (flash_clk),
-        .sdo            (flash_mosi),
-        .sdi            (flash_miso),
-        .cs             (flash_csn),
-        
-        .ram_en_o       (ram_en),
-        .ram_addr_o     (ram_addr),
-        .ram_wdata_o    (ram_wdata),
-        .ram_rdata_i    (ram_rdata),
-        .ram_we_o       (ram_we),
-        .ram_be_o       (ram_be)
+        .ser_rx         ( ftdi_txd     )
     );
-    
-    logic                       ram_en;
-    logic [RAM_ADDR_WIDTH-1:0]  ram_addr;
-    logic [31:0]                ram_wdata;
-    logic [31:0]                ram_rdata;
-    logic                       ram_we;
-    logic [3:0]                 ram_be;
-    
-    sp_ram
-    #(
-        .ADDR_WIDTH  (RAM_ADDR_WIDTH)
-    ) sp_ram_i
-    (
-        .clk_i      (clk),
-
-        .en_i       (ram_en),
-        .addr_i     (ram_addr),
-        .wdata_i    (ram_wdata),
-        .rdata_o    (ram_rdata),
-        .we_i       (ram_we),
-        .be_i       (ram_be)
-    );
-    
-    `ifdef SYNTHESIS
-    wire flash_clk;
-    USRMCLK u1 (
-        .USRMCLKI(flash_clk),
-        .USRMCLKTS(1'b0) // no tristate
-    );
-    `endif
-
-    assign flash_wpn = 1'b0; // Write Protect
-    assign flash_holdn = 1'b1; // No reset
 
 endmodule
