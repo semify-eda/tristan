@@ -118,44 +118,11 @@ create_clock -period 10.000 -name sys_clk_pin -waveform {0.000 5.000} -add [get_
 ##set_property -dict {PACKAGE_PIN K15 IOSTANDARD LVCMOS33} [get_ports qspi_do2]
 ##set_property -dict {PACKAGE_PIN K16 IOSTANDARD LVCMOS33} [get_ports qspi_do3]
 
-set_property -dict {PACKAGE_PIN K15 IOSTANDARD LVCMOS33} [get_ports flash_clk]
-set_property -dict {PACKAGE_PIN L12 IOSTANDARD LVCMOS33} [get_ports flash_csn]
-# set_property IOSTANDARD LVCMOS33 [get_ports flash_holdn]
-set_property -dict {PACKAGE_PIN J14 IOSTANDARD LVCMOS33} [get_ports flash_miso]
-set_property -dict {PACKAGE_PIN J13 IOSTANDARD LVCMOS33} [get_ports flash_mosi]
-# set_property IOSTANDARD LVCMOS33 [get_ports flash_wpn]
-
-# set_property IOSTANDARD LVCMOS33 [get_ports ftdi_txd]
-# set_property IOSTANDARD LVCMOS33 [get_ports ftdi_rxd]
+set_property -dict {PACKAGE_PIN J13 IOSTANDARD LVCMOS33} [get_ports ftdi_txd]
+set_property -dict {PACKAGE_PIN J14 IOSTANDARD LVCMOS33} [get_ports ftdi_rxd]
 
 # SmartWave constraints
 #set_property OFFCHIP_TERM NONE [get_ports spi_cmd_miso]
 #set_property OFFCHIP_TERM NONE [get_ports tp101]
 #set_property OFFCHIP_TERM NONE [get_ports tp102]
 #set_property OFFCHIP_TERM NONE [get_ports tp103]
-
-set_property MARK_DEBUG true [get_nets cv32e40x_soc_inst/spi_flash_done]
-set_property MARK_DEBUG true [get_nets cv32e40x_soc_inst/spi_flash_initialized]
-
-create_debug_core u_ila_0 ila
-set_property ALL_PROBE_SAME_MU true [get_debug_cores u_ila_0]
-set_property ALL_PROBE_SAME_MU_CNT 2 [get_debug_cores u_ila_0]
-set_property C_ADV_TRIGGER false [get_debug_cores u_ila_0]
-set_property C_DATA_DEPTH 1024 [get_debug_cores u_ila_0]
-set_property C_EN_STRG_QUAL true [get_debug_cores u_ila_0]
-set_property C_INPUT_PIPE_STAGES 0 [get_debug_cores u_ila_0]
-set_property C_TRIGIN_EN false [get_debug_cores u_ila_0]
-set_property C_TRIGOUT_EN false [get_debug_cores u_ila_0]
-set_property port_width 1 [get_debug_ports u_ila_0/clk]
-connect_debug_port u_ila_0/clk [get_nets [list clk]]
-set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_0/probe0]
-set_property port_width 1 [get_debug_ports u_ila_0/probe0]
-connect_debug_port u_ila_0/probe0 [get_nets [list cv32e40x_soc_inst/spi_flash_done]]
-create_debug_port u_ila_0 probe
-set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_0/probe1]
-set_property port_width 1 [get_debug_ports u_ila_0/probe1]
-connect_debug_port u_ila_0/probe1 [get_nets [list cv32e40x_soc_inst/spi_flash_initialized]]
-set_property C_CLK_INPUT_FREQ_HZ 300000000 [get_debug_cores dbg_hub]
-set_property C_ENABLE_CLK_DIVIDER false [get_debug_cores dbg_hub]
-set_property C_USER_SCAN_CHAIN 1 [get_debug_cores dbg_hub]
-connect_debug_port dbg_hub/clk [get_nets clk]

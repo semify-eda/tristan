@@ -20,21 +20,21 @@
 `default_nettype none 
 
 module simpleuart #(parameter integer DEFAULT_DIV = 1) (
-	wire clk,
-	wire resetn,
+	input wire clk,
+	input wire resetn,
 
-	wire   ser_tx,
-	wire   ser_rx,
+	output wire    ser_tx,   // output
+	input wire    ser_rx,  // input
 
-	wire   [3:0] reg_div_we,
-	wire   [31:0] reg_div_di,
-	wire   [31:0] reg_div_do,
+	input wire   [3:0] reg_div_we, // input 
+	input wire   [31:0] reg_div_di, // input
+	output wire    [31:0] reg_div_do,
 
-	wire         reg_dat_we,
-	wire         reg_dat_re,
-	wire  [31:0] reg_dat_di,
-	wire  [31:0] reg_dat_do,
-	wire         reg_dat_wait
+	input wire         reg_dat_we, // input
+	input wire         reg_dat_re, // input
+	input wire  [31:0] reg_dat_di,
+	output wire  [31:0] reg_dat_do,
+	output wire         reg_dat_wait
 );
 	reg [31:0] cfg_divider;
 

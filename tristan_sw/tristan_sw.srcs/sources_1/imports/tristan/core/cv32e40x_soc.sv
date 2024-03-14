@@ -1,44 +1,54 @@
-//`default_nettype none
+`default_nettype none
 
 `timescale 1ns/1ps
-`default_nettype none 
+
 module cv32e40x_soc
 #(
     parameter SOC_ADDR_WIDTH    = 32,
-    parameter RAM_ADDR_WIDTH    = 14,
+    parameter INSTR_ADDR_WIDTH  = 12, // in words (+2)
+    parameter RAM_ADDR_WIDTH    = 12, // in words (+2)
     parameter INSTR_RDATA_WIDTH = 32,
     parameter CLK_FREQ          = 25_000_000,
     parameter BAUDRATE          = 115200,
-    parameter BOOT_ADDR         = 32'h02000000 + 24'h200000
+    parameter BOOT_ADDR         = 32'h02000000 //+ 24'h200000
 )
 (
     // Clock and reset
-    input wire clk_i,
-    input wire rst_ni,
-    
-    
+    input  wire clk_i,
+    input  wire rst_ni,
+        
     // Uart
-//    output wire ser_tx,
-//    input  wire ser_rx,
-    
-    // SPI signals
-    output wire sck,
-    output wire sdo,
-    input  wire sdi,
-    output wire cs,
-    
-    // Single port RAM
-    output wire                  ram_en_o,
-    output wire [RAM_ADDR_WIDTH-1:0] ram_addr_o,
-    output wire [31:0]           ram_wdata_o,
-    input  wire [31:0]           ram_rdata_i,
-    output wire                  ram_we_o,
-    output wire [3:0]            ram_be_o
+    output logic ser_tx,
+    input  wire ser_rx
 );
     localparam RAM_MASK         = 4'h0;
     localparam SPI_FLASH_MASK   = 4'h2;
     localparam UART_MASK        = 4'hA;
     localparam BLINK_MASK       = 4'hF;
+    
+    // ----------------------------------
+    //           DP BRAM
+    // ----------------------------------
+    
+    logic [31:0] instr_rdata;
+    logic [31:0] ram_rdata;
+    
+    
+    // ----------------------------------
+    //               UART
+    // ----------------------------------
+    
+    logic select_uart_data;
+    logic select_uart_busy;
+   
+    logic [31:0] uart_soc_rdata;
+    logic [31:0] uart_soc_rdata_del;
+    
+    logic uart_busy;
+    
+    // Prevent metastability
+    logic [3:0] ser_rx_ff;
+
 
     // ----------------------------------
     //           CV32E40X Core
@@ -69,43 +79,6 @@ module cv32e40x_soc
     logic [31: 0] soc_rdata;
     
     // ----------------------------------
-    //            Multiplexer
-    // ----------------------------------
-    
-    logic select_ram;
-    logic select_uart;
-    logic select_spiflash;
-    
-    // ----------------------------------
-    //              SP RAM
-    // ----------------------------------
-    
-    logic [31:0] ram_rdata;
-    logic [INSTR_RDATA_WIDTH-1:0] ram_instr_rdata;
-    
-    // ----------------------------------
-    //               UART
-    // ----------------------------------   
-//    logic select_uart_data;
-//    logic select_uart_busy;
-    
-//    logic [31:0] uart_soc_rdata;
-//    logic [31:0] uart_soc_rdata_del;
-    
-//    logic uart_busy;
-    
-        
-    // ----------------------------------
-    //           SPI Flash
-    // ----------------------------------
-    
-    logic [31: 0] spi_flash_rdata;
-    logic spi_flash_done;
-	logic spi_flash_done_delayed;
-    logic spi_flash_initialized;
-
-    
-    // ----------------------------------
     //            Grant Logic
     // ----------------------------------
     always_ff @(posedge clk_i, negedge rst_ni) begin
@@ -114,11 +87,6 @@ module cv32e40x_soc
         end else begin
             // Grant if we have not already granted
             soc_gnt <= soc_req && !soc_gnt && !soc_rvalid;
-            
-            // SPI Flash is not single-cycle
-            if (select_spiflash) begin
-                soc_gnt <= spi_flash_done && !soc_gnt && !soc_rvalid;
-            end
         end
     end
     
@@ -223,13 +191,17 @@ module cv32e40x_soc
       .debug_req_i      (1'b0),
 
       // CPU control signals
-      .fetch_enable_i   (spi_flash_initialized),
+      .fetch_enable_i   (1'b1),
       .core_sleep_o     ()
     );
     
     // ----------------------------------
     //            Multiplexer
     // ----------------------------------
+    
+    logic select_ram;
+    logic select_uart;
+    logic select_spiflash;
     
     // Data select signals
     assign select_ram          = soc_addr[31:24]  == RAM_MASK;
@@ -239,12 +211,12 @@ module cv32e40x_soc
     always_comb begin
         if (select_ram)
             soc_rdata = ram_rdata;
-//        else if (select_uart_data)
-//            soc_rdata = uart_soc_rdata_del;
-//        else if (select_uart_busy)
-//            soc_rdata = {{31{1'b0}}, uart_busy};
+        else if (select_uart_data)
+            soc_rdata = uart_soc_rdata_del;
+        else if (select_uart_busy)
+            soc_rdata = {{31{1'b0}}, uart_busy};
         else if (select_spiflash)
-            soc_rdata = spi_flash_rdata;
+            soc_rdata = instr_rdata;
         else
             soc_rdata = 'x;
     end
@@ -255,97 +227,88 @@ module cv32e40x_soc
         end else begin
             // Generally data is available one cycle after req
             soc_rvalid <= soc_gnt;
-            
-            // SPI Flash has latency, first gnt then rvalid
-            if (select_spiflash) begin
-                soc_rvalid <= spi_flash_done_delayed;
-            end
         end
     end
 
     // ----------------------------------
-    //              SP RAM
-    // ----------------------------------
-    
-    // Connect external single port RAM
-
-    assign ram_en_o = soc_gnt && select_ram;
-    assign ram_addr_o = soc_addr;
-    assign ram_wdata_o = soc_wdata;
-    assign ram_rdata = ram_rdata_i;
-    assign ram_we_o = soc_we;
-    assign ram_be_o = soc_be;
-       
-    // ----------------------------------
-    //               UART
+    //           DP BRAM - Instr
     // ----------------------------------    
-//    assign select_uart_data = select_uart && soc_addr[15:0]  == 16'h0000;
-//    assign select_uart_busy = select_uart && soc_addr[15:0]  == 16'h0004;
-    
-    
-//    // Prevent metastability
-//    logic [3:0] ser_rx_ff;
-    
-//    always @(posedge clk_i) begin
-//        ser_rx_ff <= {ser_rx_ff[2:0], ser_rx};
-//    end
-    
-//    simpleuart #(
-//        .DEFAULT_DIV(CLK_FREQ / BAUDRATE)
-//    ) simpleuart_inst (
-//        .clk    (clk_i),
-//        .resetn(rst_ni),
+    sram_dualport #(
+        .INITFILEEN     (1),
+        .INITFILE       ("C:/semify/Git/wfg-fpga/tristan/firmware/firmware.hex"),       // TODO: Refactor location 
+        .DATAWIDTH      (SOC_ADDR_WIDTH),
+        .ADDRWIDTH      (INSTR_ADDR_WIDTH-2),         // 12-2 from wfg
+        .BYTE_ENABLE    (1)
+    ) instr_dualport_i (
+      .clk      (clk_i),
 
-//        .ser_tx (ser_tx),
-//        .ser_rx (ser_rx_ff[3]),
+      .addr_a   (soc_addr[INSTR_ADDR_WIDTH-1:2]), // TODO word aligned // 12-1 from wfg
+      .we_a     (soc_gnt && select_spiflash && soc_we),
+      .be_a     (soc_be),
+      .d_a      (soc_wdata),
+      .q_a      (instr_rdata),
 
-//        .reg_div_we ('0),
-//        .reg_div_di ('0),
-//        .reg_div_do (),
+      .addr_b   ('0),
+      .we_b     ('0),
+      .d_b      ('0),
+      .q_b      ()
+    );
 
-//        .reg_dat_we (soc_gnt && select_uart_data && soc_we),
-//        .reg_dat_re (soc_gnt && select_uart_data && !soc_we),
-//        .reg_dat_di (soc_wdata),
-//        .reg_dat_do (uart_soc_rdata),
-//        .reg_dat_wait (uart_busy)
-//    );
-    
-//    always @(posedge clk_i) begin
-//        uart_soc_rdata_del <= uart_soc_rdata;
-//    end
-    
     // ----------------------------------
-    //           SPI Flash
-    // ----------------------------------
-    spi_flash spi_flash_inst (
-        .clk        (clk_i),
-        .reset      (!rst_ni),
+    //           DP BRAM - Data
+    // ----------------------------------  
+    sram_dualport #(
+        .DATAWIDTH      (SOC_ADDR_WIDTH),
+        .ADDRWIDTH      (RAM_ADDR_WIDTH-2),       // 12-2 from wfg
+        .BYTE_ENABLE    (1)
+    ) ram_dualport_i (
+      .clk      (clk_i),
 
-        .addr_in    (soc_addr[23:0]),               // address of word
-        .data_out   (spi_flash_rdata),              // received word
-        .strobe     (select_spiflash && soc_req_pulse), // start transmission
-        .done       (spi_flash_done),               // pulse, transmission done
-        .initialized(spi_flash_initialized),        // initial cmds sent
+      .addr_a   (soc_addr[RAM_ADDR_WIDTH-1:2]),     // 12-1 from wfg
+      .we_a     (soc_gnt && select_ram && soc_we),
+      .be_a     (soc_be),
+      .d_a      (soc_wdata),
+      .q_a      (ram_rdata),
 
-        // SPI signals
-        .sck        (sck),
-        .sdo        (sdo),
-        .sdi        (sdi),
-        .cs         (cs)
+      .addr_b   ('0),
+      .we_b     ('0),
+      .d_b      ('0),
+      .q_b      ()
     );
     
-    logic soc_req_pulse;
-    logic soc_req_delayed;
-    assign soc_req_pulse = soc_req && !soc_req_delayed;
     
-    always_ff @(posedge clk_i, negedge rst_ni) begin
-        if (!rst_ni) begin
-            spi_flash_done_delayed <= 1'b0;
-            soc_req_delayed <= 1'b0;
-        end else begin
-            spi_flash_done_delayed <= spi_flash_done;
-            soc_req_delayed <= soc_req;
-        end
+    // ----------------------------------
+    //               UART
+    // ----------------------------------
+    assign select_uart_data = select_uart && soc_addr[15:0]  == 16'h0000;
+    assign select_uart_busy = select_uart && soc_addr[15:0]  == 16'h0004;
+   
+    always @(posedge clk_i) begin
+        ser_rx_ff <= {ser_rx_ff[2:0], ser_rx};
+    end
+    
+    simpleuart #(
+        .DEFAULT_DIV(CLK_FREQ / BAUDRATE)
+    ) simpleuart_inst (
+        .clk    (clk_i),
+        .resetn(rst_ni),
+
+        .ser_tx (ser_tx),
+        .ser_rx (ser_rx_ff[3]),
+
+        .reg_div_we ('0),
+        .reg_div_di ('0),
+        .reg_div_do (),
+
+        .reg_dat_we (soc_gnt && select_uart_data && soc_we),
+        .reg_dat_re (soc_gnt && select_uart_data && !soc_we),
+        .reg_dat_di (soc_wdata),
+        .reg_dat_do (uart_soc_rdata),
+        .reg_dat_wait (uart_busy)
+    );
+    
+    always @(posedge clk_i) begin
+        uart_soc_rdata_del <= uart_soc_rdata;
     end
 
 endmodule
