@@ -242,7 +242,7 @@ module cv32e40x_soc
     ) instr_dualport_i (
       .clk      (clk_i),
 
-      .addr_a   (soc_addr[INSTR_ADDR_WIDTH-1:2]), 
+      .addr_a   (soc_addr[INSTR_ADDR_WIDTH+3:2]), 
       .we_a     (soc_gnt && select_spiflash && soc_we),
       .be_a     (soc_be),
       .d_a      (soc_wdata),
@@ -264,7 +264,7 @@ module cv32e40x_soc
     ) ram_dualport_i (
       .clk      (clk_i),
 
-      .addr_a   (soc_addr[RAM_ADDR_WIDTH-1:2]),    
+      .addr_a   (soc_addr[RAM_ADDR_WIDTH+3:2]),    
       .we_a     (soc_gnt && select_ram && soc_we),
       .be_a     (soc_be),
       .d_a      (soc_wdata),
