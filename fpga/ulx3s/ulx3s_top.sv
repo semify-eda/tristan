@@ -5,7 +5,7 @@
 `default_nettype none
 
 module ulx3s_top (
-    input clk_25mhz,
+    input clk_50mhz,
 
     input  ftdi_txd,
     output ftdi_rxd,
@@ -19,7 +19,7 @@ module ulx3s_top (
     logic clk;
     logic reset_n;
 
-    assign clk = clk_25mhz;
+    assign clk = clk_50mhz;
     assign reset_n = btn[0];
 
     logic [23-1:0] counter;
@@ -40,10 +40,10 @@ module ulx3s_top (
     logic blinky;
     assign gp = {blinky, 27'b0};
 
-    localparam CLK_FREQ = 25_000_000;
+    localparam CLK_FREQ = 50_000_000;
     localparam BAUDRATE = 115200;
     localparam SOC_ADDR_WIDTH    =  32;
-    localparam RAM_ADDR_WIDTH    =  14;
+    localparam RAM_ADDR_WIDTH    =  12;
     localparam INSTR_RDATA_WIDTH =  32;
     localparam BOOT_ADDR         = 32'h02000000 + 24'h200000; // TODO set inside cv32e40x_top
 

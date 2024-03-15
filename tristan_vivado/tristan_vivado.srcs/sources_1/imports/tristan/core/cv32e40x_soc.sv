@@ -14,20 +14,41 @@ module cv32e40x_soc
 )
 (
     // Clock and reset
-    input  logic clk_i,
-    input  logic rst_ni,
-    
-    // Blinky
-    output logic led,
-    
+    input  wire clk_i,
+    input  wire rst_ni,
+        
     // Uart
     output logic ser_tx,
-    input  logic ser_rx
+    input  wire ser_rx
 );
     localparam RAM_MASK         = 4'h0;
     localparam SPI_FLASH_MASK   = 4'h2;
     localparam UART_MASK        = 4'hA;
     localparam BLINK_MASK       = 4'hF;
+    
+    // ----------------------------------
+    //           DP BRAM
+    // ----------------------------------
+    
+    logic [31:0] instr_rdata;
+    logic [31:0] ram_rdata;
+    
+    
+    // ----------------------------------
+    //               UART
+    // ----------------------------------
+    
+    logic select_uart_data;
+    logic select_uart_busy;
+   
+    logic [31:0] uart_soc_rdata;
+    logic [31:0] uart_soc_rdata_del;
+    
+    logic uart_busy;
+    
+    // Prevent metastability
+    logic [3:0] ser_rx_ff;
+
 
     // ----------------------------------
     //           CV32E40X Core
@@ -179,7 +200,6 @@ module cv32e40x_soc
     // ----------------------------------
     
     logic select_ram;
-    logic select_led;
     logic select_uart;
     logic select_spiflash;
     
@@ -187,13 +207,10 @@ module cv32e40x_soc
     assign select_ram          = soc_addr[31:24]  == RAM_MASK;
     assign select_spiflash     = soc_addr[31:24]  == SPI_FLASH_MASK;
     assign select_uart         = soc_addr[31:24]  == UART_MASK;
-    assign select_led          = soc_addr[31:24]  == BLINK_MASK;
 
     always_comb begin
         if (select_ram)
             soc_rdata = ram_rdata;
-        else if (select_led)
-            soc_rdata = {{31{1'b0}}, led};
         else if (select_uart_data)
             soc_rdata = uart_soc_rdata_del;
         else if (select_uart_busy)
@@ -215,20 +232,17 @@ module cv32e40x_soc
 
     // ----------------------------------
     //           DP BRAM - Instr
-    // ----------------------------------
-    
-    logic [31:0] instr_rdata;
-    
-    sram_dualport #(
+    // ----------------------------------    
+    core_sram #(
         .INITFILEEN     (1),
-        .INITFILE       ("firmware/firmware.hex"),
+        .INITFILE       ("firmware/firmware.hex"),       // TODO: Refactor location 
         .DATAWIDTH      (SOC_ADDR_WIDTH),
-        .ADDRWIDTH      (INSTR_ADDR_WIDTH),
+        .ADDRWIDTH      (INSTR_ADDR_WIDTH),         
         .BYTE_ENABLE    (1)
     ) instr_dualport_i (
       .clk      (clk_i),
 
-      .addr_a   (soc_addr[INSTR_ADDR_WIDTH-1:2]), // TODO word aligned
+      .addr_a   (soc_addr[INSTR_ADDR_WIDTH-1:2]), 
       .we_a     (soc_gnt && select_spiflash && soc_we),
       .be_a     (soc_be),
       .d_a      (soc_wdata),
@@ -242,18 +256,15 @@ module cv32e40x_soc
 
     // ----------------------------------
     //           DP BRAM - Data
-    // ----------------------------------
-    
-    logic [31:0] ram_rdata;
-    
-    sram_dualport #(
+    // ----------------------------------  
+    core_sram #(
         .DATAWIDTH      (SOC_ADDR_WIDTH),
-        .ADDRWIDTH      (RAM_ADDR_WIDTH),
-        .BYTE_ENABLE (1)
+        .ADDRWIDTH      (RAM_ADDR_WIDTH),      
+        .BYTE_ENABLE    (1)
     ) ram_dualport_i (
       .clk      (clk_i),
 
-      .addr_a   (soc_addr[RAM_ADDR_WIDTH-1:2]),     // + 1
+      .addr_a   (soc_addr[RAM_ADDR_WIDTH-1:2]),    
       .we_a     (soc_gnt && select_ram && soc_we),
       .be_a     (soc_be),
       .d_a      (soc_wdata),
@@ -265,38 +276,13 @@ module cv32e40x_soc
       .q_b      ()
     );
     
-    // ----------------------------------
-    //           Blink LED
-    // ----------------------------------
-     
-    always_ff @(posedge clk_i, negedge rst_ni) begin
-        if (!rst_ni) begin
-            led <= 1'b1;
-        end else begin
-            if (soc_gnt && select_led && soc_we) begin
-                led <= soc_wdata[0];
-            end
-        end
-    end
     
     // ----------------------------------
     //               UART
     // ----------------------------------
-    
-    logic select_uart_data;
-    logic select_uart_busy;
-    
     assign select_uart_data = select_uart && soc_addr[15:0]  == 16'h0000;
     assign select_uart_busy = select_uart && soc_addr[15:0]  == 16'h0004;
-    
-    logic [31:0] uart_soc_rdata;
-    logic [31:0] uart_soc_rdata_del;
-    
-    logic uart_busy;
-    
-    // Prevent metastability
-    logic [3:0] ser_rx_ff;
-    
+   
     always @(posedge clk_i) begin
         ser_rx_ff <= {ser_rx_ff[2:0], ser_rx};
     end
