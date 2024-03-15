@@ -1,37 +1,38 @@
-`default_nettype none
+`timescale 1ns/1ps
+`default_nettype none 
 
 module cv32e40x_top import cv32e40x_pkg::*;
 #(
     parameter INSTR_RDATA_WIDTH = 32,
-              BOOT_ADDR         = 32'h02000000, //+ 24'h200000,
+              BOOT_ADDR         = 32'h02000000,
               DM_HALTADDRESS    = 32'h1A11_0800,
               HART_ID           = 32'h0000_0000,
               NUM_MHPMCOUNTERS  = 1
 )
 (
     // Clock and reset
-    input  logic                          clk_i,
-    input  logic                          rst_ni,
+    input  wire                          clk_i,
+    input  wire                          rst_ni,
 
     // Instruction memory interface
-    output logic                          instr_req_o,
-    input  logic                          instr_gnt_i,
-    input  logic                          instr_rvalid_i,
-    output logic [31:0]                   instr_addr_o,
-    input  logic [31:0]                   instr_rdata_i,
+    output wire                          instr_req_o,
+    input  wire                          instr_gnt_i,
+    input  wire                          instr_rvalid_i,
+    output wire [31:0]                   instr_addr_o,
+    input  wire [31:0]                   instr_rdata_i,
 
     // Data memory interface
-    output logic                          data_req_o,
-    input  logic                          data_gnt_i,
-    input  logic                          data_rvalid_i,
-    output logic [31:0]                   data_addr_o,
-    output logic [3:0]                    data_be_o,
-    output logic                          data_we_o,
-    output logic [31:0]                   data_wdata_o,
-    input  logic [31:0]                   data_rdata_i,
+    output wire                          data_req_o,
+    input  wire                          data_gnt_i,
+    input  wire                          data_rvalid_i,
+    output wire [31:0]                   data_addr_o,
+    output wire [3:0]                    data_be_o,
+    output wire                          data_we_o,
+    output wire [31:0]                   data_wdata_o,
+    input  wire [31:0]                   data_rdata_i,
 
     // Cycle count
-    output logic [63:0]                   mcycle_o,
+    output wire [63:0]                   mcycle_o,
 
     // eXtension interface
     //if_xif.cpu_compressed                 xif_compressed_if,
@@ -42,11 +43,11 @@ module cv32e40x_top import cv32e40x_pkg::*;
     //if_xif.cpu_result                     xif_result_if,
 
     // Debug interface
-    input  logic                          debug_req_i,
+    input  wire                          debug_req_i,
 
     // CPU control signals
-    input  logic                          fetch_enable_i,
-    output logic                          core_sleep_o
+    input  wire                          fetch_enable_i,
+    output wire                          core_sleep_o
 );
 
     localparam X_NUM_RS = 2;
@@ -160,3 +161,4 @@ module cv32e40x_top import cv32e40x_pkg::*;
     );
 
 endmodule
+`default_nettype wire 

@@ -1,8 +1,8 @@
 OUTPUT_ARCH(riscv)
 
 MEMORY {
-    ram (rwx) : ORIGIN = 0x00000000, LENGTH = 0x4000 /* 16 KB */
-	flash (rx): ORIGIN = 0x02200000, LENGTH = 0x400000 	/* 4MB */
+    ram (rwx) : ORIGIN = 0x00000000, LENGTH = 0x4000 /* 16 KiB */
+	flash (rx): ORIGIN = 0x02000000, LENGTH = 0x4000 /* 16 KiB */
 }
 
 SECTIONS {
