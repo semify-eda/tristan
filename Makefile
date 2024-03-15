@@ -24,22 +24,11 @@ RTL = 	$(wildcard core/cv32e40x/rtl/*.sv) \
 
 RTL_CUSTOM = $(wildcard core/custom/*.sv)
 
-RTL_FPGA = fpga/ulx3s/ulx3s_top.sv \
-           fpga/sp_ram.sv \
-           fpga/sram_dualport.sv \
-           preprocessed.v \
-           core/tech/rtl/cv32e40x_clock_gate.sv \
-           core/cv32e40x_soc.sv \
-           core/simpleuart.v \
-           core/spi_flash/rtl/spi_flash.sv
 
 SIM = 	cv32e40x_yosys.v \
 	core/cv32e40x_soc.sv \
 	core/simpleuart.v \
-	core/spi_flash/rtl/spi_flash.sv \
-	core/spi_flash/tb/spiflash.v \
-        fpga/sp_ram.sv \
-   	fpga/sram_dualport.sv
+   	core/core_sram.sv
 
 TB = core/tb_top.sv
 
@@ -60,28 +49,6 @@ sim-ulx3s.vvp: $(SIM) $(TB)
 sim-ulx3s: sim-ulx3s.vvp firmware/firmware.hex
 	vvp $^ -fst +fst +verbose
 	
-view-ulx3s:
-	gtkwave tb_top.fst --save tb_top.gtkw 
-
-synth-ulx3s: ulx3s.json
-
-build-ulx3s: ulx3s.bit
-
-upload-ulx3s: ulx3s.bit firmware/firmware.bin
-	openFPGALoader --board=ulx3s -f ulx3s.bit
-	openFPGALoader --board=ulx3s -f -o 0x200000 firmware/firmware.bin
-
-ulx3s.json: $(RTL_FPGA)
-	yosys -l $(basename $@)-yosys.log -DSYNTHESIS -p 'synth_ecp5 -top ulx3s_top -json $@' $(RTL_FPGA)
-
-ulx3s.config: ulx3s.json fpga/ulx3s/ulx3s_v20.lpf
-	nextpnr-ecp5 --85k --json $< \
-		--package CABGA381 \
-		--lpf fpga/ulx3s/ulx3s_v20.lpf \
-		--textcfg $@
-
-ulx3s.bit: ulx3s.config
-	ecppack $< $@ --compress
 
 # --- Firmware ---
 
