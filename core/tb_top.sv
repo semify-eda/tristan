@@ -111,16 +111,9 @@ module tb_top;
         end
     end
 
-    logic led;
     logic ser_tx;
     logic ser_rx = 1'b1;
-    logic sck, sdi, cs, sdo;
-    
-    // Make iverilog happy
-    wire flash_io0;
-    reg flash_io0_oe = 1'b1;
-	assign flash_io0 = flash_io0_oe ? sdo : 1'bz;
-
+ 
     // wrapper for CV32E40X, the memory system and stdout peripheral
     cv32e40x_soc
     #(
@@ -135,7 +128,6 @@ module tb_top;
     (
         .clk_i          ( core_clk     ),
         .rst_ni         ( core_rst_n   ),
-        .led,
         .ser_tx,
         .ser_rx
     );
