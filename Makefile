@@ -49,6 +49,9 @@ sim-ulx3s.vvp: $(SIM) $(TB)
 sim-ulx3s: sim-ulx3s.vvp firmware/firmware.hex
 	vvp $^ -fst +fst +verbose
 	
+view-ulx3s:
+	gtkwave tb_top.fst --save tb_top.gtkw
+	
 
 # --- Firmware ---
 
@@ -71,7 +74,7 @@ firmware/firmware.hex: firmware/firmware.bin firmware/makehex.py
 
 # --- General ---
 
-.PHONY: sim-ulx3s view-ulx3s synth-ulx3s build-ulx3s upload-ulx3s
+.PHONY: sim-ulx3s view-ulx3s
 
 clean:
 	rm -f *.vvp *.fst *.fst.hier *.vcd *.log *.json *.asc *.bin *.bit firmware/rle/*.o firmware/*.o firmware/*.elf firmware/*.bin firmware/*.hex firmware/firmware.map ulx3s.config preprocessed.v cv32e40x_yosys.v abc.history

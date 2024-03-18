@@ -24,7 +24,6 @@ module cv32e40x_soc
     localparam RAM_MASK         = 4'h0;
     localparam SPI_FLASH_MASK   = 4'h2;
     localparam UART_MASK        = 4'hA;
-    localparam BLINK_MASK       = 4'hF;
     
     // ----------------------------------
     //           DP BRAM
