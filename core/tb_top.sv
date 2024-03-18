@@ -137,53 +137,7 @@ module tb_top;
         .rst_ni         ( core_rst_n   ),
         .led,
         .ser_tx,
-        .ser_rx,
-        
-        .sck,
-        .sdo,
-        .sdi,
-        .cs,
-        
-        .ram_en_o       (ram_en),
-        .ram_addr_o     (ram_addr),
-        .ram_wdata_o    (ram_wdata),
-        .ram_rdata_i    (ram_rdata),
-        .ram_we_o       (ram_we),
-        .ram_be_o       (ram_be)
-    );
-    
-    logic                       ram_en;
-    logic [RAM_ADDR_WIDTH-1:0]  ram_addr;
-    logic [31:0]                ram_wdata;
-    logic [31:0]                ram_rdata;
-    logic                       ram_we;
-    logic [3:0]                 ram_be;
-    
-    sp_ram
-    #(
-        .ADDR_WIDTH  (RAM_ADDR_WIDTH)
-    ) sp_ram_i
-    (
-        .clk_i      (core_clk),
-
-        .en_i       (ram_en),
-        .addr_i     (ram_addr),
-        .wdata_i    (ram_wdata),
-        .rdata_o    (ram_rdata),
-        .we_i       (ram_we),
-        .be_i       (ram_be)
-    );
-    
-    spiflash #(
-        .INIT_F("firmware/firmware.hex"), // TODO
-        .OFFSET(24'h200000)
-    ) spiflash_inst (
-        .csb    (cs),
-        .clk    (sck),
-        .io0    (flash_io0), // MOSI
-        .io1    (sdi), // MISO
-        .io2    (),
-        .io3    ()
+        .ser_rx
     );
     
     logic [7:0] recv_byte = 0;
