@@ -1,5 +1,5 @@
 TOOLCHAIN_PREFIX ?= riscv32-unknown-elf-
-PYTHON ?= python3
+PYTHON ?= tabbypy3
 
 FIRMWARE_SRCS := firmware/start.c \
                  firmware/main.c \
@@ -8,7 +8,8 @@ FIRMWARE_SRCS := firmware/start.c \
                  firmware/instr.c \
 				 firmware/rle/data.c \
 				 firmware/rle/rle.c \
-				 firmware/rle_test.c
+				 firmware/rle_test.c \
+				 firmware/obi_test.c
 
 
 FIRMWARE_OBJS = $(patsubst %.c,%.o,$(FIRMWARE_SRCS))
@@ -48,6 +49,9 @@ sim-ulx3s.vvp: $(SIM) $(TB)
 
 sim-ulx3s: sim-ulx3s.vvp firmware/firmware.hex
 	vvp $^ -fst +fst +verbose
+
+view-ulx3s:
+	gtkwave tb_top.fst --save tb_top.gtkw 
 	
 view-ulx3s:
 	gtkwave tb_top.fst --save tb_top.gtkw
