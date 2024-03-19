@@ -1,8 +1,8 @@
 #ifndef data_h
 #define data_h
 
-#include "../instr.h"
-#include "../util.h"
+#include <instr.h>
+#include <util.h>
 
 #define SAMPLES 64
 #define SIGNALS 4
