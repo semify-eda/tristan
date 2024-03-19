@@ -11,15 +11,6 @@ reset_vector:
 start:
     // Clear all registers
     addi x1, zero, 0
-
-    # manual write to I2C driver test... C compilation not working as intended...\
-    # TODO: replace this with a proper C test
-    addi x1, x1, 0xf
-    slli x1, x1, 0x18   # load address 0x0f00000 into register 1
-    addi x2, zero, 2    # load value 2 into register 2
-    sw   x2, 0(x1)
-
-
     addi x2, zero, 0
     addi x3, zero, 0
     addi x4, zero, 0
