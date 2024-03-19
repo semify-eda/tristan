@@ -17,17 +17,38 @@ module cv32e40x_soc
     input  logic clk_i,
     input  logic rst_ni,
     
-    // Blinky
-    output logic led,
-    
     // Uart
     output logic ser_tx,
-    input  logic ser_rx
+    input  logic ser_rx,
+
+    // OBI interface for external modules
+    output logic                  obi_req_o,
+    input  logic                  obi_gnt_i,
+    output logic [SOC_ADDR_WIDTH-1:0] obi_addr_o,
+    output logic                  obi_we_o,
+    output logic [3 : 0]          obi_be_o,
+    output logic [31 : 0]         obi_wdata_o,
+    input  logic [31 : 0]         obi_rvalid,
+    input  logic [31 : 0]         obi_rdata
 );
     localparam RAM_MASK         = 4'h0;
     localparam SPI_FLASH_MASK   = 4'h2;
     localparam UART_MASK        = 4'hA;
-    localparam BLINK_MASK       = 4'hF;
+    localparam I2C_MASK         = 4'hE;
+    localparam PINMUX_MASK      = 4'hF;
+
+
+    // ----------------------------------
+    //           Communication Signals
+    // ----------------------------------
+    logic obi_com;              // indicates SoC is communicating with an external module through OBI
+    
+    assign obi_com = select_i2c | select_pinmux;
+    assign obi_req_o    = soc_req;
+    assign obi_addr_o   = soc_addr;
+    assign obi_we_o     = soc_we;
+    assign obi_be_o     = soc_be;
+    assign obi_wdata_o  = soc_wdata;
 
     // ----------------------------------
     //           CV32E40X Core
@@ -64,11 +85,17 @@ module cv32e40x_soc
         if (!rst_ni) begin
             soc_gnt <= 1'b0;
         end else begin
-            // Grant if we have not already granted
-            soc_gnt <= soc_req && !soc_gnt && !soc_rvalid;
+            // If communicating with an external module, wait for the module to respond
+            if(obi_com) begin
+                soc_gnt <= obi_gnt_i;
+            end else begin
+                // Grant if we have not already granted
+                soc_gnt <= soc_req && !soc_gnt && !soc_rvalid;
+            end
         end
     end
     
+    //TODO: Arbiter should probably be a module and not in the SoC file
     // ----------------------------------
     //            Arbiter
     // ----------------------------------
@@ -137,6 +164,7 @@ module cv32e40x_soc
         end
     end
 
+
     cv32e40x_top #(
         //.BOOT_ADDR(BOOT_ADDR) // set in module because of yosys
     )
@@ -179,27 +207,29 @@ module cv32e40x_soc
     // ----------------------------------
     
     logic select_ram;
-    logic select_led;
     logic select_uart;
     logic select_spiflash;
+    logic select_i2c;
+    logic select_pinmux;
     
     // Data select signals
-    assign select_ram          = soc_addr[31:24]  == RAM_MASK;
-    assign select_spiflash     = soc_addr[31:24]  == SPI_FLASH_MASK;
-    assign select_uart         = soc_addr[31:24]  == UART_MASK;
-    assign select_led          = soc_addr[31:24]  == BLINK_MASK;
+    assign select_ram          = soc_addr[31:24] == RAM_MASK;
+    assign select_spiflash     = soc_addr[31:24] == SPI_FLASH_MASK;
+    assign select_uart         = soc_addr[31:24] == UART_MASK;
+    assign select_i2c          = soc_addr[31:24] == I2C_MASK;
+    assign select_pinmux       = soc_addr[31:24] == PINMUX_MASK;
 
     always_comb begin
         if (select_ram)
             soc_rdata = ram_rdata;
-        else if (select_led)
-            soc_rdata = {{31{1'b0}}, led};
         else if (select_uart_data)
             soc_rdata = uart_soc_rdata_del;
         else if (select_uart_busy)
             soc_rdata = {{31{1'b0}}, uart_busy};
         else if (select_spiflash)
             soc_rdata = instr_rdata;
+        else if (obi_com)
+            soc_rdata = obi_rdata;
         else
             soc_rdata = 'x;
     end
@@ -208,8 +238,12 @@ module cv32e40x_soc
         if (!rst_ni) begin
             soc_rvalid <= 1'b0;
         end else begin
-            // Generally data is available one cycle after req
-            soc_rvalid <= soc_gnt;
+            if(obi_com) begin
+                soc_rvalid <= obi_rvalid;                
+            end else begin
+                // Generally data is available one cycle after req
+                soc_rvalid <= soc_gnt;
+            end
         end
     end
 
@@ -226,18 +260,22 @@ module cv32e40x_soc
         .ADDRWIDTH      (INSTR_ADDR_WIDTH),
         .BYTE_ENABLE    (1)
     ) instr_dualport_i (
-      .clk      (clk_i),
+        .clk      (clk_i),
 
-      .addr_a   (soc_addr[INSTR_ADDR_WIDTH-1:2]), // TODO word aligned
-      .we_a     (soc_gnt && select_spiflash && soc_we),
-      .be_a     (soc_be),
-      .d_a      (soc_wdata),
-      .q_a      (instr_rdata),
+        // 16kb
+        // INSTR_ADDR_WIDTH is directly tied to the DATAWIDTH. Having an addr width of 12 does not mean that you address the
+        // 12 LSB of the address, since if the data width is 32, then the 2 LSB are omitted, and you therefore must address 
+        // bits 13 to 2, due to alignment since the 2 LSB correspond to (32/8) = 4 bytes.
+        .addr_a   (soc_addr[INSTR_ADDR_WIDTH+1:2]), // TODO word aligned
+        .we_a     (soc_gnt && select_spiflash && soc_we),
+        .be_a     (soc_be),
+        .d_a      (soc_wdata),
+        .q_a      (instr_rdata),
 
-      .addr_b   ('0),
-      .we_b     ('0),
-      .d_b      ('0),
-      .q_b      ()
+        .addr_b   ('0),
+        .we_b     ('0),
+        .d_b      ('0),
+        .q_b      ()
     );
 
     // ----------------------------------
@@ -264,20 +302,6 @@ module cv32e40x_soc
       .d_b      ('0),
       .q_b      ()
     );
-    
-    // ----------------------------------
-    //           Blink LED
-    // ----------------------------------
-     
-    always_ff @(posedge clk_i, negedge rst_ni) begin
-        if (!rst_ni) begin
-            led <= 1'b1;
-        end else begin
-            if (soc_gnt && select_led && soc_we) begin
-                led <= soc_wdata[0];
-            end
-        end
-    end
     
     // ----------------------------------
     //               UART
