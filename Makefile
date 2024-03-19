@@ -4,12 +4,12 @@ PYTHON ?= tabbypy3
 FIRMWARE_SRCS := firmware/start.c \
                  firmware/main.c \
                  firmware/util.c \
-                 firmware/cntb_test.c \
                  firmware/instr.c \
 				 firmware/rle/data.c \
+				 firmware/obi_test.c \
+				 firmware/cntb_test.c \
 				 firmware/rle/rle.c \
 				 firmware/rle_test.c \
-				 firmware/obi_test.c
 
 
 FIRMWARE_OBJS = $(patsubst %.c,%.o,$(FIRMWARE_SRCS))
@@ -69,6 +69,9 @@ firmware/firmware.elf: $(FIRMWARE_OBJS) firmware/sections.lds
 	$(TOOLCHAIN_PREFIX)gcc -O3 -mabi=ilp32 -march=rv32i -ffreestanding -nostdlib -o $@ \
 		-Wl,--build-id=none,-Bstatic,-T,firmware/sections.lds,-Map,firmware/firmware.map,--strip-debug \
 		$(FIRMWARE_OBJS) -lgcc
+
+firmware/firmware.o: firmware/firmware.elf
+	riscv32-unknown-elf-objdump -d firmware/firmware.elf > firmware/firmware.o
 
 firmware/firmware.bin: firmware/firmware.elf
 	$(TOOLCHAIN_PREFIX)objcopy -O binary $< $@
