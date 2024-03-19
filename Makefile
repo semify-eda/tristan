@@ -68,7 +68,7 @@ firmware/firmware.elf: $(FIRMWARE_OBJS) firmware/sections.lds
 		$(FIRMWARE_OBJS) -lgcc
 
 firmware/firmware.o: firmware/firmware.elf
-	riscv32-unknown-elf-objdump -d firmware/firmware.elf > firmware/firmware.asm
+	riscv32-unknown-elf-objdump -d firmware/firmware.elf > firmware/firmware.o
 
 firmware/firmware.bin: firmware/firmware.elf
 	$(TOOLCHAIN_PREFIX)objcopy -O binary $< $@
