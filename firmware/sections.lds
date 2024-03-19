@@ -1,6 +1,7 @@
 OUTPUT_ARCH(riscv)
 
 MEMORY {
+    /* TODO: edit the ram/flash size according to the decided spec*/
     ram (rwx) : ORIGIN = 0x00000000, LENGTH = 0x4000 /* 16 KiB */
 	flash (rx): ORIGIN = 0x02000000, LENGTH = 0x4000 /* 16 KiB */
 }

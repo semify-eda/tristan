@@ -260,18 +260,22 @@ module cv32e40x_soc
         .ADDRWIDTH      (INSTR_ADDR_WIDTH),
         .BYTE_ENABLE    (1)
     ) instr_dualport_i (
-      .clk      (clk_i),
+        .clk      (clk_i),
 
-      .addr_a   (soc_addr[INSTR_ADDR_WIDTH-1:2]), // TODO word aligned
-      .we_a     (soc_gnt && select_spiflash && soc_we),
-      .be_a     (soc_be),
-      .d_a      (soc_wdata),
-      .q_a      (instr_rdata),
+        // 16kb
+        // INSTR_ADDR_WIDTH is directly tied to the DATAWIDTH. Having an addr width of 12 does not mean that you address the
+        // 12 LSB of the address, since if the data width is 32, then the 2 LSB are omitted, and you therefore must address 
+        // bits 13 to 2, due to alignment since the 2 LSB correspond to (32/8) = 4 bytes.
+        .addr_a   (soc_addr[INSTR_ADDR_WIDTH+1:2]), // TODO word aligned
+        .we_a     (soc_gnt && select_spiflash && soc_we),
+        .be_a     (soc_be),
+        .d_a      (soc_wdata),
+        .q_a      (instr_rdata),
 
-      .addr_b   ('0),
-      .we_b     ('0),
-      .d_b      ('0),
-      .q_b      ()
+        .addr_b   ('0),
+        .we_b     ('0),
+        .d_b      ('0),
+        .q_b      ()
     );
 
     // ----------------------------------
