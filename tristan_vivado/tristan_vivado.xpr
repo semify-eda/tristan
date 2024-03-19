@@ -591,6 +591,7 @@
       <Filter Type="Srcs"/>
       <File Path="$PSRCDIR/sim_1/imports/core/tb_top.sv">
         <FileInfo>
+          <Attr Name="AutoDisabled" Val="1"/>
           <Attr Name="ImportPath" Val="$PPRDIR/../core/tb_top.sv"/>
           <Attr Name="ImportTime" Val="1710771096"/>
           <Attr Name="UsedIn" Val="synthesis"/>
