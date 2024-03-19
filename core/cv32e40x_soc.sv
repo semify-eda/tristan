@@ -14,41 +14,52 @@ module cv32e40x_soc
 )
 (
     // Clock and reset
-    input  logic clk_i,
-    input  logic rst_ni,
-    
+    input  wire clk_i,
+    input  wire rst_ni,
+        
     // Uart
     output logic ser_tx,
-    input  logic ser_rx,
-
+    input  wire ser_rx,
+    
     // OBI interface for external modules
-    output logic                  obi_req_o,
-    input  logic                  obi_gnt_i,
-    output logic [SOC_ADDR_WIDTH-1:0] obi_addr_o,
-    output logic                  obi_we_o,
-    output logic [3 : 0]          obi_be_o,
-    output logic [31 : 0]         obi_wdata_o,
-    input  logic [31 : 0]         obi_rvalid,
-    input  logic [31 : 0]         obi_rdata
+    output logic                        obi_req_o,
+    input  wire                         obi_gnt_i,
+    output logic [SOC_ADDR_WIDTH-1:0]   obi_addr_o,
+    output logic                        obi_we_o,
+    output logic [3 : 0]                obi_be_o,
+    output logic [31 : 0]               obi_wdata_o,
+    input  wire [31 : 0]                obi_rvalid,
+    input  wire [31 : 0]                obi_rdata
 );
     localparam RAM_MASK         = 4'h0;
     localparam SPI_FLASH_MASK   = 4'h2;
     localparam UART_MASK        = 4'hA;
     localparam I2C_MASK         = 4'hE;
-    localparam PINMUX_MASK      = 4'hF;
-
-
+    localparam PINMUX_MASK      = 4'hF;    
+        
     // ----------------------------------
-    //           Communication Signals
+    //           DP BRAM
     // ----------------------------------
-    logic obi_com;              // indicates SoC is communicating with an external module through OBI
     
-    assign obi_com = select_i2c | select_pinmux;
-    assign obi_req_o    = soc_req;
-    assign obi_addr_o   = soc_addr;
-    assign obi_we_o     = soc_we;
-    assign obi_be_o     = soc_be;
-    assign obi_wdata_o  = soc_wdata;
+    logic [31:0] instr_rdata;
+    logic [31:0] ram_rdata;
+    
+    
+    // ----------------------------------
+    //               UART
+    // ----------------------------------
+    
+    logic select_uart_data;
+    logic select_uart_busy;
+   
+    logic [31:0] uart_soc_rdata;
+    logic [31:0] uart_soc_rdata_del;
+    
+    logic uart_busy;
+    
+    // Prevent metastability
+    logic [3:0] ser_rx_ff;
+
 
     // ----------------------------------
     //           CV32E40X Core
@@ -78,6 +89,19 @@ module cv32e40x_soc
     logic [31: 0] soc_wdata;
     logic [31: 0] soc_rdata;
     
+    
+    // ----------------------------------
+    //           Communication Signals
+    // ----------------------------------
+    logic obi_com;              // indicates SoC is communicating with an external module through OBI
+    
+    assign obi_com = select_i2c | select_pinmux;
+    assign obi_req_o    = soc_req;
+    assign obi_addr_o   = soc_addr;
+    assign obi_we_o     = soc_we;
+    assign obi_be_o     = soc_be;
+    assign obi_wdata_o  = soc_wdata;
+    
     // ----------------------------------
     //            Grant Logic
     // ----------------------------------
@@ -88,14 +112,13 @@ module cv32e40x_soc
             // If communicating with an external module, wait for the module to respond
             if(obi_com) begin
                 soc_gnt <= obi_gnt_i;
-            end else begin
-                // Grant if we have not already granted
-                soc_gnt <= soc_req && !soc_gnt && !soc_rvalid;
+            end else begin 
+             // Grant if we have not already granted
+              soc_gnt <= soc_req && !soc_gnt && !soc_rvalid;
             end
         end
     end
     
-    //TODO: Arbiter should probably be a module and not in the SoC file
     // ----------------------------------
     //            Arbiter
     // ----------------------------------
@@ -164,7 +187,6 @@ module cv32e40x_soc
         end
     end
 
-
     cv32e40x_top #(
         //.BOOT_ADDR(BOOT_ADDR) // set in module because of yosys
     )
@@ -219,6 +241,7 @@ module cv32e40x_soc
     assign select_i2c          = soc_addr[31:24] == I2C_MASK;
     assign select_pinmux       = soc_addr[31:24] == PINMUX_MASK;
 
+
     always_comb begin
         if (select_ram)
             soc_rdata = ram_rdata;
@@ -249,22 +272,17 @@ module cv32e40x_soc
 
     // ----------------------------------
     //           DP BRAM - Instr
-    // ----------------------------------
-    
-    logic [31:0] instr_rdata;
-    
+    // ----------------------------------    
     sram_dualport #(
         .INITFILEEN     (1),
-        .INITFILE       ("firmware/firmware.hex"),
+        .INITFILE       ("firmware/firmware.hex"),       // TODO: Refactor location 
         .DATAWIDTH      (SOC_ADDR_WIDTH),
-        .ADDRWIDTH      (INSTR_ADDR_WIDTH),
-        .BYTE_ENABLE    (1)
+        .ADDRWIDTH      (INSTR_ADDR_WIDTH)         
     ) instr_dualport_i (
       .clk      (clk_i),
 
-      .addr_a   (soc_addr[INSTR_ADDR_WIDTH-1:2]), // TODO word aligned
+      .addr_a   (soc_addr[INSTR_ADDR_WIDTH+1:2]), 
       .we_a     (soc_gnt && select_spiflash && soc_we),
-      .be_a     (soc_be),
       .d_a      (soc_wdata),
       .q_a      (instr_rdata),
 
@@ -276,20 +294,15 @@ module cv32e40x_soc
 
     // ----------------------------------
     //           DP BRAM - Data
-    // ----------------------------------
-    
-    logic [31:0] ram_rdata;
-    
+    // ----------------------------------  
     sram_dualport #(
         .DATAWIDTH      (SOC_ADDR_WIDTH),
-        .ADDRWIDTH      (RAM_ADDR_WIDTH),
-        .BYTE_ENABLE (1)
+        .ADDRWIDTH      (RAM_ADDR_WIDTH)
     ) ram_dualport_i (
       .clk      (clk_i),
 
-      .addr_a   (soc_addr[RAM_ADDR_WIDTH-1:2]),     // + 1
+      .addr_a   (soc_addr[RAM_ADDR_WIDTH+1:2]),    
       .we_a     (soc_gnt && select_ram && soc_we),
-      .be_a     (soc_be),
       .d_a      (soc_wdata),
       .q_a      (ram_rdata),
 
@@ -299,24 +312,13 @@ module cv32e40x_soc
       .q_b      ()
     );
     
+    
     // ----------------------------------
     //               UART
     // ----------------------------------
-    
-    logic select_uart_data;
-    logic select_uart_busy;
-    
     assign select_uart_data = select_uart && soc_addr[15:0]  == 16'h0000;
     assign select_uart_busy = select_uart && soc_addr[15:0]  == 16'h0004;
-    
-    logic [31:0] uart_soc_rdata;
-    logic [31:0] uart_soc_rdata_del;
-    
-    logic uart_busy;
-    
-    // Prevent metastability
-    logic [3:0] ser_rx_ff;
-    
+   
     always @(posedge clk_i) begin
         ser_rx_ff <= {ser_rx_ff[2:0], ser_rx};
     end

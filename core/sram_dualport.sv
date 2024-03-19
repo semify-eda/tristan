@@ -1,19 +1,15 @@
 module sram_dualport #(
-  parameter                   INITFILEEN   = 0,
-  parameter                   INITFILE     = "init.mem",
-  parameter                   DATAWIDTH    = 32,
-  parameter                   ADDRWIDTH    = 14,
-  parameter                   BYTE_ENABLE  = 0,
-  parameter                   BYTE_ENABLES = DATAWIDTH / 8 //$max(DATAWIDTH / 8, 0)
+  parameter                   INITFILEEN = 0,
+  parameter string            INITFILE   = "init.mem",
+  parameter                   DATAWIDTH  = 32,
+  parameter                   ADDRWIDTH  = 14
 ) (
   input  wire clk,
 
   input  wire  [ADDRWIDTH-1:0] addr_a,
   input  wire                  we_a,
-  input  wire  [BYTE_ENABLES-1:0] be_a,
   input  wire  [DATAWIDTH-1:0] d_a,
   output logic [DATAWIDTH-1:0] q_a,
-
 
   input  wire  [ADDRWIDTH-1:0] addr_b,
   input  wire                  we_b,
@@ -32,13 +28,13 @@ module sram_dualport #(
     if (INITFILEEN) begin
       initial begin
         $readmemh(INITFILE, ram);
-        //$readmemb(INITFILE, ram);
+        // $readmemb(INITFILE, ram);
       end//init
     end else begin
       initial begin
-        /*foreach(ram[i]) begin
+        foreach(ram[i]) begin
           ram[i] = '0;
-        end//for*/
+        end//for
       end//init
     end//elif
   endgenerate
@@ -47,13 +43,7 @@ module sram_dualport #(
   always_ff @(posedge clk) begin
     q_a <= ram[addr_a];
     if (we_a) begin
-      if (BYTE_ENABLE) begin
-        for (int i=0; i<BYTE_ENABLES; i++) begin
-          if (be_a[i]) ram[addr_a][i*8+:8] <= d_a[i*8+:8];
-        end
-      end else begin
-        ram[addr_a] <= d_a;
-      end
+      ram[addr_a] <= d_a;
     end//if
   end//always_ff
 
