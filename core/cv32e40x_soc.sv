@@ -31,6 +31,14 @@ module cv32e40x_soc
     input  logic [31 : 0]         obi_rvalid,
     input  logic [31 : 0]         obi_rdata
 );
+
+    // The alignment offset ensures that the RAM is addressed correctly regardless of its width.
+    // This offset can change based on the width and depth of the RAM, and is calculated as:
+    //          alignment offset = log2 (RAM Width / 8)
+    // It is added to the beginning and end of the addr_width when addressing into the soc_addr, in order to use
+    // the correct bits of soc_addr to index into the RAM, since larger width RAM means more bytes are packed together in a single row.
+    localparam ALIGNMENT_OFFSET = $clog2( SOC_ADDR_WIDTH / 8 );
+
     localparam RAM_MASK         = 4'h0;
     localparam SPI_FLASH_MASK   = 4'h2;
     localparam UART_MASK        = 4'hA;
@@ -94,7 +102,7 @@ module cv32e40x_soc
             end
         end
     end
-    
+
     //TODO: Arbiter should probably be a module and not in the SoC file
     // ----------------------------------
     //            Arbiter
@@ -266,7 +274,7 @@ module cv32e40x_soc
         // INSTR_ADDR_WIDTH is directly tied to the DATAWIDTH. Having an addr width of 12 does not mean that you address the
         // 12 LSB of the address, since if the data width is 32, then the 2 LSB are omitted, and you therefore must address 
         // bits 13 to 2, due to alignment since the 2 LSB correspond to (32/8) = 4 bytes.
-        .addr_a   (soc_addr[INSTR_ADDR_WIDTH+1:2]), // TODO word aligned
+        .addr_a   (soc_addr[INSTR_ADDR_WIDTH + ALIGNMENT_OFFSET - 1 : ALIGNMENT_OFFSET]),
         .we_a     (soc_gnt && select_spiflash && soc_we),
         .be_a     (soc_be),
         .d_a      (soc_wdata),
@@ -291,7 +299,7 @@ module cv32e40x_soc
     ) ram_dualport_i (
       .clk      (clk_i),
 
-      .addr_a   (soc_addr[RAM_ADDR_WIDTH-1:2]),     // + 1
+      .addr_a   (soc_addr[RAM_ADDR_WIDTH + ALIGNMENT_OFFSET - 1 : ALIGNMENT_OFFSET]),
       .we_a     (soc_gnt && select_ram && soc_we),
       .be_a     (soc_be),
       .d_a      (soc_wdata),
