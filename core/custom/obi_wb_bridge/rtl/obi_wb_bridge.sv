@@ -1,5 +1,5 @@
 `default_nettype none
-import wfg_pkg::*;
+// import wfg_pkg::*;
 
 module obi_wb_bridge
 #(
@@ -115,10 +115,12 @@ always_ff @(posedge clk_i) begin : state_actions_ff
             // SoC to Smartwave peripheral address translation
             /* TODO: expand address translation when MMU is added */
             if(block_sel == PINMUX_MASK) begin
-                addr_o <= {12'h0, D_P_MATRIX_ADDR, 8'h0};
+                addr_o <= {12'h0, 3'h2, 4'h3, 5'h0, 8'h0};
+                // addr_o <= {12'h0, D_P_MATRIX_ADDR, 8'h0};  // from pkg
             end
             else if(block_sel == I2C_MASK) begin
-                addr_o <= {12'h0, DRIVE_I2CT_MODULE_ADDR, 5'h0, 8'h0};
+                addr_o <= {12'h0, 3'h4, 4'h3, 5'h0, 8'h0};
+                // addr_o <= {12'h0, DRIVE_I2CT_MODULE_ADDR, 5'h0, 8'h0}; // from pkg
             end
             data_o  <= wdata_i;
         end
