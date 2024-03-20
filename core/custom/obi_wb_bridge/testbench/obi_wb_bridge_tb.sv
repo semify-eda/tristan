@@ -53,30 +53,21 @@ module obi_wb_bridge_tb;
         .ser_tx,
         .ser_rx,
 
-        // OBI interface
-        .obi_req_o      (req_obi),
-        .obi_gnt_i      (gnt_obi),
-        .obi_addr_o     (addr_obi),
-        .obi_we_o       (wr_en_obi),
-        .obi_be_o       (byte_en_obi),
-        .obi_wdata_o    (wdata_obi),
-        .obi_rvalid     (rvalid_obi),
-        .obi_rdata      (rdata_obi)
+        // WB interface
+        .wb_addr_o      (addr_wb),
+        .wb_rdata_i     (data_i_wb),
+        .wb_wdata_o     (data_o_wb),
+        .wb_wr_en_o     (wr_en_wb),
+        .wb_byte_en_o   (byte_en_wb),
+        .wb_stb_o       (stb_wb),
+        .wb_ack_i       (ack_wb),
+        .wb_cyc_o       (cyc_wb)
 
     );
 
     // ----------------------------------
-    //           OBI Wishbone Bridge
+    //         Wishbone Signals
     // ----------------------------------
-    logic                    req_obi;
-    logic                    gnt_obi;
-    logic [31 : 0]           addr_obi;
-    logic                    wr_en_obi;
-    logic [3 : 0]            byte_en_obi;
-    logic [31 : 0]           wdata_obi;
-    logic                    rvalid_obi;
-    logic [31 : 0]           rdata_obi;
-
     logic [31 : 0]           addr_wb;
     logic [31 : 0]           data_i_wb;
     logic [31 : 0]           data_o_wb;
@@ -86,31 +77,6 @@ module obi_wb_bridge_tb;
     logic                    ack_wb;
     logic                    cyc_wb;
 
-    obi_wb_bridge i_obi_wb_bridge
-    (
-        .clk_i      (core_clk),
-        .rst_ni     (core_rst_n),
-
-        /********* OBI Signals **********************/
-        .req_i      (req_obi),
-        .gnt_o      (gnt_obi),
-        .addr_i     (addr_obi),
-        .wr_en_i    (wr_en_obi),
-        .byte_en_i  (byte_en_obi),
-        .wdata_i    (wdata_obi),
-        .rvalid_o   (rvalid_obi),
-        .rdata_o    (rdata_obi),
-
-        /********* Wishbone Master Signals  *********/
-        .addr_o     (addr_wb),
-        .data_i     (data_i_wb),
-        .data_o     (data_o_wb),
-        .wr_en_o    (wr_en_wb),
-        .byte_en_o  (byte_en_wb),
-        .stb_o      (stb_wb),
-        .ack_i      (ack_wb),
-        .cyc_o      (cyc_wb)
-    );
 
     logic ser_tx;
     logic ser_rx = 1'b1;
