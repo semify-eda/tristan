@@ -1,4 +1,4 @@
-module core_sram #(
+module sram_dualport #(
   parameter                   INITFILEEN   = 0,
   parameter                   INITFILE     = "init.mem",
   parameter                   DATAWIDTH    = 32,

@@ -93,11 +93,6 @@ void putc(char c)
     UART_DATA = c;
 }
 
-void setLED(int value)
-{
-    BASE_LED = value;
-}
-
 unsigned xorshift32(unsigned int x) {
     x |= x == 0;   // if x == 0, set x = 1 instead
     x ^= (x & 0x0007ffff) << 13;
