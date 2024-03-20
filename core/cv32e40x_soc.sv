@@ -114,74 +114,42 @@ module cv32e40x_soc
         end
     end
 
-    //TODO: Arbiter should probably be a module and not in the SoC file
     // ----------------------------------
     //            Arbiter
     // ----------------------------------
-    typedef enum {
-        GNT_NONE,
-        GNT_DATA,
-        GNT_INSTR
-    } arbiter_t;
 
-    arbiter_t cur_granted;
-    
-    always_ff @(posedge clk_i, negedge rst_ni) begin
-        if (!rst_ni) begin
-            cur_granted <= GNT_NONE;
-        end else begin
-            // Bus is free
-            if (cur_granted == GNT_NONE) begin
-                // Data has precedence
-                if (cpu_instr_req)  cur_granted <= GNT_INSTR;
-                if (cpu_data_req)   cur_granted <= GNT_DATA;
-            end else begin
-                // Free the bus
-                if (soc_rvalid) begin
-                    cur_granted <= GNT_NONE;
-                end
-            end
-        end
-    end
-    
-    always_comb begin
-        // default values
-        soc_req     = '0;
-        soc_addr    = '0;
-        soc_be      = '0;
-        soc_we      = '0;
-        soc_wdata   = '0;
-        
-        cpu_instr_gnt       = '0;
-        cpu_instr_rvalid    = '0;
-        cpu_instr_rdata     = '0;
-        
-        cpu_data_gnt        = '0;
-        cpu_data_rvalid     = '0;
-        cpu_data_rdata      = '0;
+    ram_arbiter i_ram_arbiter
+    (
+        .clk_i                  (clk_i),
+        .rst_ni                 (rst_ni),
 
-        if (cur_granted == GNT_INSTR) begin
-            // don't request the next transaction before the arbiter has switched
-            soc_req     = cpu_instr_req && !soc_rvalid;
-            soc_addr    = cpu_instr_addr;
-            
-            cpu_instr_gnt       = soc_gnt;
-            cpu_instr_rvalid    = soc_rvalid;
-            cpu_instr_rdata     = soc_rdata;
-        end
-        if (cur_granted == GNT_DATA) begin
-            // don't request the next transaction before the arbiter has switched
-            soc_req     = cpu_data_req && !soc_rvalid;
-            soc_addr    = cpu_data_addr;
-            soc_be      = cpu_data_be;
-            soc_we      = cpu_data_we;
-            soc_wdata   = cpu_data_wdata;
-            
-            cpu_data_gnt        = soc_gnt;
-            cpu_data_rvalid     = soc_rvalid;
-            cpu_data_rdata      = soc_rdata;
-        end
-    end
+        // I RAM Signals
+        .cpu_instr_addr_i       (cpu_instr_addr     ),
+        .cpu_instr_req_i        (cpu_instr_req      ),
+        .cpu_instr_gnt_o        (cpu_instr_gnt      ),
+        .cpu_instr_rvalid_o     (cpu_instr_rvalid   ),
+        .cpu_instr_rdata_o      (cpu_instr_rdata    ),
+
+        // D RAM Signals
+        .cpu_data_addr_i        (cpu_data_addr      ),
+        .cpu_data_req_i         (cpu_data_req       ),
+        .cpu_data_gnt_o         (cpu_data_gnt       ),
+        .cpu_data_rvalid_o      (cpu_data_rvalid    ),
+        .cpu_data_rdata_o       (cpu_data_rdata     ),
+        .cpu_data_be_i          (cpu_data_be        ),
+        .cpu_data_we_i          (cpu_data_we        ),
+        .cpu_data_wdata_i       (cpu_data_wdata     ),
+
+        // Unified Signals
+        .soc_rvalid_i           (soc_rvalid         ),
+        .soc_gnt_i              (soc_gnt            ),
+        .soc_req_o              (soc_req            ),
+        .soc_addr_o             (soc_addr           ),
+        .soc_be_o               (soc_be             ),
+        .soc_we_o               (soc_we             ),
+        .soc_wdata_o            (soc_wdata          ),
+        .soc_rdata_i            (soc_rdata          )
+    );
 
     // ----------------------------------
     //               CPU
