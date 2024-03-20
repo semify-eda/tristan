@@ -7,7 +7,8 @@ SRC += ../testbench/obi_wb_bridge_tb.sv
 SRC +=  ../../../../cv32e40x_yosys.v \
 		../../../cv32e40x_soc.sv \
 		../../../simpleuart.v \
-		../../../core_sram.sv
+		../../../core_sram.sv \
+		../../ram_arbiter/rtl/ram_arbiter.sv
 
 
 #defaults

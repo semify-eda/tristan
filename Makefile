@@ -29,7 +29,9 @@ RTL_CUSTOM = $(wildcard core/custom/*.sv)
 SIM = 	cv32e40x_yosys.v \
 	core/cv32e40x_soc.sv \
 	core/simpleuart.v \
-   	core/core_sram.sv
+   	core/core_sram.sv \
+    core/custom/ram_arbiter/rtl/ram_arbiter.sv
+
 
 TB = core/tb_top.sv
 
