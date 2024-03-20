@@ -5,35 +5,35 @@ module ram_arbiter
 #(
     parameter SOC_ADDR_WIDTH = 32
 )(
-    input               clk_i,
-    input               rst_ni,
+    input  wire              clk_i,
+    input  wire              rst_ni,
 
     // I RAM signals
-    input  logic [SOC_ADDR_WIDTH-1:0] cpu_instr_addr_i,
-    input  logic                      cpu_instr_req_i,
+    input  wire  [SOC_ADDR_WIDTH-1:0] cpu_instr_addr_i,
+    input  wire                       cpu_instr_req_i,
     output logic                      cpu_instr_gnt_o,
     output logic                      cpu_instr_rvalid_o,
     output logic [31 : 0]             cpu_instr_rdata_o,
 
     // D RAM signals
-    input  logic [SOC_ADDR_WIDTH-1:0] cpu_data_addr_i,
-    input  logic                      cpu_data_req_i,
+    input  wire  [SOC_ADDR_WIDTH-1:0] cpu_data_addr_i,
+    input  wire                       cpu_data_req_i,
     output logic                      cpu_data_gnt_o,
     output logic                      cpu_data_rvalid_o,
     output logic [31 : 0]             cpu_data_rdata_o,
-    input  logic [3 : 0]              cpu_data_be_i,
-    input  logic                      cpu_data_we_i,
-    input  logic [31 : 0]             cpu_data_wdata_i,
+    input  wire  [3 : 0]              cpu_data_be_i,
+    input  wire                       cpu_data_we_i,
+    input  wire  [31 : 0]             cpu_data_wdata_i,
 
     // unified signals
-    input  logic                      soc_rvalid_i,
-    input  logic                      soc_gnt_i,
+    input  wire                       soc_rvalid_i,
+    input  wire                       soc_gnt_i,
     output logic                      soc_req_o,
     output logic [SOC_ADDR_WIDTH-1:0] soc_addr_o,
     output logic [3 : 0]              soc_be_o,
     output logic                      soc_we_o,
     output logic [31 : 0]             soc_wdata_o,
-    input  logic [31 : 0]             soc_rdata_i
+    input  wire  [31 : 0]             soc_rdata_i
 
 );
 
@@ -46,7 +46,7 @@ typedef enum {
 arbiter_t cur_granted;
 
 always_ff @(posedge clk_i, negedge rst_ni) begin
-    if (!rst_ni) begin
+    if (~rst_ni) begin
         cur_granted <= GNT_NONE;
     end else begin
         // Bus is free

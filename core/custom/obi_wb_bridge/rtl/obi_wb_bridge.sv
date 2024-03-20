@@ -9,28 +9,28 @@ module obi_wb_bridge
     parameter PINMUX_MASK = 4'hF
 )
 (
-    input logic clk_i,
-    input logic rst_ni,
+    input  wire clk_i,
+    input  wire rst_ni,
 
     /********* OBI Signals **********************/
-    input  logic                    obi_req_i,      // I - Master requests data transfer, certifies that address & data out is accurate
+    input  wire                     obi_req_i,      // I - Master requests data transfer, certifies that address & data out is accurate
     output logic                    obi_gnt_o,      // O - Slave acknewledged request and is working on it
-    input  logic [ADDR_W-1 : 0]     obi_addr_i,     // I - Address for data transfer from OBI perspective
-    input  logic                    obi_wr_en_i,    // I - Write enable: 0 -> data read, 1 -> data write
-    input  logic [(DATA_W/8)-1 : 0] obi_byte_en_i,  // I - Byte enable: each bit acts as a write enable for the corresponding byte on data line
-    input  logic [DATA_W-1 : 0]     obi_wdata_i,    // I - Data to be written to slave
+    input  wire  [ADDR_W-1 : 0]     obi_addr_i,     // I - Address for data transfer from OBI perspective
+    input  wire                     obi_wr_en_i,    // I - Write enable: 0 -> data read, 1 -> data write
+    input  wire  [(DATA_W/8)-1 : 0] obi_byte_en_i,  // I - Byte enable: each bit acts as a write enable for the corresponding byte on data line
+    input  wire  [DATA_W-1 : 0]     obi_wdata_i,    // I - Data to be written to slave
     output logic                    obi_rvalid_o,   // O - Response from slave is valid and transaciton is complete
     output logic [DATA_W-1 : 0]     obi_rdata_o,    // O - Data read from slave
 
 
     /********* Wishbone Master Signals  *********/
     output logic [ADDR_W-1 : 0]     wb_addr_o,      // O - Address for data transfer from Wishbone perspective
-    input  logic [DATA_W-1 : 0]     wb_rdata_i,     // I - Data read from slave
+    input  wire  [DATA_W-1 : 0]     wb_rdata_i,     // I - Data read from slave
     output logic [DATA_W-1 : 0]     wb_wdata_o,     // O - Data to be written to slave
     output logic                    wb_wr_en_o,     // O - Write enable: 0 -> data read, 1 -> data write
     output logic [(DATA_W/8)-1 : 0] wb_byte_en_o,   // O - Byte enable: each bit acts as a write enable for the corresponding byte on data line
     output logic                    wb_stb_o,       // O - Strobe: held high for the duration of an entire data transfer
-    input  logic                    wb_ack_i,       // I - Acknowledge: response from the slave is valid and the transfer is complete
+    input  wire                     wb_ack_i,       // I - Acknowledge: response from the slave is valid and the transfer is complete
     output logic                    wb_cyc_o        // O - Cycle: held high for the duration of an entire data transaction (multiple transfers)
 
     /* 
