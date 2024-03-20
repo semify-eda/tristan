@@ -1,19 +1,19 @@
 #source files
-SRC := ../../../../pkg/wfg_pkg.sv 
+# SRC := ../../../../pkg/wfg_pkg.sv 
 SRC += $(wildcard ../rtl/*.sv)
 SRC += ../testbench/obi_wb_bridge_tb.sv
 
 # SoC modules
-SRC +=  ../../../../soc_tristan/cv32e40x_yosys.v \
-		../../../../soc_tristan/core/cv32e40x_soc.sv \
-		../../../../soc_tristan/core/simpleuart.v \
-		../../../../soc_tristan/core/core_sram.sv
+SRC +=  ../../../../cv32e40x_yosys.v \
+		../../../cv32e40x_soc.sv \
+		../../../simpleuart.v \
+		../../../core_sram.sv
 
 
 #defaults
 SIM ?= icarus
 TOPLEVEL_LANG ?= verilog
-COMPILE_ARGS := -I ../rtl/ -I ../testbench/ -I ../../../../soc_tristan/ -I ../../../../soc_tristan/core/
+COMPILE_ARGS := -I ../rtl/ -I ../testbench/ -I ../../../../ -I ../../../
 COMPILER_ARGS ?= -g2012
 
 VERILOG_SOURCES += $(SRC)
@@ -34,25 +34,27 @@ firmware0:
 	fi
 
 firmware1: firmware0
-	make -C ../../../../soc_tristan firmware/firmware.hex
+	make -C ../../../../ firmware/firmware.hex
 
 firmware: firmware1
-	cp ../../../../soc_tristan/firmware/firmware.hex firmware/firmware.hex
+	cp ../../../../firmware/firmware.hex firmware/firmware.hex
 
 preprocessed:
-	make -C ../../../../soc_tristan cv32e40x_yosys.v
+	make -C ../../../../ cv32e40x_yosys.v
 
 asm1:
-	make -C ../../../../soc_tristan firmware/firmware.o
+	make -C ../../../../ firmware/firmware.o
 
 asm: asm1
-	cp ../../../../soc_tristan/firmware/firmware.o firmware/firmware.o
+	cp ../../../../firmware/firmware.o firmware/firmware.o
 
 cleanall1:
 	rm -r -f *.vcd *.fst sim_build results.xml firmware
 
 cleanall: cleanall1
-	make -C ../../../../soc_tristan clean
+	make -C ../../../../ clean
 
 all: firmware preprocessed asm
 	echo ""
+
+.PHONY: all
