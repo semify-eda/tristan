@@ -21,15 +21,15 @@ module cv32e40x_soc
     output logic ser_tx,
     input  logic ser_rx,
 
-    // OBI interface for external modules
-    output logic                  obi_req_o,
-    input  logic                  obi_gnt_i,
-    output logic [SOC_ADDR_WIDTH-1:0] obi_addr_o,
-    output logic                  obi_we_o,
-    output logic [3 : 0]          obi_be_o,
-    output logic [31 : 0]         obi_wdata_o,
-    input  logic [31 : 0]         obi_rvalid,
-    input  logic [31 : 0]         obi_rdata
+    // WB interface for external modules
+    output logic [SOC_ADDR_WIDTH-1:0]   wb_addr_o,   
+    input  logic [31 : 0]               wb_rdata_i,  
+    output logic [31 : 0]               wb_wdata_o,  
+    output logic                        wb_wr_en_o,  
+    output logic [3 : 0]                wb_byte_en_o,
+    output logic                        wb_stb_o,    
+    input  logic                        wb_ack_i,    
+    output logic                        wb_cyc_o     
 );
 
     // The alignment offset ensures that the RAM is addressed correctly regardless of its width.
@@ -49,7 +49,18 @@ module cv32e40x_soc
     // ----------------------------------
     //           Communication Signals
     // ----------------------------------
-    logic obi_com;              // indicates SoC is communicating with an external module through OBI
+    // indicates SoC is communicating with an external module through OBI
+    logic obi_com;              
+
+    // standard OBI signals
+    logic                       obi_req_o;
+    logic                       obi_gnt_i;
+    logic [SOC_ADDR_WIDTH-1:0]  obi_addr_o;
+    logic                       obi_we_o;
+    logic [3 : 0]               obi_be_o;
+    logic [31 : 0]              obi_wdata_o;
+    logic                       obi_rvalid_i;
+    logic [31 : 0]              obi_rdata_i;
     
     assign obi_com = select_i2c | select_pinmux;
     assign obi_req_o    = soc_req;
@@ -172,6 +183,9 @@ module cv32e40x_soc
         end
     end
 
+    // ----------------------------------
+    //               CPU
+    // ----------------------------------
 
     cv32e40x_top #(
         //.BOOT_ADDR(BOOT_ADDR) // set in module because of yosys
@@ -237,7 +251,7 @@ module cv32e40x_soc
         else if (select_spiflash)
             soc_rdata = instr_rdata;
         else if (obi_com)
-            soc_rdata = obi_rdata;
+            soc_rdata = obi_rdata_i;
         else
             soc_rdata = 'x;
     end
@@ -247,13 +261,43 @@ module cv32e40x_soc
             soc_rvalid <= 1'b0;
         end else begin
             if(obi_com) begin
-                soc_rvalid <= obi_rvalid;                
+                soc_rvalid <= obi_rvalid_i;                
             end else begin
                 // Generally data is available one cycle after req
                 soc_rvalid <= soc_gnt;
             end
         end
     end
+
+    // ----------------------------------
+    //          OBI - WB Bridge
+    // ----------------------------------
+
+    obi_wb_bridge i_obi_wb_bridge
+    (
+        .clk_i          (clk_i),
+        .rst_ni         (rst_ni),
+
+        /* OBI Signals */
+        .obi_req_i      (obi_req_o      ),
+        .obi_gnt_o      (obi_gnt_i      ), 
+        .obi_addr_i     (obi_addr_o     ),
+        .obi_wr_en_i    (obi_we_o       ),
+        .obi_byte_en_i  (obi_be_o       ),
+        .obi_wdata_i    (obi_wdata_o    ),
+        .obi_rvalid_o   (obi_rvalid_i   ),
+        .obi_rdata_o    (obi_rdata_i    ),
+
+        /* Wishbone Signals */
+        .wb_addr_o      (wb_addr_o      ),
+        .wb_rdata_i     (wb_rdata_i     ),
+        .wb_wdata_o     (wb_wdata_o     ),
+        .wb_wr_en_o     (wb_wr_en_o     ),
+        .wb_byte_en_o   (wb_byte_en_o   ),
+        .wb_stb_o       (wb_stb_o       ),
+        .wb_ack_i       (wb_ack_i       ),
+        .wb_cyc_o       (wb_cyc_o       )
+    );
 
     // ----------------------------------
     //           DP BRAM - Instr
