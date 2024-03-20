@@ -79,9 +79,11 @@ firmware/firmware.bin: firmware/firmware.elf
 firmware/firmware.hex: firmware/firmware.bin firmware/makehex.py
 	$(PYTHON) firmware/makehex.py $< 4096 > $@
 
+firmware: firmware/firmware.hex
+
 # --- General ---
 
-.PHONY: sim-ulx3s view-ulx3s
+.PHONY: sim-ulx3s view-ulx3s firmware
 
 clean:
 	rm -f *.vvp *.fst *.fst.hier *.vcd *.log *.json *.asc *.bin *.bit firmware/rle/*.o firmware/*.o firmware/*.elf firmware/*.bin firmware/*.hex firmware/firmware.map ulx3s.config preprocessed.v cv32e40x_yosys.v abc.history
