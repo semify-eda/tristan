@@ -21,7 +21,7 @@ module cv32e40x_soc
     output logic ser_tx,
     input  logic ser_rx,
 
-    // WB interface for external modules
+    // WB output interface for external modules
     output logic [SOC_ADDR_WIDTH-1:0]   wb_addr_o,   
     input  logic [31 : 0]               wb_rdata_i,  
     output logic [31 : 0]               wb_wdata_o,  
@@ -39,8 +39,8 @@ module cv32e40x_soc
     // the correct bits of soc_addr to index into the RAM, since larger width RAM means more bytes are packed together in a single row.
     localparam ALIGNMENT_OFFSET = $clog2( SOC_ADDR_WIDTH / 8 );
 
-    localparam RAM_MASK         = 4'h0;
-    localparam SPI_FLASH_MASK   = 4'h2;
+    localparam DRAM_MASK        = 4'h0;
+    localparam IRAM_MASK        = 4'h2;
     localparam UART_MASK        = 4'hA;
     localparam I2C_MASK         = 4'hE;
     localparam PINMUX_MASK      = 4'hF;
@@ -161,7 +161,7 @@ module cv32e40x_soc
     cv32e40x_top_inst
     (
       // Clock and reset
-      .clk_i        (clk_i      ),
+      .clk_i        (clk_i ),
       .rst_ni       (rst_ni),
 
       // Instruction memory interface
@@ -196,27 +196,27 @@ module cv32e40x_soc
     //            Multiplexer
     // ----------------------------------
     
-    logic select_ram;
+    logic select_dram;
     logic select_uart;
-    logic select_spiflash;
+    logic select_iram;
     logic select_i2c;
     logic select_pinmux;
     
     // Data select signals
-    assign select_ram          = soc_addr[31:24] == RAM_MASK;
-    assign select_spiflash     = soc_addr[31:24] == SPI_FLASH_MASK;
+    assign select_dram         = soc_addr[31:24] == DRAM_MASK;
+    assign select_iram         = soc_addr[31:24] == IRAM_MASK;
     assign select_uart         = soc_addr[31:24] == UART_MASK;
     assign select_i2c          = soc_addr[31:24] == I2C_MASK;
     assign select_pinmux       = soc_addr[31:24] == PINMUX_MASK;
 
     always_comb begin
-        if (select_ram)
+        if (select_dram)
             soc_rdata = ram_rdata;
         else if (select_uart_data)
             soc_rdata = uart_soc_rdata_del;
         else if (select_uart_busy)
             soc_rdata = {{31{1'b0}}, uart_busy};
-        else if (select_spiflash)
+        else if (select_iram)
             soc_rdata = instr_rdata;
         else if (obi_com)
             soc_rdata = obi_rdata_i;
@@ -287,7 +287,7 @@ module cv32e40x_soc
         // 12 LSB of the address, since if the data width is 32, then the 2 LSB are omitted, and you therefore must address 
         // bits 13 to 2, due to alignment since the 2 LSB correspond to (32/8) = 4 bytes.
         .addr_a   (soc_addr[INSTR_ADDR_WIDTH + ALIGNMENT_OFFSET - 1 : ALIGNMENT_OFFSET]),
-        .we_a     (soc_gnt && select_spiflash && soc_we),
+        .we_a     (soc_gnt && select_iram && soc_we),
         .be_a     (soc_be),
         .d_a      (soc_wdata),
         .q_a      (instr_rdata),
@@ -312,7 +312,7 @@ module cv32e40x_soc
       .clk      (clk_i),
 
       .addr_a   (soc_addr[RAM_ADDR_WIDTH + ALIGNMENT_OFFSET - 1 : ALIGNMENT_OFFSET]),
-      .we_a     (soc_gnt && select_ram && soc_we),
+      .we_a     (soc_gnt && select_dram && soc_we),
       .be_a     (soc_be),
       .d_a      (soc_wdata),
       .q_a      (ram_rdata),
