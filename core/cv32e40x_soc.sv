@@ -5,31 +5,46 @@
 module cv32e40x_soc
 #(
     parameter SOC_ADDR_WIDTH    = 32,
-    parameter INSTR_ADDR_WIDTH  = 12, // in words (+2)
-    parameter RAM_ADDR_WIDTH    = 12, // in words (+2)
-    parameter INSTR_RDATA_WIDTH = 32,
+    parameter SOC_DATA_WIDTH    = 32,
+    parameter RAM_ADDR_WIDTH    = 12,
+    parameter RAM_DATA_WIDTH    = 32,
     parameter CLK_FREQ          = 50_000_000,
     parameter BAUDRATE          = 115200,
-    parameter BOOT_ADDR         = 32'h02000000 //+ 24'h200000
+    parameter BOOT_ADDR         = 32'h02000000,
+    parameter DATA_START_ADDR   = 32'h00000000,
+    parameter OBI_ACCESS_MASK   = 4'hF,
+    parameter WB_INPUT_FREQ     = 100_000_000
 )
 (
     // Clock and reset
-    input  logic clk_i,
-    input  logic rst_ni,
+    input  wire  clk_i,
+    input  wire  rst_ni,
     
     // Uart
     output logic ser_tx,
-    input  logic ser_rx,
+    input  wire  ser_rx,
 
     // WB output interface for external modules
     output logic [SOC_ADDR_WIDTH-1:0]   wb_addr_o,   
-    input  logic [31 : 0]               wb_rdata_i,  
+    input  wire  [31 : 0]               wb_rdata_i,  
     output logic [31 : 0]               wb_wdata_o,  
     output logic                        wb_wr_en_o,  
     output logic [3 : 0]                wb_byte_en_o,
     output logic                        wb_stb_o,    
-    input  logic                        wb_ack_i,    
-    output logic                        wb_cyc_o     
+    input  wire                         wb_ack_i,    
+    output logic                        wb_cyc_o,
+    
+    // WB input interface to access RAM
+    input  wire                         wb_clk_i,
+    
+    input  wire  [SOC_ADDR_WIDTH-1:0]   wb_addr_i,
+    output logic [31 : 0]               wb_rdata_o, 
+    input  wire  [31 : 0]               wb_wdata_i,  
+    input  wire                         wb_wr_en_i,  
+    input  wire  [3 : 0]                wb_byte_en_i,
+    input  wire                         wb_stb_i,    
+    output logic                        wb_ack_o,    
+    input  wire                         wb_cyc_i
 );
 
     // The alignment offset ensures that the RAM is addressed correctly regardless of its width.
@@ -37,10 +52,10 @@ module cv32e40x_soc
     //          alignment offset = log2 (RAM Width / 8)
     // It is added to the beginning and end of the addr_width when addressing into the soc_addr, in order to use
     // the correct bits of soc_addr to index into the RAM, since larger width RAM means more bytes are packed together in a single row.
-    localparam ALIGNMENT_OFFSET = $clog2( SOC_ADDR_WIDTH / 8 );
+    localparam ALIGNMENT_OFFSET = $clog2( RAM_DATA_WIDTH / 8 );
 
-    localparam DRAM_MASK        = 4'h0;
-    localparam IRAM_MASK        = 4'h2;
+    localparam DRAM_MASK        = BOOT_ADDR[31 : 28];
+    localparam IRAM_MASK        = DATA_START_ADDR[31 : 28];
     localparam UART_MASK        = 4'hA;
     localparam I2C_MASK         = 4'hE;
     localparam PINMUX_MASK      = 4'hF;
@@ -267,6 +282,44 @@ module cv32e40x_soc
         .wb_cyc_o       (wb_cyc_o       )
     );
 
+    logic [RAM_ADDR_WIDTH-1 : 0] wb2ram_addr;
+    logic [RAM_DATA_WIDTH-1 : 0] wb2ram_data;
+    logic [RAM_DATA_WIDTH-1 : 0] iram2wb_data;
+    logic [RAM_DATA_WIDTH-1 : 0] dram2wb_data;
+    logic                        wb2iram_we;
+    logic                        wb2dram_we;
+
+
+    // ----------------------------------
+    //         WB - RAM Interface
+    // ----------------------------------
+    wb_ram_interface #(
+        .RAM_ADDR_WIDTH (RAM_ADDR_WIDTH ),
+        .RAM_DATA_WIDTH (RAM_DATA_WIDTH )
+    ) i_wb_ram_interface (
+        .ram_clk_i      (clk_i          ),
+        .wb_clk_i       (wb_clk_i       ),
+        .rst_ni         (rst_ni         ),
+
+        // Wishbone input signals
+        .wb_addr_i      (wb_addr_i      ),
+        .wb_rdata_o     (wb_rdata_o     ),
+        .wb_wdata_i     (wb_wdata_i     ),
+        .wb_wr_en_i     (wb_wr_en_i     ),
+        .wb_stb_i       (wb_stb_i       ),
+        .wb_ack_o       (wb_ack_o       ),
+        .wb_cyc_i       (wb_cyc_i       ),
+
+        // RAM output signals
+        .ram_addr_o     (wb2ram_addr    ),
+        .ram_data_o     (wb2ram_data    ),
+        .iram_data_i    (iram2wb_data   ),
+        .dram_data_i    (dram2wb_data   ),
+        .iram_we_o      (wb2iram_we     ),
+        .dram_we_o      (wb2dram_we     )
+    );
+
+
     // ----------------------------------
     //           DP BRAM - Instr
     // ----------------------------------
@@ -276,26 +329,26 @@ module cv32e40x_soc
     sram_dualport #(
         .INITFILEEN     (1),
         .INITFILE       ("firmware/firmware.hex"),
-        .DATAWIDTH      (SOC_ADDR_WIDTH),
-        .ADDRWIDTH      (INSTR_ADDR_WIDTH),
+        .DATAWIDTH      (RAM_DATA_WIDTH),
+        .ADDRWIDTH      (RAM_ADDR_WIDTH),
         .BYTE_ENABLE    (1)
     ) instr_dualport_i (
         .clk      (clk_i),
 
         // 16kb
-        // INSTR_ADDR_WIDTH is directly tied to the DATAWIDTH. Having an addr width of 12 does not mean that you address the
+        // RAM_ADDR_WIDTH is directly tied to the DATAWIDTH. Having an addr width of 12 does not mean that you address the
         // 12 LSB of the address, since if the data width is 32, then the 2 LSB are omitted, and you therefore must address 
         // bits 13 to 2, due to alignment since the 2 LSB correspond to (32/8) = 4 bytes.
-        .addr_a   (soc_addr[INSTR_ADDR_WIDTH + ALIGNMENT_OFFSET - 1 : ALIGNMENT_OFFSET]),
-        .we_a     (soc_gnt && select_iram && soc_we),
-        .be_a     (soc_be),
-        .d_a      (soc_wdata),
-        .q_a      (instr_rdata),
+        .addr_a   (soc_addr[RAM_ADDR_WIDTH + ALIGNMENT_OFFSET - 1 : ALIGNMENT_OFFSET]),
+        .we_a     (soc_gnt && select_iram && soc_we ),
+        .be_a     (soc_be                           ),
+        .d_a      (soc_wdata                        ),
+        .q_a      (instr_rdata                      ),
 
-        .addr_b   ('0),
-        .we_b     ('0),
-        .d_b      ('0),
-        .q_b      ()
+        .addr_b   (wb2ram_addr                      ),
+        .we_b     (wb2iram_we                       ),
+        .d_b      (wb2ram_data                      ),
+        .q_b      (iram2wb_data                     )
     );
 
     // ----------------------------------
@@ -305,22 +358,22 @@ module cv32e40x_soc
     logic [31:0] ram_rdata;
     
     sram_dualport #(
-        .DATAWIDTH      (SOC_ADDR_WIDTH),
+        .DATAWIDTH      (RAM_DATA_WIDTH),
         .ADDRWIDTH      (RAM_ADDR_WIDTH),
-        .BYTE_ENABLE (1)
+        .BYTE_ENABLE    (1)
     ) ram_dualport_i (
       .clk      (clk_i),
 
       .addr_a   (soc_addr[RAM_ADDR_WIDTH + ALIGNMENT_OFFSET - 1 : ALIGNMENT_OFFSET]),
-      .we_a     (soc_gnt && select_dram && soc_we),
-      .be_a     (soc_be),
-      .d_a      (soc_wdata),
-      .q_a      (ram_rdata),
+      .we_a     (soc_gnt && select_dram && soc_we   ),
+      .be_a     (soc_be                             ),
+      .d_a      (soc_wdata                          ),
+      .q_a      (ram_rdata                          ),
 
-      .addr_b   ('0),
-      .we_b     ('0),
-      .d_b      ('0),
-      .q_b      ()
+      .addr_b   (wb2ram_addr                        ),
+      .we_b     (wb2dram_we                         ),
+      .d_b      (wb2ram_data                        ),
+      .q_b      (dram2wb_data                       )
     );
     
     // ----------------------------------
