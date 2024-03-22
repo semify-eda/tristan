@@ -30,8 +30,9 @@ SIM = 	cv32e40x_yosys.v \
 	core/cv32e40x_soc.sv \
 	core/simpleuart.v \
    	core/core_sram.sv \
-    core/custom/ram_arbiter/rtl/ram_arbiter.sv
-
+    core/custom/ram_arbiter/rtl/ram_arbiter.sv \
+	core/custom/obi_wb_bridge/rtl/obi_wb_bridge.sv \
+	core/custom/wb_ram_interface/rtl/wb_ram_interface.sv
 
 TB = core/tb_top.sv
 
