@@ -5,8 +5,8 @@ module obi_wb_bridge
     parameter ADDR_W      = 32,
     parameter DATA_W      = 32,
     parameter OBI_MASK    = 12'hFFF,
-    // parameter I2C_MASK    = 4'hE,
-    // parameter PINMUX_MASK = 4'hF,
+    parameter I2C_MASK    = 4'hE,
+    parameter PINMUX_MASK = 4'hF,
     parameter D_P_MATRIX_ADDR        = {3'h2, 4'h3, 5'h0},
     parameter DRIVE_I2CT_MODULE_ADDR = {3'h4, 4'h3, 5'h0}
 )
@@ -41,7 +41,10 @@ module obi_wb_bridge
     */
 );
 
-//!!!!!!!! TODO: address remaping for obi interface
+//!TODO: address remaping for obi interface
+
+logic obi_sel;
+assign obi_sel = obi_addr_i[31:24] == PINMUX_MASK | obi_addr_i[31:24] == I2C_MASK;
 
 /*************** OBI Layer     ****************/
 enum logic [1:0] {
@@ -53,7 +56,7 @@ enum logic [1:0] {
 
 always_ff @(posedge obi_clk_i, negedge rst_ni) begin : obi_state_assignment
     if(~rst_ni) begin
-        obi_state   <= OBI_IDLE;
+        obi_state <= OBI_IDLE;
     end else begin
         obi_state <= obi_next_state;
     end
@@ -70,7 +73,7 @@ enum logic [1:0] {
 } wb_state, wb_next_state;
 
 logic  wb_resp;
-assign wb_resp = wb_ack_i | wb_state == WB_RESP;
+assign wb_resp = wb_ack_i | wb_state == WB_ACK;
 
 always_comb begin : obi_next_state_logic
     obi_next_state = OBI_IDLE;
@@ -106,148 +109,45 @@ assign obi_rvalid_o = (OBI_VALID == obi_state);
 
 
 /*************** Wishbone Layer ***************/
+enum logic [1:0] {
+    WB_IDLE,    // no data being transfered to/from WB master
+    WB_AWAIT,   // WB layer is awaiting a response from the wishbone slave
+    WB_ACK      // WB slave acknowledged request and sent a response
+} wb_state;
+
 always_ff @(posedge wb_clk_i, negedge rst_ni) begin : wb_state_assignment
     if(~rst_ni) begin
         wb_state <= WB_IDLE;
+        wb_stb_o <= '0;
+        wb_cyc_o <= '0;
     end else begin
-        wb_state <= wb_next_state;
+        case(wb_state)
+            WB_IDLE: begin
+                if(obi_req_i & obi_sel & obi_state == OBI_IDLE) begin
+                    wb_state     <= WB_AWAIT;
+                    wb_stb_o     <= '1;
+                    wb_cyc_o     <= '1;
+                    wb_addr_o    <= obi_addr_i;
+                    wb_wdata_o   <= obi_wdata_i;
+                    wb_wr_en_o   <= obi_wr_en_i;
+                    wb_byte_en_o <= obi_byte_en_i;
+                end   
+            end
+            WB_AWAIT: begin
+                if(wb_ack_i) begin
+                    wb_state     <= WB_ACK;
+                    wb_stb_o     <= '0;
+                    wb_cyc_o     <= '0;
+                    obi_rdata_o  <= wb_rdata_i;
+                    wb_wr_en_o   <= '0;
+                    wb_byte_en_o <= '0;
+                end
+            end
+            WB_ACK: begin
+                wb_state <= WB_IDLE;
+            end
+        endcase
     end
 end : wb_state_assignment
-
-always_comb begin : wb_next_state_logic 
-    wb_next_state = WB_IDLE;
-    case(wb_state)
-        WB_IDLE: begin
-            if(obi_req_i)
-                wb_state = WB_AWAIT;
-            else 
-                wb_state = WB_IDLE;
-        end 
-        WB_AWAIT: begin
-            if(wb_ack_i)
-                wb_state = WB_ACK;
-            else
-                wb_state = WB_AWAIT;
-        end
-        WB_ACK: begin
-            wb_state = WB_IDLE;
-        end
-    endcase
-end : wb_next_state_logic
-
-always_ff @(posedge wb_clk_i) begin : wb_ff_state_actions
-    case(wb_state)
-        WB_IDLE: begin
-            if(obi_req_i) begin
-                wb_addr_o    <= obi_addr_i;
-                wb_wdata_o   <= obi_wdata_i;
-                wb_wr_en_o   <= obi_wr_en_i;
-                wb_byte_en_o <= obi_byte_en_i;
-            end   
-        end
-        WB_AWAIT: begin
-            if(wb_ack_i) begin
-                obi_rdata_o  <= wb_rdata_i;
-                wb_wr_en_o   <= '0;
-                wb_byte_en_o <= '0;
-            end
-        end
-    endcase
-end : wb_ff_state_actions
-
-/* State Actions */
-assign wb_stb_o = WB_AWAIT == wb_state;
-assign wb_cyc_o = WB_AWAIT == wb_state; 
-
-/**********************************************/
-// logic       bridge_en;
-// logic [7:0] block_sel;
-
-// // /* 
-// // * TODO: Add MMU functionality to enable/disable accessing certain blocks/addresses 
-// // */
-
-// enum logic [1:0] {
-//     IDLE,  // no data being transfered
-//     REQ,   // request from OBI toggled and address asserted 
-//     AWAIT, // wait for the data to be received from WB
-//     RESP   // response sent to OBI
-// } state, next_state;
-
-// always_ff @(posedge clk_i, negedge rst_ni) begin : state_assignment
-//     if (~rst_ni) begin
-//         state   <= IDLE;
-//     end else begin
-//         state   <= next_state;
-//     end
-// end : state_assignment
-
-// assign block_sel = obi_addr_i[31:24];
-// assign bridge_en = (block_sel == I2C_MASK | block_sel == PINMUX_MASK);
-
-// always_comb begin : next_state_logic
-//     next_state = IDLE;
-//     case(state)
-//         IDLE: begin
-//             if(obi_req_i & bridge_en)   
-//                 next_state = REQ;
-//             else        
-//                 next_state = IDLE;
-//         end
-//         REQ: begin
-//             next_state = AWAIT;
-//         end
-//         AWAIT: begin
-//             if(wb_ack_i) next_state = RESP;
-//             else         next_state = AWAIT;
-//         end
-//         RESP: begin
-//             next_state = IDLE;
-//         end
-//     endcase
-// end : next_state_logic
-
-// always_comb begin : state_actions_comb
-//     obi_gnt_o    = 1'b0;
-//     obi_rvalid_o = 1'b0;
-//     wb_cyc_o     = 1'b0;
-//     wb_stb_o     = 1'b0;
-//     case(state)
-//         REQ: begin
-//             // latch onto OBI addr and data in this state
-//             obi_gnt_o = 1'b1;
-//             wb_cyc_o  = 1'b1;
-//             wb_stb_o  = 1'b1;
-//         end
-//         AWAIT: begin
-//             wb_cyc_o = 1'b1;
-//             wb_stb_o = 1'b1;
-//         end
-//         RESP: begin
-//             obi_rvalid_o = 1'b1;
-//         end
-//     endcase
-// end : state_actions_comb
-
-// always_ff @(posedge clk_i) begin : state_actions_ff
-//     wb_wr_en_o   <= obi_wr_en_i;
-//     wb_byte_en_o <= obi_byte_en_i;
-//     case(state)
-//         IDLE: begin
-//             // SoC to Smartwave peripheral address translation
-//             /* TODO: expand address translation when MMU is added */
-//             if(block_sel == PINMUX_MASK) begin
-//                 wb_addr_o <= {12'h0, D_P_MATRIX_ADDR, 8'h0};
-//             end
-//             else if(block_sel == I2C_MASK) begin
-//                 wb_addr_o <= {12'h0, DRIVE_I2CT_MODULE_ADDR, 8'h0};
-//             end
-//             wb_wdata_o  <= obi_wdata_i;
-//         end
-//         AWAIT: begin
-//             obi_rdata_o <= wb_rdata_i;
-//         end
-//     endcase
-// end : state_actions_ff
 
 endmodule
