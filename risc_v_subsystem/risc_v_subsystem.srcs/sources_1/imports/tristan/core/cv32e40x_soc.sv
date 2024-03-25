@@ -243,7 +243,8 @@ module cv32e40x_soc
 
     obi_wb_bridge i_obi_wb_bridge
     (
-        .clk_i          (clk_i),
+        .obi_clk_i      (clk_i),
+        .wb_clk_i       (clk_i),
         .rst_ni         (rst_ni),
 
         /* OBI Signals */
@@ -275,7 +276,7 @@ module cv32e40x_soc
     
     sram_dualport #(
         .INITFILEEN     (1),
-        .INITFILE       ("firmware/firmware.hex"),
+        .INITFILE       ("C:/semify/Git/tristan/firmware/firmware.hex"),
         .DATAWIDTH      (SOC_ADDR_WIDTH),
         .ADDRWIDTH      (INSTR_ADDR_WIDTH),
         .BYTE_ENABLE    (1)

@@ -55,11 +55,20 @@ always_ff @(posedge obi_clk_i, negedge rst_ni) begin : obi_state_assignment
     if(~rst_ni) begin
         obi_state   <= OBI_IDLE;
     end else begin
-        obi_state <= next_obi_state;
+        obi_state <= obi_next_state;
     end
 end : obi_state_assignment
 
 // ensures a 2 wb_clk cycle response so that the OBI layer can accurately sample the signal
+
+/*************** Wishbone Layer ***************/
+enum logic [1:0] {
+    WB_IDLE,    // no data being transfered to/from WB master
+    WB_AWAIT,   // WB layer is awaiting a response from the wishbone slave
+    WB_ACK,     // WB slave acknowledged request and sent a response
+    WB_RESP
+} wb_state, wb_next_state;
+
 logic  wb_resp;
 assign wb_resp = wb_ack_i | wb_state == WB_RESP;
 
@@ -97,13 +106,7 @@ assign obi_rvalid_o = (OBI_VALID == obi_state);
 
 
 /*************** Wishbone Layer ***************/
-enum logic [1:0] {
-    WB_IDLE,    // no data being transfered to/from WB master
-    WB_AWAIT,   // WB layer is awaiting a response from the wishbone slave
-    WB_ACK,     // WB slave acknowledged request and sent a response
-} wb_state, wb_next_state;
-
-always_ff @(posedge wb_clk, negedge rst_ni) begin : wb_state_assignment
+always_ff @(posedge wb_clk_i, negedge rst_ni) begin : wb_state_assignment
     if(~rst_ni) begin
         wb_state <= WB_IDLE;
     end else begin
@@ -153,8 +156,8 @@ always_ff @(posedge wb_clk_i) begin : wb_ff_state_actions
 end : wb_ff_state_actions
 
 /* State Actions */
-assign wb_stb_o <= WB_AWAIT == wb_state;
-assign wb_cyc_o <= WB_AWAIT == wb_state; 
+assign wb_stb_o = WB_AWAIT == wb_state;
+assign wb_cyc_o = WB_AWAIT == wb_state; 
 
 /**********************************************/
 // logic       bridge_en;

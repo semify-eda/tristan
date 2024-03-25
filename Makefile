@@ -9,7 +9,7 @@ FIRMWARE_SRCS := firmware/start.c \
 				 firmware/obi_test.c \
 				 firmware/cntb_test.c \
 				 firmware/rle/rle.c \
-				 firmware/rle_test.c \
+				 firmware/rle_test.c 
 
 
 FIRMWARE_OBJS = $(patsubst %.c,%.o,$(FIRMWARE_SRCS))
@@ -56,10 +56,6 @@ sim-ulx3s: sim-ulx3s.vvp firmware/firmware.hex
 view-ulx3s:
 	gtkwave tb_top.fst --save tb_top.gtkw 
 	
-view-ulx3s:
-	gtkwave tb_top.fst --save tb_top.gtkw
-	
-
 # --- Firmware ---
 
 firmware/%.o: firmware/%.c

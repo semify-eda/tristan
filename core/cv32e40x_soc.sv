@@ -258,7 +258,8 @@ module cv32e40x_soc
 
     obi_wb_bridge i_obi_wb_bridge
     (
-        .clk_i          (clk_i),
+        .obi_clk_i      (clk_i),
+        .wb_clk_i       (clk_i),
         .rst_ni         (rst_ni),
 
         /* OBI Signals */
