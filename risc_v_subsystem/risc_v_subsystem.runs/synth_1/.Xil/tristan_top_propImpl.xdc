@@ -1,0 +1,7 @@
+set_property SRC_FILE_INFO {cfile:C:/git/tristan/risc_v_subsystem/risc_v_subsystem.srcs/constrs_1/new/smartwave_v2.xdc rfile:../../../risc_v_subsystem.srcs/constrs_1/new/smartwave_v2.xdc id:1} [current_design]
+set_property src_info {type:XDC file:1 line:3 export:INPUT save:INPUT read:READ} [current_design]
+set_property -dict {PACKAGE_PIN N14 IOSTANDARD LVCMOS33} [get_ports osc_100MHz_i]
+set_property src_info {type:XDC file:1 line:121 export:INPUT save:INPUT read:READ} [current_design]
+set_property -dict {PACKAGE_PIN J13 IOSTANDARD LVCMOS33} [get_ports ftdi_txd]
+set_property src_info {type:XDC file:1 line:122 export:INPUT save:INPUT read:READ} [current_design]
+set_property -dict {PACKAGE_PIN J14 IOSTANDARD LVCMOS33} [get_ports ftdi_rxd]

@@ -8,7 +8,17 @@ module tristan_top (
     input wire osc_100MHz_i,
 
     input wire ftdi_txd,
-    output logic ftdi_rxd
+    output logic ftdi_rxd,
+    
+    /* Wishbone Interface */
+    output logic [SOC_ADDR_WIDTH-1:0]   wb_addr_o,   
+    input  wire  [31 : 0]               wb_rdata_i,  
+    output logic [31 : 0]               wb_wdata_o,  
+    output logic                        wb_wr_en_o,  
+    output logic [3 : 0]                wb_byte_en_o,
+    output logic                        wb_stb_o,    
+    input  wire                         wb_ack_i,    
+    output logic                        wb_cyc_o    
 );
 
     logic clk;
@@ -27,17 +37,19 @@ module tristan_top (
     .osc_100MHz_i   ( osc_100MHz_i  )
     );
     
-    localparam CLK_FREQ = 50_000_000;
-    localparam BAUDRATE = 115200;
-    localparam SOC_ADDR_WIDTH    =  32;
-    localparam RAM_ADDR_WIDTH    =  12;
-    localparam INSTR_RDATA_WIDTH =  32;
-    localparam BOOT_ADDR         = 32'h02000000 + 24'h200000; 
+    localparam CLK_FREQ          = 50_000_000;
+    localparam BAUDRATE          = 115200;
+    localparam SOC_ADDR_WIDTH    = 32;
+    localparam RAM_ADDR_WIDTH    = 12;
+    localparam INSTR_ADDR_WIDTH  = 12;
+    localparam INSTR_RDATA_WIDTH = 32;
+    localparam BOOT_ADDR         = 32'h02000000; 
     
     // wrapper for CV32E40X, the memory system and stdout peripheral
     cv32e40x_soc
     #(
         .SOC_ADDR_WIDTH    (SOC_ADDR_WIDTH),
+        .INSTR_ADDR_WIDTH  (INSTR_ADDR_WIDTH),
         .RAM_ADDR_WIDTH    (RAM_ADDR_WIDTH),
         .INSTR_RDATA_WIDTH (INSTR_RDATA_WIDTH),
         .CLK_FREQ          (CLK_FREQ),
@@ -50,7 +62,16 @@ module tristan_top (
         .rst_ni     ( reset_n       ),
 
         .ser_tx     ( ftdi_rxd      ),
-        .ser_rx     ( ftdi_txd      )
+        .ser_rx     ( ftdi_txd      ),
+        
+        .wb_addr_o    ( wb_addr_o   ),
+        .wb_rdata_i   ( wb_rdata_i  ),
+        .wb_wdata_o   ( wb_wdata_o  ),
+        .wb_wr_en_o   ( wb_wr_en_o  ),
+        .wb_byte_en_o ( wb_byte_en_o),
+        .wb_stb_o     ( wb_stb_o    ),
+        .wb_ack_i     ( wb_ack_i    ),
+        .wb_cyc_o     ( wb_cyc_o    )
     );
     
 endmodule
