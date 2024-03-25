@@ -7,12 +7,13 @@ from cocotbext.wishbone.monitor import WishboneSlave
 from cocotb.utils import *
 
 CLK_PER_SYNC = 300
-SYSCLK = 100e6
-
+SYSCLK = 50e6
+WBCLK  = 100e6
 
 @cocotb.test()
 async def obi_wb_bridge_test(dut):
     cocotb.start_soon(Clock(dut.core_clk, (1/SYSCLK)*1e9, units="ns").start())
+    cocotb.start_soon(Clock(dut.wfg_clk, (1/WBCLK)*1e9, units="ns").start())
 
     dut._log.info("Initialize and reset model")
 
@@ -24,7 +25,7 @@ async def obi_wb_bridge_test(dut):
     # wishbone slave 
     wbs = WishboneSlave(dut,
                         "",
-                        dut.core_clk,
+                        dut.wfg_clk,
                         width=32, # size of data bus
                         signals_dict={
                             "cyc": "cyc_wb",
@@ -38,7 +39,7 @@ async def obi_wb_bridge_test(dut):
                         datgen = iter([0xcafebabe, 0xfeeddeed, 0x11111111, 0x22222222, 0x33333333])
                         )
     
-    await Timer(50, units='us')
+    await Timer(150, units='us')
 
     wbs.log.info("received %d transactions" % len(wbs._recvQ))
     for transaction in wbs._recvQ:
