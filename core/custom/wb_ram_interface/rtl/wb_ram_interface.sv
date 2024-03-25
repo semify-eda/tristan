@@ -22,8 +22,8 @@ module wb_ram_interface #(
     /*************** RAM Signals  ****************/
     output logic [RAM_ADDR_WIDTH-1 : 0] ram_addr_o, // O - address to be output to the RAM
     output logic [RAM_DATA_WIDTH-1 : 0] ram_data_o, // O - data to be written to RAM
-    input  logic [RAM_DATA_WIDTH-1 : 0] iram_data_i,// I - data read from IRAM
-    input  logic [RAM_DATA_WIDTH-1 : 0] dram_data_i,// I - data read from DRAM
+    input  wire  [RAM_DATA_WIDTH-1 : 0] iram_data_i,// I - data read from IRAM
+    input  wire  [RAM_DATA_WIDTH-1 : 0] dram_data_i,// I - data read from DRAM
     output logic                        iram_we_o,  // O - write Enable sent to IRAM
     output logic                        dram_we_o   // O - write enable sent to DRAM
 );
