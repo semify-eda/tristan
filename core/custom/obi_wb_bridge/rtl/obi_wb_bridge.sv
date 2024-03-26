@@ -63,15 +63,6 @@ always_ff @(posedge obi_clk_i, negedge rst_ni) begin : obi_state_assignment
 end : obi_state_assignment
 
 // ensures a 2 wb_clk cycle response so that the OBI layer can accurately sample the signal
-
-/*************** Wishbone Layer ***************/
-enum logic [1:0] {
-    WB_IDLE,    // no data being transfered to/from WB master
-    WB_AWAIT,   // WB layer is awaiting a response from the wishbone slave
-    WB_ACK,     // WB slave acknowledged request and sent a response
-    WB_RESP
-} wb_state, wb_next_state;
-
 logic  wb_resp;
 assign wb_resp = wb_ack_i | wb_state == WB_ACK;
 

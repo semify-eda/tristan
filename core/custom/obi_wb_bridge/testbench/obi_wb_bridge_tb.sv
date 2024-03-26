@@ -62,7 +62,7 @@ module obi_wb_bridge_tb;
         .wb_byte_en_o   (byte_en_wb),
         .wb_stb_o       (stb_wb),
         .wb_ack_i       (ack_wb),
-        .wb_cyc_o       (cyc_wb)
+        .wb_cyc_o       (cyc_wb),
 
         // WB input interface to access RAM
         .wb_addr_i      ('0),
