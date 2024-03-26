@@ -7,8 +7,8 @@ module coproc
     parameter logic [6:0] OPCODE_CNTB = 7'h6b
 )
 (
-    input clk_i,
-    input rst_ni,
+    input wire clk_i,
+    input wire rst_ni,
 
     // eXtension interface
     cv32e40x_if_xif.coproc_compressed   xif_compressed_if,
@@ -18,6 +18,17 @@ module coproc
     cv32e40x_if_xif.coproc_mem_result   xif_mem_result_if,
     cv32e40x_if_xif.coproc_result       xif_result_if
 );
+
+    logic cntb_start;
+    logic cntb_done;
+    logic [4:0] cntb_result;
+
+    logic [31:0] rs0, rs1, rd;
+    logic [3:0] id;
+
+    logic issue_accept;
+
+
     // Compressed instructions - not used
     assign xif_compressed_if.compressed_ready          = 1'b0;
     assign xif_compressed_if.compressed_resp.accept    = 1'b0;
@@ -57,14 +68,6 @@ module coproc
     assign xif_result_if.result.err        = '0;
     assign xif_result_if.result.dbg        = '0;
 
-    logic cntb_start;
-    logic cntb_done;
-
-    logic [31:0] rs0, rs1, rd;
-    logic [3:0] id;
-
-    logic issue_accept;
-
     always_ff @(posedge clk_i, negedge rst_ni) begin
         if (!rst_ni) begin
             rs0 <= '0;
@@ -88,8 +91,6 @@ module coproc
             end
         end
     end
-
-    logic [4:0] cntb_result;
 
     cntb cntb_inst
     (
