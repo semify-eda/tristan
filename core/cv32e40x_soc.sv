@@ -324,7 +324,7 @@ module cv32e40x_soc
     
     logic [31:0] instr_rdata;
     
-    sram_dualport #(
+    soc_sram_dualport #(
         .INITFILEEN     (1),
         .INITFILE       ("firmware/firmware.hex"),
         .DATAWIDTH      (RAM_DATA_WIDTH),
@@ -355,7 +355,7 @@ module cv32e40x_soc
     
     logic [31:0] ram_rdata;
     
-    sram_dualport #(
+    soc_sram_dualport #(
         .DATAWIDTH      (RAM_DATA_WIDTH),
         .ADDRWIDTH      (RAM_ADDR_WIDTH),
         .BYTE_ENABLE    (1)
