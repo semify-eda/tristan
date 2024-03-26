@@ -219,7 +219,7 @@ module cv32e40x_soc
     assign select_wb           = block_sel == WB_MASK;
 
     always_comb begin
-        sec_rdata = '0;
+        soc_rdata = '0;
         case(1'b1)
             select_dram:
                 soc_rdata = ram_rdata;
