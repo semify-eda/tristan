@@ -10,7 +10,7 @@ module cv32e40x_soc
     parameter RAM_DATA_WIDTH    = 32,
     parameter CLK_FREQ          = 50_000_000,
     parameter BAUDRATE          = 115200,
-    parameter BOOT_ADDR         = 32'h02000000,
+    parameter BOOT_ADDR         = 32'h00100000,
     parameter DATA_START_ADDR   = 32'h00000000,
     parameter OBI_ACCESS_MASK   = 4'hF,
     parameter WB_INPUT_FREQ     = 100_000_000
@@ -52,18 +52,18 @@ module cv32e40x_soc
     // the correct bits of soc_addr to index into the RAM, since larger width RAM means more bytes are packed together in a single row.
     localparam ALIGNMENT_OFFSET = $clog2( RAM_DATA_WIDTH / 8 );
 
-    localparam DRAM_MASK        = DATA_START_ADDR[31 : 24]; 
-    localparam IRAM_MASK        = BOOT_ADDR[31 : 24];
-    localparam UART_MASK        = 8'h0A;
-    localparam I2C_MASK         = 8'h0E;
-    localparam PINMUX_MASK      = 8'h0F;
-
+    //TODO: move these to a package
+    localparam DRAM_MASK        = 2'h0;
+    localparam IRAM_MASK        = 2'h1;
+    localparam UART_MASK        = 8'h0A;                // TODO: look into UART stuff
+    localparam WB_MASK          = 2'h3;
 
     // ----------------------------------
     //           Communication Signals
     // ----------------------------------
     // indicates SoC is communicating with an external module through OBI
-    logic obi_com;              
+    logic [1:0] block_sel;
+    assign block_sel =  soc_addr[21:20];
 
     // standard OBI signals
     logic                       obi_req_o;
@@ -75,7 +75,6 @@ module cv32e40x_soc
     logic                       obi_rvalid_i;
     logic [31 : 0]              obi_rdata_i;
     
-    assign obi_com = select_i2c | select_pinmux;
     assign obi_req_o    = soc_req;
     assign obi_addr_o   = soc_addr;
     assign obi_we_o     = soc_we;
@@ -118,7 +117,7 @@ module cv32e40x_soc
             soc_gnt <= 1'b0;
         end else begin
             // If communicating with an external module, wait for the module to respond
-            if(obi_com) begin
+            if(select_wb) begin
                 soc_gnt <= obi_gnt_i;
             end else begin
                 // Grant if we have not already granted
@@ -211,36 +210,35 @@ module cv32e40x_soc
     logic select_dram;
     logic select_uart;
     logic select_iram;
-    logic select_i2c;
-    logic select_pinmux;
-    
+    logic select_wb;
+
     // Data select signals
-    assign select_dram         = soc_addr[31:24] == DRAM_MASK;
-    assign select_iram         = soc_addr[31:24] == IRAM_MASK;
-    assign select_uart         = soc_addr[31:24] == UART_MASK;
-    assign select_i2c          = soc_addr[31:24] == I2C_MASK;
-    assign select_pinmux       = soc_addr[31:24] == PINMUX_MASK;
+    assign select_dram         = block_sel == DRAM_MASK;
+    assign select_iram         = block_sel == IRAM_MASK;
+    assign select_uart         = block_sel == UART_MASK;
+    assign select_wb           = block_sel == WB_MASK;
 
     always_comb begin
-        if (select_dram)
-            soc_rdata = ram_rdata;
-        else if (select_uart_data)
-            soc_rdata = uart_soc_rdata_del;
-        else if (select_uart_busy)
-            soc_rdata = {{31{1'b0}}, uart_busy};
-        else if (select_iram)
-            soc_rdata = instr_rdata;
-        else if (obi_com)
-            soc_rdata = obi_rdata_i;
-        else
-            soc_rdata = 'x;
+        sec_rdata = '0;
+        case(1'b1)
+            select_dram:
+                soc_rdata = ram_rdata;
+            select_uart_data:
+                soc_rdata = uart_soc_rdata_del;
+            select_uart_busy:
+                soc_rdata =  {{31{1'b0}}, uart_busy};
+            select_iram:
+                soc_rdata = instr_rdata;
+            select_wb:
+                soc_rdata = obi_rdata_i; 
+        endcase
     end
 
     always_ff @(posedge clk_i, negedge rst_ni) begin
         if (!rst_ni) begin
             soc_rvalid <= 1'b0;
         end else begin
-            if(obi_com) begin
+            if(select_wb) begin
                 soc_rvalid <= obi_rvalid_i;                
             end else begin
                 // Generally data is available one cycle after req
@@ -255,9 +253,10 @@ module cv32e40x_soc
 
     obi_wb_bridge i_obi_wb_bridge
     (
-        .obi_clk_i      (clk_i),
+        .obi_clk_i      (clk_i    ),
         .wb_clk_i       (wfg_clk_i),
-        .rst_ni         (rst_ni),
+        .rst_ni         (rst_ni   ),
+        .en             (select_wb),
 
         /* OBI Signals */
         .obi_req_i      (obi_req_o      ),

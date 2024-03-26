@@ -4,7 +4,7 @@
 module cv32e40x_top import cv32e40x_pkg::*;
 #(
     parameter INSTR_RDATA_WIDTH = 32,
-              BOOT_ADDR         = 32'h02000000,
+              BOOT_ADDR         = 32'h00100000,
               DM_HALTADDRESS    = 32'h1A11_0800,
               HART_ID           = 32'h0000_0000,
               NUM_MHPMCOUNTERS  = 1

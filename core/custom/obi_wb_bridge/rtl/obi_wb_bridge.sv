@@ -3,17 +3,13 @@
 module obi_wb_bridge
 #(
     parameter ADDR_W      = 32,
-    parameter DATA_W      = 32,
-    parameter OBI_MASK    = 12'hFFF,
-    parameter I2C_MASK    = 4'hE,
-    parameter PINMUX_MASK = 4'hF,
-    parameter D_P_MATRIX_ADDR        = {3'h2, 4'h3, 5'h0},
-    parameter DRIVE_I2CT_MODULE_ADDR = {3'h4, 4'h3, 5'h0}
+    parameter DATA_W      = 32
 )
 (
     input  wire obi_clk_i,                          // I - clock driving the OBI state machine
     input  wire wb_clk_i,                           // I - clock driving the Wishbone state machine
     input  wire rst_ni,                             // I - global reset
+    input  wire en,                                 // I - enable
 
     /********* OBI Signals **********************/
     input  wire                     obi_req_i,      // I - Master requests data transfer, certifies that address & data out is accurate
@@ -41,17 +37,12 @@ module obi_wb_bridge
     */
 );
 
-//!TODO: address remaping for obi interface
-
-logic obi_sel;
-assign obi_sel = obi_addr_i[31:24] == PINMUX_MASK | obi_addr_i[31:24] == I2C_MASK;
-
 /*************** OBI Layer     ****************/
 enum logic [1:0] {
     OBI_IDLE,   // no data being transfered to/from OBI master
     OBI_GNT,    // Wishbone layer acknowledged OBI master transfer request
     OBI_AWAIT,  // OBI master awaiting a response from the wishbone layer
-    OBI_VALID    // Send valid signal to OBI Master
+    OBI_VALID   // Send valid signal to OBI Master
 } obi_state, obi_next_state;
 
 always_ff @(posedge obi_clk_i, negedge rst_ni) begin : obi_state_assignment
@@ -114,11 +105,11 @@ always_ff @(posedge wb_clk_i, negedge rst_ni) begin : wb_state_assignment
     end else begin
         case(wb_state)
             WB_IDLE: begin
-                if(obi_req_i & obi_sel & obi_state == OBI_IDLE) begin
+                if(obi_req_i & en & obi_state == OBI_IDLE) begin
                     wb_state     <= WB_AWAIT;
                     wb_stb_o     <= '1;
                     wb_cyc_o     <= '1;
-                    wb_addr_o    <= obi_addr_i;
+                    wb_addr_o    <= {12'h0, obi_addr_i[19:0]};
                     wb_wdata_o   <= obi_wdata_i;
                     wb_wr_en_o   <= obi_wr_en_i;
                     wb_byte_en_o <= obi_byte_en_i;
