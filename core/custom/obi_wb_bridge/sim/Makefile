@@ -2,6 +2,7 @@
 # SRC := ../../../../pkg/wfg_pkg.sv 
 SRC += $(wildcard ../rtl/*.sv)
 SRC += ../testbench/obi_wb_bridge_tb.sv
+SRC += ../../wb_ram_interface/rtl/wb_ram_interface.sv
 
 # SoC modules
 SRC +=  ../../../../cv32e40x_yosys.v \

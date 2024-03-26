@@ -18,8 +18,8 @@ module cv32e40x_soc
 (
     // Clock and reset
     input  wire  clk_i,
+    input  wire  wfg_clk_i,   
     input  wire  rst_ni,
-    
     // Uart
     output logic ser_tx,
     input  wire  ser_rx,
@@ -33,10 +33,8 @@ module cv32e40x_soc
     output logic                        wb_stb_o,    
     input  wire                         wb_ack_i,    
     output logic                        wb_cyc_o,
-    
-    // WB input interface to access RAM
-    input  wire                         wb_clk_i,
-    
+   
+    // WB input interface to access SoC RAM
     input  wire  [SOC_ADDR_WIDTH-1:0]   wb_addr_i,
     output logic [31 : 0]               wb_rdata_o, 
     input  wire  [31 : 0]               wb_wdata_i,  
@@ -54,11 +52,11 @@ module cv32e40x_soc
     // the correct bits of soc_addr to index into the RAM, since larger width RAM means more bytes are packed together in a single row.
     localparam ALIGNMENT_OFFSET = $clog2( RAM_DATA_WIDTH / 8 );
 
-    localparam DRAM_MASK        = BOOT_ADDR[31 : 28];
-    localparam IRAM_MASK        = DATA_START_ADDR[31 : 28];
-    localparam UART_MASK        = 4'hA;
-    localparam I2C_MASK         = 4'hE;
-    localparam PINMUX_MASK      = 4'hF;
+    localparam DRAM_MASK        = DATA_START_ADDR[31 : 24]; 
+    localparam IRAM_MASK        = BOOT_ADDR[31 : 24];
+    localparam UART_MASK        = 8'h0A;
+    localparam I2C_MASK         = 8'h0E;
+    localparam PINMUX_MASK      = 8'h0F;
 
 
     // ----------------------------------
@@ -210,7 +208,6 @@ module cv32e40x_soc
     // ----------------------------------
     //            Multiplexer
     // ----------------------------------
-    
     logic select_dram;
     logic select_uart;
     logic select_iram;
@@ -259,7 +256,7 @@ module cv32e40x_soc
     obi_wb_bridge i_obi_wb_bridge
     (
         .obi_clk_i      (clk_i),
-        .wb_clk_i       (clk_i),
+        .wb_clk_i       (wfg_clk_i),
         .rst_ni         (rst_ni),
 
         /* OBI Signals */
@@ -299,7 +296,7 @@ module cv32e40x_soc
         .RAM_DATA_WIDTH (RAM_DATA_WIDTH )
     ) i_wb_ram_interface (
         .ram_clk_i      (clk_i          ),
-        .wb_clk_i       (wb_clk_i       ),
+        .wb_clk_i       (wfg_clk_i      ),
         .rst_ni         (rst_ni         ),
 
         // Wishbone input signals

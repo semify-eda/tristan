@@ -26,6 +26,7 @@ module obi_wb_bridge_tb;
 
     logic core_clk;
     logic core_rst_n;
+    logic wfg_clk;
 
     // allow fst dump
     initial begin
@@ -41,7 +42,6 @@ module obi_wb_bridge_tb;
     #(
         .SOC_ADDR_WIDTH    (SOC_ADDR_WIDTH),
         .RAM_ADDR_WIDTH    (RAM_ADDR_WIDTH),
-        .INSTR_RDATA_WIDTH (INSTR_RDATA_WIDTH),
         .CLK_FREQ          (CLK_FREQ),
         .BAUDRATE          (BAUDRATE),
         .BOOT_ADDR         (BOOT_ADDR)
@@ -49,11 +49,12 @@ module obi_wb_bridge_tb;
     cv32e40x_soc
     (
         .clk_i          ( core_clk     ),
+        .wfg_clk_i      ( wfg_clk      ),
         .rst_ni         ( core_rst_n   ),
         .ser_tx,
         .ser_rx,
 
-        // WB interface
+        // WB output interface
         .wb_addr_o      (addr_wb),
         .wb_rdata_i     (data_i_wb),
         .wb_wdata_o     (data_o_wb),
@@ -63,6 +64,13 @@ module obi_wb_bridge_tb;
         .wb_ack_i       (ack_wb),
         .wb_cyc_o       (cyc_wb)
 
+        // WB input interface to access RAM
+        .wb_addr_i      ('0),
+        .wb_wdata_i     ('0),  
+        .wb_wr_en_i     ('0),  
+        .wb_byte_en_i   ('0),
+        .wb_stb_i       ('0),    
+        .wb_cyc_i       ('0)
     );
 
     // ----------------------------------
