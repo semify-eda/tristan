@@ -60,23 +60,25 @@ module cv32e40x_top import cv32e40x_pkg::*;
         .X_MISA      ( '0 )
     ) ext_if();
 
-    coproc coproc_inst
-    (
-        .clk_i              (clk_i),
-        .rst_ni             (rst_ni),
-        .xif_compressed_if  (ext_if.coproc_compressed),
-        .xif_issue_if       (ext_if.coproc_issue),
-        .xif_commit_if      (ext_if.coproc_commit),
-        .xif_mem_if         (ext_if.coproc_mem),
-        .xif_mem_result_if  (ext_if.coproc_mem_result),
-        .xif_result_if      (ext_if.coproc_result)
-    );
+    // coproc coproc_inst
+    // (
+    //     .clk_i              (clk_i),
+    //     .rst_ni             (rst_ni),
+    //     .xif_compressed_if  (ext_if.coproc_compressed),
+    //     .xif_issue_if       (ext_if.coproc_issue),
+    //     .xif_commit_if      (ext_if.coproc_commit),
+    //     .xif_mem_if         (ext_if.coproc_mem),
+    //     .xif_mem_result_if  (ext_if.coproc_mem_result),
+    //     .xif_result_if      (ext_if.coproc_result)
+    // );
 
     cv32e40x_core
     #(
         .NUM_MHPMCOUNTERS (NUM_MHPMCOUNTERS),
-        .B_EXT (ZBA_ZBB_ZBC_ZBS), //ZBA_ZBB_ZBC_ZBS
-        .X_EXT (1'b1), // enable xtension interface
+        .A_EXT (A_NONE),
+        .B_EXT (B_NONE), //ZBA_ZBB_ZBC_ZBS
+        .M_EXT (M_NONE),
+        .X_EXT (1'b0), // enable xtension interface
         .X_NUM_RS (X_NUM_RS)
     )
     cv32e40x_core_inst
