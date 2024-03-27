@@ -142,3 +142,4 @@ always_ff @(posedge wb_clk_i, negedge rst_ni) begin : wb_state_assignment
 end : wb_state_assignment
 
 endmodule
+`default_nettype wire
