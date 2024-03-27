@@ -6,7 +6,7 @@ from cocotb.utils import *
 
 CLK_PER_SYNC = 300
 SYSCLK = 100e6
-RAMCLK = 50e6
+RAMCLK = 25e6
 
 @cocotb.test()
 async def wb_ram_test(dut):

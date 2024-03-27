@@ -6,8 +6,8 @@ module obi_wb_bridge
     parameter DATA_W      = 32
 )
 (
-    input  wire obi_clk_i,                          // I - clock driving the OBI state machine
-    input  wire wb_clk_i,                           // I - clock driving the Wishbone state machine
+    input  wire obi_clk_i,                          // I - clock driving the OBI state machine -- 25MHz or 50MHz
+    input  wire wb_clk_i,                           // I - clock driving the Wishbone state machine -- 100MHz
     input  wire rst_ni,                             // I - global reset
     input  wire en,                                 // I - enable
 
@@ -53,15 +53,32 @@ always_ff @(posedge obi_clk_i, negedge rst_ni) begin : obi_state_assignment
     end
 end : obi_state_assignment
 
-// ensures a 2 wb_clk cycle response so that the OBI layer can accurately sample the signal
-logic  wb_resp;
-assign wb_resp = wb_ack_i | wb_state == WB_ACK;
+// ensures that the wb response is recorded so that the slower OBI layer can accurately detect it
+logic wb_resp;
+logic wb_resp_ff;
+
+assign wb_resp = wb_resp_ff | wb_ack_i;
+
+always_ff @(posedge wb_clk_i, negedge rst_ni) begin : wb_resp_logic
+    if(~rst_ni) begin
+        wb_resp_ff <= '0;
+    end else begin
+        if(obi_req_i) begin
+            // reset the wb valid flag when it is handed off to the OBI rvalid signal            
+            if(obi_rvalid_o) begin
+                wb_resp_ff <= '0;
+            end else if(wb_ack_i) begin
+                wb_resp_ff <= '1;
+            end
+        end
+    end
+end : wb_resp_logic
 
 always_comb begin : obi_next_state_logic
     obi_next_state = OBI_IDLE;
     case(obi_state)
         OBI_IDLE: begin
-            if(wb_cyc_o & wb_stb_o & ~wb_resp) 
+            if((wb_cyc_o & wb_stb_o) | wb_resp) 
                 obi_next_state = OBI_GNT;
             else
                 obi_next_state = OBI_IDLE;
