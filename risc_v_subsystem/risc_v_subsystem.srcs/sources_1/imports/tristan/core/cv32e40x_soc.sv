@@ -371,3 +371,4 @@ module cv32e40x_soc
     end
 
 endmodule
+`default_nettype wire
