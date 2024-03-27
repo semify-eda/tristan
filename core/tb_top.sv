@@ -21,9 +21,9 @@ module tb_top;
 
     localparam BAUDRATE       = 115200;
     localparam SOC_ADDR_WIDTH    =  32;
-    localparam RAM_ADDR_WIDTH    =  14;
+    localparam RAM_ADDR_WIDTH    =  12;
     localparam INSTR_RDATA_WIDTH =  32;
-    localparam BOOT_ADDR         = 32'h02000000 + 24'h200000; // TODO set inside cv32e40x_top
+    localparam BOOT_ADDR         = 32'h02000000;
 
     parameter time CLK_PHASE_HI       = 20;
     parameter time CLK_PHASE_LO       = 20;
@@ -119,7 +119,6 @@ module tb_top;
     #(
         .SOC_ADDR_WIDTH    (SOC_ADDR_WIDTH),
         .RAM_ADDR_WIDTH    (RAM_ADDR_WIDTH),
-        .INSTR_RDATA_WIDTH (INSTR_RDATA_WIDTH),
         .CLK_FREQ          (CLK_FREQ),
         .BAUDRATE          (BAUDRATE),
         .BOOT_ADDR         (BOOT_ADDR)

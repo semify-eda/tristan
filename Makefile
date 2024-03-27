@@ -9,7 +9,7 @@ FIRMWARE_SRCS := firmware/start.c \
 				 firmware/obi_test.c \
 				 firmware/cntb_test.c \
 				 firmware/rle/rle.c \
-				 firmware/rle_test.c \
+				 firmware/rle_test.c 
 
 
 FIRMWARE_OBJS = $(patsubst %.c,%.o,$(FIRMWARE_SRCS))
@@ -29,7 +29,10 @@ RTL_CUSTOM = $(wildcard core/custom/*.sv)
 SIM = 	cv32e40x_yosys.v \
 	core/cv32e40x_soc.sv \
 	core/simpleuart.v \
-   	core/core_sram.sv
+   	core/core_sram.sv \
+    core/custom/ram_arbiter/rtl/ram_arbiter.sv \
+	core/custom/obi_wb_bridge/rtl/obi_wb_bridge.sv \
+	core/custom/wb_ram_interface/rtl/wb_ram_interface.sv
 
 TB = core/tb_top.sv
 
@@ -53,10 +56,6 @@ sim-ulx3s: sim-ulx3s.vvp firmware/firmware.hex
 view-ulx3s:
 	gtkwave tb_top.fst --save tb_top.gtkw 
 	
-view-ulx3s:
-	gtkwave tb_top.fst --save tb_top.gtkw
-	
-
 # --- Firmware ---
 
 firmware/%.o: firmware/%.c
@@ -79,9 +78,11 @@ firmware/firmware.bin: firmware/firmware.elf
 firmware/firmware.hex: firmware/firmware.bin firmware/makehex.py
 	$(PYTHON) firmware/makehex.py $< 4096 > $@
 
+firmware: firmware/firmware.hex
+
 # --- General ---
 
-.PHONY: sim-ulx3s view-ulx3s
+.PHONY: sim-ulx3s view-ulx3s firmware
 
 clean:
 	rm -f *.vvp *.fst *.fst.hier *.vcd *.log *.json *.asc *.bin *.bit firmware/rle/*.o firmware/*.o firmware/*.elf firmware/*.bin firmware/*.hex firmware/firmware.map ulx3s.config preprocessed.v cv32e40x_yosys.v abc.history

@@ -1,26 +1,27 @@
 #include "util.h"
 #include "obi_test.h"
+#include "hal.h"
 
 // this test is intended to be viewed/verified through a testbench or waveform viewer
 void write_i2c(unsigned int i2c_data)
 {
-    BASE_I2C = i2c_data;
+    WFG_REGISTER(BLOCK_DRIVER, TYPE_I2CT, ID_I2CT) = i2c_data;
 }
 
 volatile unsigned int read_i2c()
 {
-    return BASE_I2C;
+    return WFG_REGISTER(BLOCK_DRIVER, TYPE_I2CT, ID_I2CT);
 }
 
 // this test is intended to be viewed/verified through a testbench or waveform viewr
 void write_pinmux(volatile unsigned int pinmux_data)
 {
-    BASE_PINMUX = pinmux_data;
+    WFG_REGISTER(BLOCK_GEN_CONFIG, TYPE_DRIVER_PIN_MUX, ID_PIN_MUX) = pinmux_data;
 }
 
 volatile unsigned int read_pinmux()
 {
-    return BASE_PINMUX;
+    return WFG_REGISTER(BLOCK_GEN_CONFIG, TYPE_DRIVER_PIN_MUX, ID_PIN_MUX);
 }
 
 void obi_test()
