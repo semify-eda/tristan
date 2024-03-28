@@ -44,8 +44,8 @@ async def wb_ram_test(dut):
     )
 
     RAM_DEPTH = 0x1000
-    IRAM_ADDR = 0x00030000
-    DRAM_ADDR = 0x00032000
+    IRAM_ADDR = 0x00100000
+    DRAM_ADDR = 0x00000000
 
     idata = ''
     ddata = ''
@@ -111,11 +111,6 @@ async def wb_ram_test(dut):
     iram_data.close()
     dram_data = open('dram.hex', 'r')
     iram_data = open('iram.hex', 'r')
-
-
-    RAM_DEPTH = 0x1000
-    IRAM_ADDR = 0x00030000
-    DRAM_ADDR = 0x00032000
 
     idata = ''
     ddata = ''

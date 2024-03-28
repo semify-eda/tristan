@@ -3,8 +3,8 @@ module wb_ram_interface #(
     parameter WB_ADDR_WIDTH  = 32,
     parameter RAM_ADDR_WIDTH = 32,
     parameter RAM_DATA_WIDTH = 32,
-    parameter IRAM_ADDR_MASK = {3'h1, 4'h8},
-    parameter DRAM_ADDR_MASK = {3'h1, 4'h9}
+    parameter IRAM_ADDR_MASK = 3'h1,
+    parameter DRAM_ADDR_MASK = 3'h0
 )(
     input  wire  wb_clk_i,                          // I - clock signal for wishbone state machine
     input  wire  ram_clk_i,                         // I - clock signal for ram state machine
@@ -32,8 +32,8 @@ module wb_ram_interface #(
     logic select_dram;
     logic ram_comm;
 
-    assign select_iram = (wb_addr_i[19:13] == IRAM_ADDR_MASK);
-    assign select_dram = (wb_addr_i[19:13] == DRAM_ADDR_MASK);
+    assign select_iram = (wb_addr_i[22:20] == IRAM_ADDR_MASK);  // TODO: move these to a package
+    assign select_dram = (wb_addr_i[22:20] == DRAM_ADDR_MASK);
     assign ram_comm    = select_dram | select_iram;
 
     /*************** Wishbone Signals *************/
@@ -50,7 +50,7 @@ module wb_ram_interface #(
             wb_state  <= wb_next_state;
             case(wb_state)
                 WB_IDLE: begin
-                    if(ram_state == RAM_RESP & ram_comm) begin
+                    if(ram_state == RAM_RESP & ram_comm & wb_stb_i & wb_cyc_i) begin
                         wb_ack_o   <= '1;
                         wb_rdata_o <= select_iram ? iram_data_i : dram_data_i;
                     end
@@ -66,8 +66,10 @@ module wb_ram_interface #(
         wb_next_state = WB_IDLE;
         case(wb_state)
             WB_IDLE: begin
-                if(ram_state == RAM_RESP) wb_next_state = WB_RESP;
-                else                      wb_next_state = WB_IDLE;
+                if(ram_state == RAM_RESP & wb_cyc_i & wb_stb_i)
+                    wb_next_state = WB_RESP;
+                else
+                    wb_next_state = WB_IDLE;
             end
             WB_RESP: begin
                 wb_next_state = WB_IDLE;
