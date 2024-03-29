@@ -37,6 +37,29 @@ module obi_wb_bridge
     */
 );
 
+logic       obi_clk_ff;
+logic       wb_clk_ff;
+logic       capture;
+logic [1:0] bufr;
+
+/********** Multicycle Path Timing ***********/
+always_ff @(posedge obi_clk_i, negedge rst_ni) begin
+    if (~rst_ni) begin
+       obi_clk_ff <= '0;
+    end else begin 
+        obi_clk_ff <= ~obi_clk_ff;
+    end
+end
+always_ff @(posedge wb_clk_i, negedge rst_ni) begin
+    if (~rst_ni) begin
+        bufr    <= '0;
+    end else begin
+        bufr[0] <= obi_clk_ff;
+        bufr[1] <= bufr[0] ^ obi_clk_ff;
+        capture <= bufr[1];
+    end
+end
+
 /*************** OBI Layer     ****************/
 enum logic [1:0] {
     OBI_IDLE,   // no data being transfered to/from OBI master
@@ -122,7 +145,7 @@ always_ff @(posedge wb_clk_i, negedge rst_ni) begin : wb_state_assignment
     end else begin
         case(wb_state)
             WB_IDLE: begin
-                if(obi_req_i & en & obi_state == OBI_IDLE) begin
+                if(obi_req_i & en & obi_state == OBI_IDLE & capture) begin
                     wb_state     <= WB_AWAIT;
                     wb_stb_o     <= '1;
                     wb_cyc_o     <= '1;

@@ -39,7 +39,7 @@ async def obi_wb_bridge_test(dut):
                         datgen = iter([0xcafebabe, 0xfeeddeed, 0x11111111, 0x22222222, 0x33333333])
                         )
     
-    await Timer(600, units='us')
+    await Timer(190, units='us')
 
     wbs.log.info("received %d transactions" % len(wbs._recvQ))
     for transaction in wbs._recvQ:
