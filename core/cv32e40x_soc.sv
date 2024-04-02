@@ -12,7 +12,6 @@ module cv32e40x_soc
     parameter BAUDRATE          = 115200,
     parameter BOOT_ADDR         = 32'h00100000,
     parameter DATA_START_ADDR   = 32'h00000000,
-    parameter OBI_ACCESS_MASK   = 4'hF,
     parameter WB_INPUT_FREQ     = 100_000_000
 )
 (
@@ -20,9 +19,9 @@ module cv32e40x_soc
     input  wire  clk_i,
     input  wire  wfg_clk_i,   
     input  wire  rst_ni,
-    // Uart
-    output logic ser_tx,
-    input  wire  ser_rx,
+    // // Uart
+    // output logic ser_tx,
+    // input  wire  ser_rx,
 
     // WB output interface for external modules
     output logic [SOC_ADDR_WIDTH-1:0]   wb_addr_o,   
@@ -208,14 +207,14 @@ module cv32e40x_soc
     //            Multiplexer
     // ----------------------------------
     logic select_dram;
-    logic select_uart;
+    // logic select_uart;
     logic select_iram;
     logic select_wb;
 
     // Data select signals
     assign select_dram         = block_sel == DRAM_MASK;
     assign select_iram         = block_sel == IRAM_MASK;
-    assign select_uart         = block_sel == UART_MASK;
+    // assign select_uart         = block_sel == UART_MASK;
     assign select_wb           = block_sel == WB_MASK;
 
     always_comb begin
@@ -223,10 +222,10 @@ module cv32e40x_soc
         case(1'b1)
             select_dram:
                 soc_rdata = ram_rdata;
-            select_uart_data:
-                soc_rdata = uart_soc_rdata_del;
-            select_uart_busy:
-                soc_rdata =  {{31{1'b0}}, uart_busy};
+            // select_uart_data:
+            //     soc_rdata = uart_soc_rdata_del;
+            // select_uart_busy:
+            //     soc_rdata =  {{31{1'b0}}, uart_busy};
             select_iram:
                 soc_rdata = instr_rdata;
             select_wb:
@@ -377,46 +376,46 @@ module cv32e40x_soc
     //               UART
     // ----------------------------------
     
-    logic select_uart_data;
-    logic select_uart_busy;
+    // logic select_uart_data;
+    // logic select_uart_busy;
     
-    assign select_uart_data = select_uart && soc_addr[15:0]  == 16'h0000;
-    assign select_uart_busy = select_uart && soc_addr[15:0]  == 16'h0004;
+    // assign select_uart_data = select_uart && soc_addr[15:0]  == 16'h0000;
+    // assign select_uart_busy = select_uart && soc_addr[15:0]  == 16'h0004;
     
-    logic [31:0] uart_soc_rdata;
-    logic [31:0] uart_soc_rdata_del;
+    // logic [31:0] uart_soc_rdata;
+    // logic [31:0] uart_soc_rdata_del;
     
-    logic uart_busy;
+    // logic uart_busy;
     
-    // Prevent metastability
-    logic [3:0] ser_rx_ff;
+    // // Prevent metastability
+    // logic [3:0] ser_rx_ff;
     
-    always @(posedge clk_i) begin
-        ser_rx_ff <= {ser_rx_ff[2:0], ser_rx};
-    end
+    // always @(posedge clk_i) begin
+    //     ser_rx_ff <= {ser_rx_ff[2:0], ser_rx};
+    // end
     
-    simpleuart #(
-        .DEFAULT_DIV(CLK_FREQ / BAUDRATE)
-    ) simpleuart_inst (
-        .clk    (clk_i),
-        .resetn(rst_ni),
+    // simpleuart #(
+    //     .DEFAULT_DIV(CLK_FREQ / BAUDRATE)
+    // ) simpleuart_inst (
+    //     .clk    (clk_i),
+    //     .resetn(rst_ni),
 
-        .ser_tx (ser_tx),
-        .ser_rx (ser_rx_ff[3]),
+    //     .ser_tx (ser_tx),
+    //     .ser_rx (ser_rx_ff[3]),
 
-        .reg_div_we ('0),
-        .reg_div_di ('0),
-        .reg_div_do (),
+    //     .reg_div_we ('0),
+    //     .reg_div_di ('0),
+    //     .reg_div_do (),
 
-        .reg_dat_we (soc_gnt && select_uart_data && soc_we),
-        .reg_dat_re (soc_gnt && select_uart_data && !soc_we),
-        .reg_dat_di (soc_wdata),
-        .reg_dat_do (uart_soc_rdata),
-        .reg_dat_wait (uart_busy)
-    );
+    //     .reg_dat_we (soc_gnt && select_uart_data && soc_we),
+    //     .reg_dat_re (soc_gnt && select_uart_data && !soc_we),
+    //     .reg_dat_di (soc_wdata),
+    //     .reg_dat_do (uart_soc_rdata),
+    //     .reg_dat_wait (uart_busy)
+    // );
     
-    always @(posedge clk_i) begin
-        uart_soc_rdata_del <= uart_soc_rdata;
-    end
+    // always @(posedge clk_i) begin
+    //     uart_soc_rdata_del <= uart_soc_rdata;
+    // end
 
 endmodule

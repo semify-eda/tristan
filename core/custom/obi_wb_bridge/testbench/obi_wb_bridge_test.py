@@ -7,7 +7,7 @@ from cocotbext.wishbone.monitor import WishboneSlave
 from cocotb.utils import *
 
 CLK_PER_SYNC = 300
-SYSCLK = 50e6
+SYSCLK = 25e6
 WBCLK  = 100e6
 
 @cocotb.test()
@@ -39,7 +39,7 @@ async def obi_wb_bridge_test(dut):
                         datgen = iter([0xcafebabe, 0xfeeddeed, 0x11111111, 0x22222222, 0x33333333])
                         )
     
-    await Timer(150, units='us')
+    await Timer(190, units='us')
 
     wbs.log.info("received %d transactions" % len(wbs._recvQ))
     for transaction in wbs._recvQ:

@@ -61,7 +61,7 @@ module wb_ram_tb;
     // ----------------------------------
     //              IRAM
     // ----------------------------------
-    sram_dualport #(
+    soc_sram_dualport #(
         .INITFILEEN     (1),
         .DATAWIDTH      (RAM_DATA_WIDTH),
         .ADDRWIDTH      (RAM_ADDR_WIDTH),
@@ -86,7 +86,7 @@ module wb_ram_tb;
     
     logic [31:0] ram_rdata;
     
-    sram_dualport #(
+    soc_sram_dualport #(
         .INITFILEEN     (1),
         .DATAWIDTH      (RAM_DATA_WIDTH),
         .ADDRWIDTH      (RAM_ADDR_WIDTH),

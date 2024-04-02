@@ -12,8 +12,8 @@ char cmd_buffer[CMD_LEN];
 
 void main(void)
 {
-    int bits = cntb_hard(0xFFFFFFFF, 7);
-    print(bits);
+    // int bits = cntb_hard(0xFFFFFFFF, 7);
+    // print(bits);
 
     // TODO It seems like CSRs and our custom instructions
     //      don't work together
