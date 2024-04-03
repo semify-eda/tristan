@@ -21,6 +21,7 @@ async def test_simple_timer(dut):
 
     # Set enable high
     dut.en_i.value = 1
+    dut.load_i = 0
 
     # Run for ten clock cycles
     for _ in range(10):
@@ -42,8 +43,14 @@ async def test_simple_timer(dut):
 
     # Set enable high
     dut.en_i.value = 1
+    
+    # Set load data value
+    dut.load_i = 1
+    dut.d_i = 3
+    await RisingEdge(dut.clk_i)
+    dut.load_i = 0
 
-    # Run for ten clock cycles
+    # Run for five clock cycles
     for _ in range(10):
         await RisingEdge(dut.clk_i)
 

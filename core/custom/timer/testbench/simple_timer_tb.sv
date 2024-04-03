@@ -4,15 +4,18 @@ module simple_timer_tb;
 
     localparam WIDTH = 8;
     
-    logic clk_i, rst_n_i, en_i;
+    logic clk_i, rst_n_i, load_i, en_i;
+	logic [WIDTH - 1:0] d_i;
     logic tick_o;
-    logic [7:0] q_o;
+    logic [WIDTH - 1:0] q_o;
     
     simple_timer #(
         .WIDTH  (WIDTH)         
     )simple_timer(
         .clk_i      (clk_i),
         .rst_n_i    (rst_n_i),
+		.load_i		(load_i),
+		.d_i		(d_i),
         .en_i       (en_i),
         
         .tick_o     (tick_o),

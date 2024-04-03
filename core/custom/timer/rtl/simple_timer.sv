@@ -38,7 +38,9 @@ module simple_timer #(
     // -------------------------------------------------------------------------------------------------
     input wire                   clk_i,     // I - Clock input
     input wire                   rst_n_i,   // I - Asynchronous reset
-    input wire                   en_i,      // I - timer enable
+	input wire					 load_i,	// I - Control signal to load start value 
+	input wire [WIDTH - 1 : 0]	 d_i,		// I - Timer start value
+    input wire                   en_i,      // I - Timer enable
     // -------------------------------------------------------------------------------------------------
     // Outputs
     // -------------------------------------------------------------------------------------------------
@@ -56,8 +58,8 @@ module simple_timer #(
     // Implementation
     // -------------------------------------------------------------------------------------------------
     assign r_next_count = q_o + {{(WIDTH-1){1'b0}}, 1'b1};
-    assign r_count_val = (r_next_count == WIDTH) ? {(WIDTH){1'b0}} : r_next_count;    // Reset if max count is reached, else, take next counter value
-    assign tick_o = (q_o == WIDTH-1) ? 1'b1 : 1'b0;     // If max count is reached, raise tick signal
+	assign r_count_val = (r_next_count == WIDTH) ? {(WIDTH){1'b0}} : r_next_count;    // Reset if max count is reached, else, take next counter value	
+	assign tick_o = (q_o == WIDTH-1) ? 1'b1 : 1'b0;     // If max count is reached, raise tick signal
 
     always_ff @(posedge clk_i, negedge rst_n_i) begin
         if(~rst_n_i)begin
@@ -65,7 +67,11 @@ module simple_timer #(
         end
         else begin
             if(en_i) begin
-                q_o <= r_count_val;
+				if(load_i) begin
+					q_o <= d_i;
+				end else begin
+					q_o <= r_count_val;
+				end
             end
         end
     end
