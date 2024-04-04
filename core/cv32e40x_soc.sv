@@ -17,30 +17,34 @@ module cv32e40x_soc
 (
     // Clock and reset
     input  wire  clk_i,
-    input  wire  wfg_clk_i,   
+    input  wire  wfg_clk_i,
     input  wire  rst_ni,
     // // Uart
     // output logic ser_tx,
     // input  wire  ser_rx,
 
+    //core control signals
+    input  wire                         soc_fetch_enable_i,
+    output logic                        soc_core_sleep_o,
+
     // WB output interface for external modules
-    output logic [SOC_ADDR_WIDTH-1:0]   wb_addr_o,   
-    input  wire  [31 : 0]               wb_rdata_i,  
-    output logic [31 : 0]               wb_wdata_o,  
-    output logic                        wb_wr_en_o,  
+    output logic [SOC_ADDR_WIDTH-1:0]   wb_addr_o,
+    input  wire  [31 : 0]               wb_rdata_i,
+    output logic [31 : 0]               wb_wdata_o,
+    output logic                        wb_wr_en_o,
     output logic [3 : 0]                wb_byte_en_o,
-    output logic                        wb_stb_o,    
-    input  wire                         wb_ack_i,    
+    output logic                        wb_stb_o,
+    input  wire                         wb_ack_i,
     output logic                        wb_cyc_o,
-   
+
     // WB input interface to access SoC RAM
     input  wire  [SOC_ADDR_WIDTH-1:0]   wb_addr_i,
-    output logic [31 : 0]               wb_rdata_o, 
-    input  wire  [31 : 0]               wb_wdata_i,  
-    input  wire                         wb_wr_en_i,  
+    output logic [31 : 0]               wb_rdata_o,
+    input  wire  [31 : 0]               wb_wdata_i,
+    input  wire                         wb_wr_en_i,
     input  wire  [3 : 0]                wb_byte_en_i,
-    input  wire                         wb_stb_i,    
-    output logic                        wb_ack_o,    
+    input  wire                         wb_stb_i,
+    output logic                        wb_ack_o,
     input  wire                         wb_cyc_i
 );
 
@@ -73,7 +77,7 @@ module cv32e40x_soc
     logic [31 : 0]              obi_wdata_o;
     logic                       obi_rvalid_i;
     logic [31 : 0]              obi_rdata_i;
-    
+
     assign obi_req_o    = soc_req;
     assign obi_addr_o   = soc_addr;
     assign obi_we_o     = soc_we;
@@ -83,13 +87,13 @@ module cv32e40x_soc
     // ----------------------------------
     //           CV32E40X Core
     // ----------------------------------
-    
+
     logic cpu_instr_req;
     logic cpu_instr_gnt;
     logic cpu_instr_rvalid;
     logic [SOC_ADDR_WIDTH-1:0] cpu_instr_addr;
     logic [31: 0] cpu_instr_rdata;
-    
+
     logic cpu_data_req;
     logic cpu_data_gnt;
     logic cpu_data_rvalid;
@@ -98,7 +102,7 @@ module cv32e40x_soc
     logic         cpu_data_we;
     logic [31: 0] cpu_data_wdata;
     logic [31: 0] cpu_data_rdata;
-    
+
     logic soc_req;
     logic soc_gnt;
     logic soc_rvalid;
@@ -107,7 +111,7 @@ module cv32e40x_soc
     logic         soc_we;
     logic [31: 0] soc_wdata;
     logic [31: 0] soc_rdata;
-    
+
     // ----------------------------------
     //            Grant Logic
     // ----------------------------------
@@ -184,7 +188,7 @@ module cv32e40x_soc
 
       // Data memory interface
       .data_req_o       (cpu_data_req       ),
-      .data_gnt_i       (cpu_data_gnt       ), 
+      .data_gnt_i       (cpu_data_gnt       ),
       .data_rvalid_i    (cpu_data_rvalid    ),
       .data_addr_o      (cpu_data_addr      ),
       .data_be_o        (cpu_data_be        ),
@@ -199,10 +203,10 @@ module cv32e40x_soc
       .debug_req_i      (1'b0),
 
       // CPU control signals
-      .fetch_enable_i   (1'b1),
-      .core_sleep_o     ()
+      .fetch_enable_i   (soc_fetch_enable_i),
+      .core_sleep_o     (soc_core_sleep_o)
     );
-    
+
     // ----------------------------------
     //            Multiplexer
     // ----------------------------------
@@ -229,7 +233,7 @@ module cv32e40x_soc
             select_iram:
                 soc_rdata = instr_rdata;
             select_wb:
-                soc_rdata = obi_rdata_i; 
+                soc_rdata = obi_rdata_i;
         endcase
     end
 
@@ -238,7 +242,7 @@ module cv32e40x_soc
             soc_rvalid <= 1'b0;
         end else begin
             if(select_wb) begin
-                soc_rvalid <= obi_rvalid_i;                
+                soc_rvalid <= obi_rvalid_i;
             end else begin
                 // Generally data is available one cycle after req
                 soc_rvalid <= soc_gnt;
@@ -259,7 +263,7 @@ module cv32e40x_soc
 
         /* OBI Signals */
         .obi_req_i      (obi_req_o      ),
-        .obi_gnt_o      (obi_gnt_i      ), 
+        .obi_gnt_o      (obi_gnt_i      ),
         .obi_addr_i     (obi_addr_o     ),
         .obi_wr_en_i    (obi_we_o       ),
         .obi_byte_en_i  (obi_be_o       ),
@@ -319,9 +323,9 @@ module cv32e40x_soc
     // ----------------------------------
     //           DP BRAM - Instr
     // ----------------------------------
-    
+
     logic [31:0] instr_rdata;
-    
+
     soc_sram_dualport #(
         .INITFILEEN     (1),
         .INITFILE       ("firmware/firmware.hex"),
@@ -333,7 +337,7 @@ module cv32e40x_soc
 
         // 16kb
         // RAM_ADDR_WIDTH is directly tied to the DATAWIDTH. Having an addr width of 12 does not mean that you address the
-        // 12 LSB of the address, since if the data width is 32, then the 2 LSB are omitted, and you therefore must address 
+        // 12 LSB of the address, since if the data width is 32, then the 2 LSB are omitted, and you therefore must address
         // bits 13 to 2, due to alignment since the 2 LSB correspond to (32/8) = 4 bytes.
         .addr_a   (soc_addr[RAM_ADDR_WIDTH + ALIGNMENT_OFFSET - 1 : ALIGNMENT_OFFSET]),
         .we_a     (soc_gnt && select_iram && soc_we ),
@@ -350,9 +354,9 @@ module cv32e40x_soc
     // ----------------------------------
     //           DP BRAM - Data
     // ----------------------------------
-    
+
     logic [31:0] ram_rdata;
-    
+
     soc_sram_dualport #(
         .DATAWIDTH      (RAM_DATA_WIDTH),
         .ADDRWIDTH      (RAM_ADDR_WIDTH),
@@ -371,29 +375,29 @@ module cv32e40x_soc
       .d_b      (wb2ram_data                        ),
       .q_b      (dram2wb_data                       )
     );
-    
+
     // ----------------------------------
     //               UART
     // ----------------------------------
-    
+
     // logic select_uart_data;
     // logic select_uart_busy;
-    
+
     // assign select_uart_data = select_uart && soc_addr[15:0]  == 16'h0000;
     // assign select_uart_busy = select_uart && soc_addr[15:0]  == 16'h0004;
-    
+
     // logic [31:0] uart_soc_rdata;
     // logic [31:0] uart_soc_rdata_del;
-    
+
     // logic uart_busy;
-    
+
     // // Prevent metastability
     // logic [3:0] ser_rx_ff;
-    
+
     // always @(posedge clk_i) begin
     //     ser_rx_ff <= {ser_rx_ff[2:0], ser_rx};
     // end
-    
+
     // simpleuart #(
     //     .DEFAULT_DIV(CLK_FREQ / BAUDRATE)
     // ) simpleuart_inst (
@@ -413,7 +417,7 @@ module cv32e40x_soc
     //     .reg_dat_do (uart_soc_rdata),
     //     .reg_dat_wait (uart_busy)
     // );
-    
+
     // always @(posedge clk_i) begin
     //     uart_soc_rdata_del <= uart_soc_rdata;
     // end
