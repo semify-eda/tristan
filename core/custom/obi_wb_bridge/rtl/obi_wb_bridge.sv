@@ -149,7 +149,7 @@ always_ff @(posedge wb_clk_i, negedge rst_ni) begin : wb_state_assignment
                     wb_state     <= WB_AWAIT;
                     wb_stb_o     <= '1;
                     wb_cyc_o     <= '1;
-                    wb_addr_o    <= {12'h0, obi_addr_i[19:0]};
+                    wb_addr_o    <= {12'h0, obi_addr_i[21:2]};
                     wb_wdata_o   <= obi_wdata_i;
                     wb_wr_en_o   <= obi_wr_en_i;
                     wb_byte_en_o <= obi_byte_en_i;

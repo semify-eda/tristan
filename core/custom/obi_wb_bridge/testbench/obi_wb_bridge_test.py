@@ -33,13 +33,11 @@ async def obi_wb_bridge_test(dut):
                             "we": "wr_en_wb",
                             "adr": "addr_wb",
                             "datwr": "data_o_wb",
-                            "datrd": "data_i_wb",
-                            "ack": "ack_wb"
-                        },
-                        datgen = iter([0xcafebabe, 0xfeeddeed, 0x11111111, 0x22222222, 0x33333333])
-                        )
+                            "datrd": "default_dat",
+                            "ack": "default_ack"
+                        })
     
-    await Timer(190, units='us')
+    await Timer(400, units='us')
 
     wbs.log.info("received %d transactions" % len(wbs._recvQ))
     for transaction in wbs._recvQ:

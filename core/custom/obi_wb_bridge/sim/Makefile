@@ -3,13 +3,17 @@
 SRC += $(wildcard ../rtl/*.sv)
 SRC += ../testbench/obi_wb_bridge_tb.sv
 SRC += ../../wb_ram_interface/rtl/wb_ram_interface.sv
+SRC += ../../../../../pkg/wfg_pkg.sv
+SRC += ../../../../../wfg/wfg_timer/rtl/wfg_timer_wishbone_reg.sv
+SRC += ../../../../../wfg/wfg_timer/rtl/wfg_timer.sv
+SRC += ../../../../../wfg/wfg_timer/rtl/wfg_timer_top.sv
 
 # SoC modules
 SRC +=  ../../../../cv32e40x_yosys.v \
 		../../../cv32e40x_soc.sv \
 		../../../simpleuart.v \
 		../../../core_sram.sv \
-		../../ram_arbiter/rtl/ram_arbiter.sv
+		../../ram_arbiter/rtl/ram_arbiter.sv \
 
 
 #defaults
