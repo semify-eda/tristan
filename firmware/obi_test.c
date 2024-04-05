@@ -2,44 +2,44 @@
 #include "obi_test.h"
 #include "hal.h"
 
-// this test is intended to be viewed/verified through a testbench or waveform viewer
-void write_i2c(unsigned int i2c_data)
-{
-    WFG_REGISTER(BLOCK_DRIVER, TYPE_I2CT, ID_I2CT) = i2c_data;
-}
-
-volatile unsigned int read_i2c()
-{
-    return WFG_REGISTER(BLOCK_DRIVER, TYPE_I2CT, ID_I2CT);
-}
-
-// this test is intended to be viewed/verified through a testbench or waveform viewr
-void write_pinmux(volatile unsigned int pinmux_data)
-{
-    WFG_REGISTER(BLOCK_GEN_CONFIG, TYPE_DRIVER_PIN_MUX, ID_PIN_MUX) = pinmux_data;
-}
-
-volatile unsigned int read_pinmux()
-{
-    return WFG_REGISTER(BLOCK_GEN_CONFIG, TYPE_DRIVER_PIN_MUX, ID_PIN_MUX);
-}
 
 void obi_test()
 {
-    volatile unsigned int i2c_data = 0xFEEDBEEF;
-    volatile unsigned int pinmux_data = 0xDAD5FADE;
+
+    module_t i2ct = {
+        .chip_sel  = CS_EXTERNAL,
+        .block     = BLOCK_DRIVER,
+        .type      = TYPE_I2CT,
+        .id        = ID_I2CT,
+        .reg       = I2CT_REGWDATA,
+        .reserved0 = 0,
+        .reserved1 = 0
+    };
+
+    module_t pinmux = {
+        .chip_sel  = CS_EXTERNAL,
+        .block     = BLOCK_GEN_CONFIG,
+        .type      = TYPE_PIN_MUX,
+        .id        = ID_PIN_MUX,
+        .reg       = 0,
+        .reserved0 = 0,
+        .reserved1 = 0
+    };
+
+    volatile uint32_t i2c_data = 0xFEEDBEEF;
+    volatile uint32_t pinmux_data = 0xDAD5FADE;
 
     //test I2C interface over WB
-    write_i2c(i2c_data);
-    volatile unsigned int i2c_read = read_i2c();
+    _MODW(i2ct, i2c_data);
+    volatile uint32_t i2c_read = _MODR(i2ct);
 
     if(i2c_read != 0xCAFEBABE) 
         //test failed case
         pinmux_data = 0xdeadbeef;
 
     //test pinmux interface over wb
-    write_pinmux(pinmux_data);
-    volatile unsigned int pinmux_read = read_pinmux();
+    _MODW(pinmux, pinmux_data);
+    volatile uint32_t pinmux_read = _MODR(pinmux);
 
     if(pinmux_read != 0xFEEDDEED)
         //test failed case
@@ -47,15 +47,16 @@ void obi_test()
     else
         //test passed
         pinmux_data = 0x00000000;
-    write_pinmux(pinmux_data);
+    _MODW(pinmux, pinmux_data);
 
-    write_i2c(0xabcd0123);
-    write_i2c(0x1234abcd);
-    if(read_i2c() != 0x11111111)
+    _MODW(i2ct, 0xabcd0123);
+    _MODW(i2ct, 0x1234abcd);
+
+    if(_MODR(i2ct) != 0x11111111)
     {
-        write_i2c(0xdeadbeef);
+        _MODW(i2ct, 0xdeadbeef);
     }
 
-    read_pinmux();
-    read_pinmux();
+    _MODR(pinmux);
+    _MODR(pinmux);
 }

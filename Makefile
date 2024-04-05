@@ -9,7 +9,8 @@ FIRMWARE_SRCS := firmware/start.c \
 				 firmware/obi_test.c \
 				 firmware/cntb_test.c \
 				 firmware/rle/rle.c \
-				 firmware/rle_test.c 
+				 firmware/rle_test.c \
+				 firmware/hal.c
 
 
 FIRMWARE_OBJS = $(patsubst %.c,%.o,$(FIRMWARE_SRCS))
@@ -32,7 +33,8 @@ SIM = 	cv32e40x_yosys.v \
    	core/core_sram.sv \
     core/custom/ram_arbiter/rtl/ram_arbiter.sv \
 	core/custom/obi_wb_bridge/rtl/obi_wb_bridge.sv \
-	core/custom/wb_ram_interface/rtl/wb_ram_interface.sv
+	core/custom/wb_ram_interface/rtl/wb_ram_interface.sv \
+	core/custom/timer/rtl/simple_timer.sv
 
 TB = core/tb_top.sv
 

@@ -8,9 +8,9 @@ module cv32e40x_soc
     parameter SOC_DATA_WIDTH    = 32,
     parameter RAM_ADDR_WIDTH    = 12,
     parameter RAM_DATA_WIDTH    = 32,
-    parameter CLK_FREQ          = 50_000_000,
+    parameter CLK_FREQ          = 25_000_000,
     parameter BAUDRATE          = 115200,
-    parameter BOOT_ADDR         = 32'h00100000,
+    parameter BOOT_ADDR         = 32'h00080000,
     parameter DATA_START_ADDR   = 32'h00000000,
     parameter WB_INPUT_FREQ     = 100_000_000
 )
@@ -56,17 +56,27 @@ module cv32e40x_soc
     localparam ALIGNMENT_OFFSET = $clog2( RAM_DATA_WIDTH / 8 );
 
     //TODO: move these to a package
-    localparam DRAM_MASK        = 2'h0;
-    localparam IRAM_MASK        = 2'h1;
-    localparam UART_MASK        = 8'h0A;                // TODO: look into UART stuff
-    localparam WB_MASK          = 2'h3;
+
+    typedef enum logic {
+        INTERNAL = 1'b0,
+        EXTERNAL = 1'b1
+    } e_chip_sel;
+
+    typedef enum logic [2:0] {
+        DRAM = 3'h0,
+        IRAM = 3'h1,
+        UART = 3'h2
+    } e_block_sel;
+
 
     // ----------------------------------
     //           Communication Signals
     // ----------------------------------
-    // indicates SoC is communicating with an external module through OBI
-    logic [1:0] block_sel;
-    assign block_sel =  soc_addr[21:20];
+    e_chip_sel chip_sel;
+    e_block_sel block_sel;
+
+    assign chip_sel = e_chip_sel'(soc_addr[22]);
+    assign block_sel =  e_block_sel'(soc_addr[21:19]);
 
     // standard OBI signals
     logic                       obi_req_o;
@@ -211,15 +221,15 @@ module cv32e40x_soc
     //            Multiplexer
     // ----------------------------------
     logic select_dram;
-    // logic select_uart;
     logic select_iram;
     logic select_wb;
+    // logic select_uart;
 
     // Data select signals
-    assign select_dram         = block_sel == DRAM_MASK;
-    assign select_iram         = block_sel == IRAM_MASK;
-    // assign select_uart         = block_sel == UART_MASK;
-    assign select_wb           = block_sel == WB_MASK;
+    assign select_wb           = chip_sel == EXTERNAL;
+    assign select_dram         = chip_sel == INTERNAL & block_sel == DRAM;
+    assign select_iram         = chip_sel == INTERNAL & block_sel == IRAM;
+    // assign select_uart         = chip_sel == INTERNAL & block_sel == UART_MASK;
 
     always_comb begin
         soc_rdata = '0;
@@ -375,7 +385,7 @@ module cv32e40x_soc
       .d_b      (wb2ram_data                        ),
       .q_b      (dram2wb_data                       )
     );
-
+    
     // ----------------------------------
     //               UART
     // ----------------------------------
