@@ -40,10 +40,10 @@ firmware0:
 	fi
 
 firmware1: firmware0
-	make -C ../../../../ firmware/firmware.hex
+	make -C ../../../../ firmware/firmware.mem
 
 firmware: firmware1
-	cp ../../../../firmware/firmware.hex firmware/firmware.hex
+	cp ../../../../firmware/firmware.mem firmware/firmware.mem
 
 preprocessed:
 	make -C ../../../../ cv32e40x_yosys.v

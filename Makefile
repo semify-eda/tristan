@@ -52,7 +52,7 @@ cv32e40x_yosys.v: core/tech/rtl/cv32e40x_clock_gate.sv preprocessed.v
 sim-ulx3s.vvp: $(SIM) $(TB)
 	iverilog -Wall -o $@ -g2012 $(SIM) $(TB) -s tb_top #`yosys-config --datdir/ecp5/cells_sim.v`
 
-sim-ulx3s: sim-ulx3s.vvp firmware/firmware.hex
+sim-ulx3s: sim-ulx3s.vvp firmware/firmware.mem
 	vvp $^ -fst +fst +verbose
 
 view-ulx3s:
@@ -77,14 +77,14 @@ firmware/firmware.o: firmware/firmware.elf
 firmware/firmware.bin: firmware/firmware.elf
 	$(TOOLCHAIN_PREFIX)objcopy -O binary $< $@
 
-firmware/firmware.hex: firmware/firmware.bin firmware/makehex.py
+firmware/firmware.mem: firmware/firmware.bin firmware/makehex.py
 	$(PYTHON) firmware/makehex.py $< 4096 > $@
 
-firmware: firmware/firmware.hex
+firmware: firmware/firmware.mem
 
 # --- General ---
 
 .PHONY: sim-ulx3s view-ulx3s firmware
 
 clean:
-	rm -f *.vvp *.fst *.fst.hier *.vcd *.log *.json *.asc *.bin *.bit firmware/rle/*.o firmware/*.o firmware/*.elf firmware/*.bin firmware/*.hex firmware/firmware.map ulx3s.config preprocessed.v cv32e40x_yosys.v abc.history
+	rm -f *.vvp *.fst *.fst.hier *.vcd *.log *.json *.asc *.bin *.bit firmware/rle/*.o firmware/*.o firmware/*.elf firmware/*.bin firmware/*.mem firmware/firmware.map ulx3s.config preprocessed.v cv32e40x_yosys.v abc.history

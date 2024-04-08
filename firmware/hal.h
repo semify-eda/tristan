@@ -114,7 +114,7 @@ enum PINMUX_REG {
 };
 
 enum PINMUX_MOD_SEL {
-        PINMUX_IN_MOD_I2CT_SDA      = 0x4,
+    PINMUX_IN_MOD_I2CT_SDA      = 0x4,
     PINMUX_IN_MOD_I2CT_SCL      = 0x5,
     PINMUX_OUT_MOD_I2CT_SDA     = 0x7,
     PINMUX_OUT_MOD_I2CT_SCL     = 0x8
