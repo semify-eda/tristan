@@ -338,7 +338,7 @@ module cv32e40x_soc
 
     soc_sram_dualport #(
         .INITFILEEN     (1),
-        .INITFILE       ("firmware/firmware.hex"),
+        .INITFILE       ("firmware.mem"),
         .DATAWIDTH      (RAM_DATA_WIDTH),
         .ADDRWIDTH      (RAM_ADDR_WIDTH),
         .BYTE_ENABLE    (1)
