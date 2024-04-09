@@ -155,7 +155,7 @@ void configure_pinmux(module_t pinmux, uint8_t sda_pin, uint8_t scl_pin)
     val = val + write;
 
     // write sda pdwn to pin 10
-    write = PINMUX_OUT_MOD_I2CT_PDWN_SDA;
+    write = PINMUX_OUT_MOD_I2CT_PDWN_SDA << 16;
     val = val + write;
 
     // write scl into pin 9
