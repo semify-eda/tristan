@@ -148,7 +148,15 @@ void configure_pinmux(module_t pinmux, uint8_t sda_pin, uint8_t scl_pin)
     val = _MODR(p);
 
     // clear the entries for pins 8 and 9
-    val = val & 0xFFFF0000;
+    val = 0x0;
+
+    // write wr_update to pin 11
+    write = PINMUX_OUT_MOD_I2CT_WR_UPDATE << 24;
+    val = val + write;
+
+    // write sda pdwn to pin 10
+    write = PINMUX_OUT_MOD_I2CT_PDWN_SDA;
+    val = val + write;
 
     // write scl into pin 9
     write = PINMUX_OUT_MOD_I2CT_SCL << 8;
