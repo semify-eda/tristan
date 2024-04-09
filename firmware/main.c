@@ -63,6 +63,9 @@ void main(void)
         .z_dir = DOWN
     };
 
+    set_led(pinmux, LED_ON);
+
+    uint8_t s = 0;
     while (1) 
     {
         // every 100 ms, update the I2CT registers
@@ -106,6 +109,11 @@ void main(void)
             update_x_accel(i2ct, acc.x_acc);
             update_y_accel(i2ct, acc.y_acc);
             update_z_accel(i2ct, acc.z_acc);
+
+            s++;
+            if(s % 2 == 0) set_led(pinmux, LED_ON);
+            else           set_led(pinmux, LED_OFF);
         }
     }
 }
+

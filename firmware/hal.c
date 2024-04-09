@@ -33,16 +33,20 @@ void initialize_i2ct(module_t i2ct)
     static volatile module_t i_addr;
     static volatile module_t i_wdata;
     static volatile module_t i_ctrl;
+    static volatile module_t i_wmask;
 
     i_ctrl = i2ct;
     i_cfg = i2ct;
     i_addr = i2ct;
     i_wdata = i2ct;
+    i_wmask = i2ct;
 
     i_ctrl.reg = I2CT_CTRL;
     i_cfg.reg = I2CT_CFG;
     i_addr.reg = I2CT_REGADDR;
     i_wdata.reg = I2CT_REGWDATA;
+    i_wmask.reg = I2CT_REGWMASK;
+
 
     // enable i2ct
     _MODW(i_ctrl, 0x1);
@@ -60,7 +64,12 @@ void initialize_i2ct(module_t i2ct)
     // do a write to the WHO_AM_I register
     _MODW(i_addr, 0x0f);
     _MODW(i_wdata, 0x6b);
-    
+
+    //write to the i2ct mem mask
+    i_addr.reg = 
+    _MODW(i_wmask, 0xff);
+
+
 }
 
 void update_x_accel(module_t i2ct, uint16_t val)
@@ -188,4 +197,21 @@ void configure_pinmux(module_t pinmux, uint8_t sda_pin, uint8_t scl_pin)
     // write back the changes
     _MODW(p, val);
     
+}
+
+void set_led(module_t pinmux, uint8_t value)
+{
+    static module_t p;
+    p = pinmux;
+    p.reg = PINMUX_OUTPUT_SEL_2;
+
+    uint32_t rval = _MODR(p);
+    uint32_t w;
+
+    w = value << 16;
+    rval = rval & 0xFF00FFFF;
+    rval = rval + w;
+
+    _MODW(p, rval);
+
 }

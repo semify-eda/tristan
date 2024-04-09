@@ -117,7 +117,9 @@ enum PINMUX_MOD_SEL {
     PINMUX_IN_MOD_I2CT_SDA      = 0x2,
     PINMUX_IN_MOD_I2CT_SCL      = 0x3,
     PINMUX_OUT_MOD_I2CT_SDA     = 0x5,
-    PINMUX_OUT_MOD_I2CT_SCL     = 0x6
+    PINMUX_OUT_MOD_I2CT_SCL     = 0x6,
+    PINMUX_OUT_MOD_I2CT_WR_UPDATE = 0x4,
+    PINMUX_OUT_MOD_I2CT_PDWN_SDA = 0x3
 };
 
 typedef struct acc_t {
@@ -140,7 +142,7 @@ enum direction_t {
 /********************** WISHBONE END   *********************/
 
 #define TIMER_FREQ          100000000
-#define TIMER_IRQ_FREQ      100
+#define TIMER_IRQ_FREQ      10
 #define TIMER_RELOAD_VAL    (TIMER_FREQ / TIMER_IRQ_FREQ)
 
 // timer
@@ -156,5 +158,10 @@ void update_z_accel(module_t i2ct, uint16_t val);
 
 // pinmux
 void configure_pinmux(module_t pinmux, uint8_t sda_pin, uint8_t scl_pin);
+
+// debugging function
+void set_led(module_t pinmux, uint8_t value);
+#define LED_ON  0x2
+#define LED_OFF 0x1
 
 #endif
