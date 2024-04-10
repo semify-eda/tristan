@@ -26,37 +26,59 @@ RTL = 	$(wildcard core/cv32e40x/rtl/*.sv) \
 
 RTL_CUSTOM = $(wildcard core/custom/*.sv)
 
-
-SIM = 	cv32e40x_yosys.v \
+SRC = 	cv32e40x_yosys.v \
 	core/cv32e40x_soc.sv \
 	core/simpleuart.v \
    	core/core_sram.sv \
     core/custom/ram_arbiter/rtl/ram_arbiter.sv \
 	core/custom/obi_wb_bridge/rtl/obi_wb_bridge.sv \
 	core/custom/wb_ram_interface/rtl/wb_ram_interface.sv \
-	core/custom/timer/rtl/simple_timer.sv
+	SRC += ../../../../../pkg/wfg_pkg.sv \
+	SRC += ../../../../../wfg/wfg_timer/rtl/wfg_timer_wishbone_reg.sv \
+	SRC += ../../../../../wfg/wfg_timer/rtl/wfg_timer.sv \
+	SRC += ../../../../../wfg/wfg_timer/rtl/wfg_timer_top.sv \
 
 TB = core/tb_top.sv
 
+# --- Cocotb ---
+SIM ?= icarus
+TOPLEVEL_LANG ?= verilog
+COMPILE_ARGS := -I core/
+COMPILER_ARGS ?= -g2012
+
+VERILOG_SOURCES += $(SRC)
+
+# TOPLEVEL is the name of the toplevel module in your Verilog or VHDL file
+TOPLEVEL = top_tb
+
+# MODULE is the basename of the Python test file
+export PYTHONPATH := $(PYTHONPATH):core/testbench/
+MODULE = top_tb
+
+# include cocotb's make rules to take care of the simulator setup
+include $(shell cocotb-config --makefiles)/Makefile.sim
 # --- Preprocess ---
 
 preprocessed.v: $(INCLUDE) $(RTL) $(RTL_CUSTOM)
 	sv2v -v $(INCLUDE) $(RTL) $(RTL_CUSTOM) -w $@
 
-# --- ULX3S ---
+# --- sim ---
 
 # For the simulation
 cv32e40x_yosys.v: core/tech/rtl/cv32e40x_clock_gate.sv preprocessed.v
 	yosys -l $(basename $@)-yosys.log -DSYNTHESIS -p 'read -sv core/tech/rtl/cv32e40x_clock_gate.sv preprocessed.v; hierarchy -top cv32e40x_top; proc; flatten; opt; fsm; opt; write_verilog -noattr cv32e40x_yosys.v' 
 
-sim-ulx3s.vvp: $(SIM) $(TB)
-	iverilog -Wall -o $@ -g2012 $(SIM) $(TB) -s tb_top #`yosys-config --datdir/ecp5/cells_sim.v`
+all: firmware cv32e40x_yosys.v firmware.o
+	echo ""
 
-sim-ulx3s: sim-ulx3s.vvp firmware/firmware.mem
-	vvp $^ -fst +fst +verbose
+# sim-ulx3s.vvp: $(SRC) $(TB)
+# 	iverilog -Wall -o $@ -g2012 $(SRC) $(TB) -s tb_top #`yosys-config --datdir/ecp5/cells_sim.v`
 
-view-ulx3s:
-	gtkwave tb_top.fst --save tb_top.gtkw 
+# sim-ulx3s: sim-ulx3s.vvp firmware/firmware.mem
+# 	vvp $^ -fst +fst +verbose
+
+# view-ulx3s:
+# 	gtkwave tb_top.fst --save tb_top.gtkw 
 	
 # --- Firmware ---
 
@@ -84,7 +106,7 @@ firmware: firmware/firmware.mem
 
 # --- General ---
 
-.PHONY: sim-ulx3s view-ulx3s firmware
+.PHONY: sim-ulx3s view-ulx3s firmware all
 
-clean:
-	rm -f *.vvp *.fst *.fst.hier *.vcd *.log *.json *.asc *.bin *.bit firmware/rle/*.o firmware/*.o firmware/*.elf firmware/*.bin firmware/*.mem firmware/firmware.map ulx3s.config preprocessed.v cv32e40x_yosys.v abc.history
+cleanall:
+	rm -f *.vvp *.fst *.fst.hier *.vcd *.log *.json *.asc *.bin *.bit firmware/rle/*.o firmware/*.o firmware/*.elf firmware/*.bin firmware/*.mem firmware/firmware.map ulx3s.config preprocessed.v cv32e40x_yosys.v abc.history sim_build
