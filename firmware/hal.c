@@ -52,7 +52,7 @@ void initialize_i2ct(module_t i2ct)
     _MODW(i_ctrl, 0x1);
 
     // 1 data byte, 1 address byte, 0x6a device id
-    uint32_t cfg = 0x6a;
+    uint32_t cfg = 0x6a << 1;
     // write to configuration register
     _MODW(i_cfg, cfg);
 
@@ -60,6 +60,10 @@ void initialize_i2ct(module_t i2ct)
     update_x_accel(i2ct, 0x0000);
     update_y_accel(i2ct, 0x0000);
     update_z_accel(i2ct, 0x0000);
+    update_x_gyro(i2ct, 0x0000);
+    update_y_gyro(i2ct, 0x0000);
+    update_z_gyro(i2ct, 0x0000);
+
 
     // do a write to the WHO_AM_I register
     _MODW(i_addr, 0x0f);
@@ -130,6 +134,66 @@ void update_z_accel(module_t i2ct, uint16_t val)
 
     //write 8 MSB
     _MODW(addr, 0x2D);
+    _MODW(wdata, (val >> 8));
+}
+
+void update_x_gyro(module_t i2ct, uint16_t val)
+{
+    static volatile module_t addr;
+    static volatile module_t wdata;
+
+    addr = i2ct;
+    addr.reg = I2CT_REGADDR;
+
+    wdata = i2ct;
+    wdata.reg = I2CT_REGWDATA;
+
+    //write 8 LSB
+    _MODW(addr, 0x22);
+    _MODW(wdata, (val & 0x00FF));
+
+    //write 8 MSB
+    _MODW(addr, 0x23);
+    _MODW(wdata, (val >> 8));
+}
+
+void update_y_gyro(module_t i2ct, uint16_t val)
+{
+    static volatile module_t addr;
+    static volatile module_t wdata;
+
+    addr = i2ct;
+    addr.reg = I2CT_REGADDR;
+
+    wdata = i2ct;
+    wdata.reg = I2CT_REGWDATA;
+
+    //write 8 LSB
+    _MODW(addr, 0x24);
+    _MODW(wdata, (val & 0x00FF));
+
+    //write 8 MSB
+    _MODW(addr, 0x25);
+    _MODW(wdata, (val >> 8));
+}
+
+void update_z_gyro(module_t i2ct, uint16_t val)
+{
+    static volatile module_t addr;
+    static volatile module_t wdata;
+
+    addr = i2ct;
+    addr.reg = I2CT_REGADDR;
+
+    wdata = i2ct;
+    wdata.reg = I2CT_REGWDATA;
+
+    //write 8 LSB
+    _MODW(addr, 0x26);
+    _MODW(wdata, (val & 0x00FF));
+
+    //write 8 MSB
+    _MODW(addr, 0x27);
     _MODW(wdata, (val >> 8));
 }
 

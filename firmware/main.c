@@ -55,12 +55,15 @@ void main(void)
     initialize_i2ct(i2ct);
 
     acc_t acc = {
-        .x_acc = 0xFFFF,
-        .y_acc = 0x0000,
-        .z_acc = 0x0000,
-        .x_dir = UP,
-        .y_dir = DOWN,
-        .z_dir = DOWN
+        .x_acc  = 0x7FFF,
+        .y_acc  = 0x0000,
+        .z_acc  = 0x0000,
+        .x_gyro = 0x7FFF,
+        .y_gyro = 0x0000,
+        .z_gyro = 0x0000,
+        .x_dir  = UP,
+        .y_dir  = DOWN,
+        .z_dir  = DOWN
     };
 
     uint8_t s = 0;
@@ -72,35 +75,77 @@ void main(void)
             ack_timer(timer);
             if(acc.x_dir == UP)
             {
-                if(acc.x_acc == 0xFFFF)  acc.x_dir = DOWN;
-                else                    acc.x_acc += 0x1111;
+                if(acc.x_acc == 0xFFFF)  
+                {
+                    acc.x_dir = DOWN;
+                }
+                else
+                {
+                    acc.x_acc += 0x0111;
+                    acc.x_gyro += 0x0111;
+                }
             } 
             else if (acc.x_dir == DOWN) 
             {
-                if(acc.x_acc == 0x0000) acc.x_dir = UP;
-                else                    acc.x_acc -= 0x1111;
+                if(acc.x_acc == 0x0000) 
+                {
+                    acc.x_dir = UP;
+                }
+                else
+                {
+                    acc.x_acc -= 0x0111;
+                    acc.x_gyro -= 0x0111;
+                }
             }
 
             if(acc.y_dir == UP)
             {
-                if(acc.y_acc == 0xFFFF)  acc.y_dir = DOWN;
-                else                    acc.y_acc += 0x1111;
+                if(acc.y_acc == 0xFFFF)
+                {
+                    acc.y_dir = DOWN;
+                }
+                else
+                {
+                    acc.y_acc += 0x0111;
+                    acc.y_gyro += 0x0111;
+                }
             } 
             else if (acc.y_dir == DOWN) 
             {
-                if(acc.y_acc == 0x0000) acc.y_dir = UP;
-                else                    acc.y_acc -= 0x1111;
+                if(acc.y_acc == 0x0000) 
+                {
+                    acc.y_dir = UP;
+                }
+                else 
+                {
+                    acc.y_acc -= 0x0111;
+                    acc.y_gyro -= 0x0111;
+                }
             }
 
             if(acc.z_dir == UP)
             {
-                if(acc.z_acc == 0xFFFF)  acc.z_dir = DOWN;
-                else                    acc.z_acc += 0x1111;
+                if(acc.z_acc == 0xFFFF)
+                {
+                    acc.z_dir = DOWN;
+                }
+                else
+                {
+                    acc.z_acc += 0x0111;
+                    acc.z_gyro += 0x0111;
+                } 
             } 
             else if (acc.z_dir == DOWN) 
             {
-                if(acc.z_acc == 0x0000) acc.z_dir = UP;
-                else                    acc.z_acc -= 0x1111;
+                if(acc.z_acc == 0x0000) 
+                {
+                    acc.z_dir = UP;
+                }
+                else
+                {
+                    acc.z_acc -= 0x0111;
+                    acc.z_gyro -= 0x0111;
+                }
             }
 
             // update the register values

@@ -155,6 +155,9 @@ void initialize_i2ct(module_t i2ct);
 void update_x_accel(module_t i2ct, uint16_t val);
 void update_y_accel(module_t i2ct, uint16_t val);
 void update_z_accel(module_t i2ct, uint16_t val);
+void update_x_gyro(module_t i2ct, uint16_t val);
+void update_y_gyro(module_t i2ct, uint16_t val);
+void update_z_gyro(module_t i2ct, uint16_t val);
 
 // pinmux
 void configure_pinmux(module_t pinmux, uint8_t sda_pin, uint8_t scl_pin);
