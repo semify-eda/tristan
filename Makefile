@@ -33,10 +33,11 @@ SRC = 	cv32e40x_yosys.v \
     core/custom/ram_arbiter/rtl/ram_arbiter.sv \
 	core/custom/obi_wb_bridge/rtl/obi_wb_bridge.sv \
 	core/custom/wb_ram_interface/rtl/wb_ram_interface.sv \
-	SRC += ../../../../../pkg/wfg_pkg.sv \
-	SRC += ../../../../../wfg/wfg_timer/rtl/wfg_timer_wishbone_reg.sv \
-	SRC += ../../../../../wfg/wfg_timer/rtl/wfg_timer.sv \
-	SRC += ../../../../../wfg/wfg_timer/rtl/wfg_timer_top.sv \
+	../pkg/wfg_pkg.sv \
+	../wfg/wfg_timer/rtl/wfg_timer_wishbone_reg.sv \
+	../wfg/wfg_timer/rtl/wfg_timer.sv \
+	../wfg/wfg_timer/rtl/wfg_timer_top.sv \
+	core/testbench/top_tb.sv
 
 TB = core/tb_top.sv
 
@@ -68,17 +69,8 @@ preprocessed.v: $(INCLUDE) $(RTL) $(RTL_CUSTOM)
 cv32e40x_yosys.v: core/tech/rtl/cv32e40x_clock_gate.sv preprocessed.v
 	yosys -l $(basename $@)-yosys.log -DSYNTHESIS -p 'read -sv core/tech/rtl/cv32e40x_clock_gate.sv preprocessed.v; hierarchy -top cv32e40x_top; proc; flatten; opt; fsm; opt; write_verilog -noattr cv32e40x_yosys.v' 
 
-all: firmware cv32e40x_yosys.v firmware.o
+all: firmware cv32e40x_yosys.v
 	echo ""
-
-# sim-ulx3s.vvp: $(SRC) $(TB)
-# 	iverilog -Wall -o $@ -g2012 $(SRC) $(TB) -s tb_top #`yosys-config --datdir/ecp5/cells_sim.v`
-
-# sim-ulx3s: sim-ulx3s.vvp firmware/firmware.mem
-# 	vvp $^ -fst +fst +verbose
-
-# view-ulx3s:
-# 	gtkwave tb_top.fst --save tb_top.gtkw 
 	
 # --- Firmware ---
 
@@ -102,11 +94,11 @@ firmware/firmware.bin: firmware/firmware.elf
 firmware/firmware.mem: firmware/firmware.bin firmware/makehex.py
 	$(PYTHON) firmware/makehex.py $< 4096 > $@
 
-firmware: firmware/firmware.mem
+firmware: firmware/firmware.mem firmware/firmware.o
 
 # --- General ---
 
-.PHONY: sim-ulx3s view-ulx3s firmware all
+.PHONY: all
 
 cleanall:
-	rm -f *.vvp *.fst *.fst.hier *.vcd *.log *.json *.asc *.bin *.bit firmware/rle/*.o firmware/*.o firmware/*.elf firmware/*.bin firmware/*.mem firmware/firmware.map ulx3s.config preprocessed.v cv32e40x_yosys.v abc.history sim_build
+	rm -r -f *.vvp *.fst *.fst.hier *.vcd *.log *.json *.asc *.bin *.bit firmware/rle/*.o firmware/*.o firmware/*.elf firmware/*.bin firmware/firmware.map preprocessed.v cv32e40x_yosys.v abc.history sim_build results.xml

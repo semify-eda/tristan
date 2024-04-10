@@ -12,7 +12,8 @@ module cv32e40x_soc
     parameter BAUDRATE          = 115200,
     parameter BOOT_ADDR         = 32'h00080000,
     parameter DATA_START_ADDR   = 32'h00000000,
-    parameter WB_INPUT_FREQ     = 100_000_000
+    parameter WB_INPUT_FREQ     = 100_000_000,
+    parameter FIRMWARE_INITFILE = "firmware.mem"
 )
 (
     // Clock and reset
@@ -338,7 +339,7 @@ module cv32e40x_soc
 
     soc_sram_dualport #(
         .INITFILEEN     (1),
-        .INITFILE       ("firmware.mem"),
+        .INITFILE       (FIRMWARE_INITFILE),
         .DATAWIDTH      (RAM_DATA_WIDTH),
         .ADDRWIDTH      (RAM_ADDR_WIDTH),
         .BYTE_ENABLE    (1)

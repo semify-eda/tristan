@@ -63,6 +63,8 @@ cv32e40x_yosys.v
 *.fst
 *.fst.hier
 *.gtkw
+results.xml
+top_tb.vcd
 
 __pycache__
 sim_build

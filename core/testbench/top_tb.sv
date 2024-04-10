@@ -15,7 +15,7 @@ module top_tb;
 
     // allow fst dump
     initial begin
-        $dumpfile("wb_obi_test.vcd");
+        $dumpfile("top_tb.vcd");
         $dumpvars();
     end
     
@@ -40,7 +40,8 @@ module top_tb;
         .RAM_ADDR_WIDTH    (RAM_ADDR_WIDTH),
         .CLK_FREQ          (CLK_FREQ),
         .BAUDRATE          (BAUDRATE),
-        .BOOT_ADDR         (BOOT_ADDR)
+        .BOOT_ADDR         (BOOT_ADDR),
+        .FIRMWARE_INITFILE ("firmware/firmware.mem")
     )
     cv32e40x_soc
     (
