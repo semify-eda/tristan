@@ -69,15 +69,19 @@ module cv32e40x_soc
         UART = 3'h2
     } e_block_sel;
 
+    localparam RAM_MASK = 3'h6;
 
     // ----------------------------------
     //           Communication Signals
     // ----------------------------------
-    e_chip_sel chip_sel;
+    e_chip_sel  chip_sel;
     e_block_sel block_sel;
+    logic       ram_sel;
 
-    assign chip_sel = e_chip_sel'(soc_addr[22]);
-    assign block_sel =  e_block_sel'(soc_addr[21:19]);
+    assign chip_sel  = e_chip_sel'(soc_addr[22]);
+    assign block_sel = e_block_sel'(soc_addr[21:19]);
+    // TODO: move this ram sel mask value to a package
+    assign ram_sel   = wb_addr_i[19:17] == RAM_MASK;
 
     // standard OBI signals
     logic                       obi_req_o;
@@ -193,14 +197,14 @@ module cv32e40x_soc
       // Instruction memory interface
       .instr_req_o      (cpu_instr_req      ),
       .instr_gnt_i      (cpu_instr_gnt      ),
-      .instr_rvalid_i   (cpu_instr_rvalid   ),
+      .instr_rvalid_i   (cpu_instr_rvalid & soc_fetch_enable_i),
       .instr_addr_o     (cpu_instr_addr     ),
       .instr_rdata_i    (cpu_instr_rdata    ),
 
       // Data memory interface
       .data_req_o       (cpu_data_req       ),
       .data_gnt_i       (cpu_data_gnt       ),
-      .data_rvalid_i    (cpu_data_rvalid    ),
+      .data_rvalid_i    (cpu_data_rvalid & soc_fetch_enable_i),
       .data_addr_o      (cpu_data_addr      ),
       .data_be_o        (cpu_data_be        ),
       .data_we_o        (cpu_data_we        ),
@@ -311,6 +315,7 @@ module cv32e40x_soc
         .ram_clk_i      (clk_i          ),
         .wb_clk_i       (wfg_clk_i      ),
         .rst_ni         (rst_ni         ),
+        .en_i           (ram_sel        ),
 
         // Wishbone input signals
         .wb_addr_i      (wb_addr_i      ),

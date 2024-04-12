@@ -3,12 +3,13 @@ module wb_ram_interface #(
     parameter WB_ADDR_WIDTH  = 32,
     parameter RAM_ADDR_WIDTH = 32,
     parameter RAM_DATA_WIDTH = 32,
-    parameter IRAM_ADDR_MASK = 3'h1,
-    parameter DRAM_ADDR_MASK = 3'h0
+    parameter IRAM_ADDR_MASK = 4'h1,    // TODO: move these values to a package
+    parameter DRAM_ADDR_MASK = 4'h0
 )(
     input  wire  wb_clk_i,                          // I - clock signal for wishbone state machine
     input  wire  ram_clk_i,                         // I - clock signal for ram state machine
     input  wire  rst_ni,                            // I - global reset
+    input  wire  en_i,                              // I - enable
 
     /************ Wishbone Signals  *************/
     input  wire  [WB_ADDR_WIDTH-1:0]    wb_addr_i,  // I - address requested by wishbone master, must be translated
@@ -32,9 +33,9 @@ module wb_ram_interface #(
     logic select_dram;
     logic ram_comm;
 
-    assign select_iram = (wb_addr_i[22:20] == IRAM_ADDR_MASK);  // TODO: move these to a package
-    assign select_dram = (wb_addr_i[22:20] == DRAM_ADDR_MASK);
-    assign ram_comm    = select_dram | select_iram;
+    assign select_iram = (wb_addr_i[16:13] == IRAM_ADDR_MASK);  // TODO: move these to a package
+    assign select_dram = (wb_addr_i[16:13] == DRAM_ADDR_MASK);
+    assign ram_comm    = (select_dram | select_iram) & en_i;
 
     /*************** Wishbone Signals *************/
     enum logic {
@@ -88,6 +89,8 @@ module wb_ram_interface #(
     always_ff @(posedge ram_clk_i, negedge rst_ni) begin : ram_state_assignment
         if (~rst_ni) begin
             ram_state <= RAM_IDLE;
+            iram_we_o <= '0;
+            dram_we_o <= '0;
         end else begin : ram_state_actions
             ram_state <= ram_next_state;
             case(ram_state)
