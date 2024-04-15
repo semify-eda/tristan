@@ -55,7 +55,8 @@ module wb_ram_tb;
         .iram_data_i    (iram2wb_data   ),
         .dram_data_i    (dram2wb_data   ),
         .iram_we_o      (wb2iram_we     ),
-        .dram_we_o      (wb2dram_we     )
+        .dram_we_o      (wb2dram_we     ),
+        .en_i           ('1             )   
     );
 
     // ----------------------------------

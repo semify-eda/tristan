@@ -166,3 +166,74 @@ async def wb_ram_test(dut):
         await wbm.send_cycle([WBOp(DRAM_ADDR + dram_addr)])
         dram_addr = dram_addr + 0x1
         assert int(ddata,16) == int(hex(dut.wb_rdata_o.value),0), f"DRAM READ ERROR -- Expected: {ddata}\nReceived: {hex(dut.wb_rdata_o.value)}"
+
+@cocotb.test()
+async def wb_iram_test(dut):
+    cocotb.start_soon(Clock(dut.clk_i, (1/SYSCLK)*1e9, units="ns").start())
+    cocotb.start_soon(Clock(dut.ram_clk_i, (1/RAMCLK)*1e9, units="ns").start())
+
+    dut._log.info("Initialize and reset model")
+
+    dut.rst_ni.value = 0
+    await Timer(30, units='ns')
+    await RisingEdge(dut.clk_i)
+    dut.rst_ni.value = 1
+
+    iram_data = open('iram.hex', 'r')
+
+    # write tests
+
+    #wishbone master
+    wbm = WishboneMaster(
+        dut,
+        "",
+        dut.clk_i,
+        timeout=10,
+        width=32,
+        signals_dict={
+            "cyc":   "wb_cyc_i",
+            "stb":   "wb_stb_i",
+            "we":    "wb_wr_en_i",
+            "adr":   "wb_addr_i",
+            "datwr": "wb_wdata_i",
+            "datrd": "wb_rdata_o",
+            "ack":   "wb_ack_o"
+        }
+    )
+
+    RAM_DEPTH = 0x1000
+    IRAM_ADDR = 0x1 << 13
+
+    idata = ''
+
+    iram_addr = 0x0
+
+
+    # write in all of memory
+
+    for _ in range (0, int(RAM_DEPTH)):
+        
+        # perform an iram write
+        idata = iram_data.readline().strip()
+        await wbm.send_cycle([WBOp(IRAM_ADDR + iram_addr, int(idata,16))])
+        assert dut.instr_dualport.ram[iram_addr].value == int(idata,16), f"IRAM WRITE ERROR -- Expected:{idata}\nWrote:{hex(dut.instr_dualport.ram[iram_addr].value)}"
+        iram_addr = iram_addr + 0x1
+
+
+    # reset file pointers
+    iram_data.close()
+    iram_data = open('iram.hex', 'r')
+
+    idata = ''
+    iram_addr = 0x0
+
+    for _ in range (0, int(RAM_DEPTH)):
+        
+        # perform an iram read
+        idata = iram_data.readline().strip()
+        await wbm.send_cycle([WBOp(IRAM_ADDR + iram_addr)])
+        iram_addr = iram_addr + 0x1
+        assert int(idata,16) == int(hex(dut.wb_rdata_o.value),0), f"IRAM READ ERROR -- Expected: {idata}\nReceived: {hex(dut.wb_rdata_o.value)}"
+
+
+       

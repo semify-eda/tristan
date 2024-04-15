@@ -32,10 +32,12 @@ module wb_ram_interface #(
     logic select_iram;
     logic select_dram;
     logic ram_comm;
+    logic ram_resp;
 
     assign select_iram = (wb_addr_i[16:13] == IRAM_ADDR_MASK);  // TODO: move these to a package
     assign select_dram = (wb_addr_i[16:13] == DRAM_ADDR_MASK);
     assign ram_comm    = (select_dram | select_iram) & en_i;
+    assign ram_resp    = ram_state == RAM_RESP;
 
     /*************** Wishbone Signals *************/
     enum logic {
@@ -51,7 +53,7 @@ module wb_ram_interface #(
             wb_state  <= wb_next_state;
             case(wb_state)
                 WB_IDLE: begin
-                    if(ram_state == RAM_RESP & ram_comm & wb_stb_i & wb_cyc_i) begin
+                    if(ram_resp & ram_comm & wb_stb_i & wb_cyc_i) begin
                         wb_ack_o   <= '1;
                         wb_rdata_o <= select_iram ? iram_data_i : dram_data_i;
                     end
@@ -67,7 +69,7 @@ module wb_ram_interface #(
         wb_next_state = WB_IDLE;
         case(wb_state)
             WB_IDLE: begin
-                if(ram_state == RAM_RESP & wb_cyc_i & wb_stb_i)
+                if(ram_resp & wb_cyc_i & wb_stb_i)
                     wb_next_state = WB_RESP;
                 else
                     wb_next_state = WB_IDLE;
