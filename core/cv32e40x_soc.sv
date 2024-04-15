@@ -20,9 +20,7 @@ module cv32e40x_soc
     input  wire  clk_i,
     input  wire  wfg_clk_i,
     input  wire  rst_ni,
-    // // Uart
-    // output logic ser_tx,
-    // input  wire  ser_rx,
+    input  wire  gbl_rst_ni,
 
     //core control signals
     input  wire                         soc_fetch_enable_i,
@@ -197,14 +195,14 @@ module cv32e40x_soc
       // Instruction memory interface
       .instr_req_o      (cpu_instr_req      ),
       .instr_gnt_i      (cpu_instr_gnt      ),
-      .instr_rvalid_i   (cpu_instr_rvalid & soc_fetch_enable_i),
+      .instr_rvalid_i   (cpu_instr_rvalid   ),
       .instr_addr_o     (cpu_instr_addr     ),
       .instr_rdata_i    (cpu_instr_rdata    ),
 
       // Data memory interface
       .data_req_o       (cpu_data_req       ),
       .data_gnt_i       (cpu_data_gnt       ),
-      .data_rvalid_i    (cpu_data_rvalid & soc_fetch_enable_i),
+      .data_rvalid_i    (cpu_data_rvalid    ),
       .data_addr_o      (cpu_data_addr      ),
       .data_be_o        (cpu_data_be        ),
       .data_we_o        (cpu_data_we        ),
@@ -314,7 +312,7 @@ module cv32e40x_soc
     ) i_wb_ram_interface (
         .ram_clk_i      (clk_i          ),
         .wb_clk_i       (wfg_clk_i      ),
-        .rst_ni         (rst_ni         ),
+        .rst_ni         (gbl_rst_ni     ),
         .en_i           (ram_sel        ),
 
         // Wishbone input signals
