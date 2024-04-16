@@ -8,8 +8,8 @@ module obi_wb_bridge
 (
     input  wire obi_clk_i,                          // I - clock driving the OBI state machine -- 25MHz or 50MHz
     input  wire wb_clk_i,                           // I - clock driving the Wishbone state machine -- 100MHz
-    input  wire rst_ni,                             // I - global reset
-    input  wire en,                                 // I - enable
+    input  wire soc_rst_ni,                         // I - SoC reset
+    input  wire gbl_rst_ni,                         // I - Global reset
 
     /********* OBI Signals **********************/
     input  wire                     obi_req_i,      // I - Master requests data transfer, certifies that address & data out is accurate
@@ -41,17 +41,33 @@ logic       obi_clk_ff;
 logic       wb_clk_ff;
 logic       capture;
 logic [1:0] bufr;
+logic       resp_gate;
+
+/********** Reset Handler          ***********/
+// gate the responses to the OBI master based on whether a reset invalidated data
+always_ff @(posedge obi_clk_i, negedge soc_rst_ni) begin
+    if (~soc_rst_ni) begin
+        resp_gate <= '1;
+    end else begin
+        /* if a reset happens when there is no transaction taking place */
+        if(~wb_stb_o & ~wb_cyc_o) begin
+            resp_gate <= '0;
+        end else if (wb_resp) begin
+            resp_gate <= '0;
+        end
+    end
+end
 
 /********** Multicycle Path Timing ***********/
-always_ff @(posedge obi_clk_i, negedge rst_ni) begin
-    if (~rst_ni) begin
+always_ff @(posedge obi_clk_i, negedge soc_rst_ni) begin
+    if (~soc_rst_ni) begin
        obi_clk_ff <= '0;
     end else begin 
         obi_clk_ff <= ~obi_clk_ff;
     end
 end
-always_ff @(posedge wb_clk_i, negedge rst_ni) begin
-    if (~rst_ni) begin
+always_ff @(posedge wb_clk_i, negedge soc_rst_ni) begin
+    if (~soc_rst_ni) begin
         bufr    <= '0;
     end else begin
         bufr[0] <= obi_clk_ff;
@@ -68,8 +84,8 @@ enum logic [1:0] {
     OBI_VALID   // Send valid signal to OBI Master
 } obi_state, obi_next_state;
 
-always_ff @(posedge obi_clk_i, negedge rst_ni) begin : obi_state_assignment
-    if(~rst_ni) begin
+always_ff @(posedge obi_clk_i, negedge soc_rst_ni) begin : obi_state_assignment
+    if(~soc_rst_ni) begin
         obi_state <= OBI_IDLE;
     end else begin
         obi_state <= obi_next_state;
@@ -82,8 +98,8 @@ logic wb_resp_ff;
 
 assign wb_resp = wb_resp_ff | wb_ack_i;
 
-always_ff @(posedge wb_clk_i, negedge rst_ni) begin : wb_resp_logic
-    if(~rst_ni) begin
+always_ff @(posedge wb_clk_i, negedge soc_rst_ni) begin : wb_resp_logic
+    if(~soc_rst_ni) begin
         wb_resp_ff <= '0;
     end else begin
         if(obi_req_i) begin
@@ -125,8 +141,8 @@ always_comb begin : obi_next_state_logic
 end : obi_next_state_logic
 
 /* State Actions */
-assign obi_gnt_o    = (OBI_GNT   == obi_state);
-assign obi_rvalid_o = (OBI_VALID == obi_state);
+assign obi_gnt_o    = (OBI_GNT   == obi_state) & ~resp_gate;
+assign obi_rvalid_o = (OBI_VALID == obi_state) & ~resp_gate;
 /**********************************************/
 
 
@@ -137,15 +153,15 @@ enum logic [1:0] {
     WB_ACK      // WB slave acknowledged request and sent a response
 } wb_state;
 
-always_ff @(posedge wb_clk_i, negedge rst_ni) begin : wb_state_assignment
-    if(~rst_ni) begin
+always_ff @(posedge wb_clk_i, negedge gbl_rst_ni) begin : wb_state_assignment
+    if(~gbl_rst_ni) begin
         wb_state <= WB_IDLE;
         wb_stb_o <= '0;
         wb_cyc_o <= '0;
     end else begin
         case(wb_state)
             WB_IDLE: begin
-                if(obi_req_i & en & obi_state == OBI_IDLE & capture) begin
+                if(obi_req_i & obi_state == OBI_IDLE & capture) begin
                     wb_state     <= WB_AWAIT;
                     wb_stb_o     <= '1;
                     wb_cyc_o     <= '1;
