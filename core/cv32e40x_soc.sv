@@ -226,23 +226,17 @@ module cv32e40x_soc
     logic select_dram;
     logic select_iram;
     logic select_wb;
-    // logic select_uart;
 
     // Data select signals
     assign select_wb           = chip_sel == EXTERNAL;
     assign select_dram         = chip_sel == INTERNAL & block_sel == DRAM;
     assign select_iram         = chip_sel == INTERNAL & block_sel == IRAM;
-    // assign select_uart         = chip_sel == INTERNAL & block_sel == UART_MASK;
 
     always_comb begin
         soc_rdata = '0;
         case(1'b1)
             select_dram:
                 soc_rdata = ram_rdata;
-            // select_uart_data:
-            //     soc_rdata = uart_soc_rdata_del;
-            // select_uart_busy:
-            //     soc_rdata =  {{31{1'b0}}, uart_busy};
             select_iram:
                 soc_rdata = instr_rdata;
             select_wb:
@@ -269,13 +263,13 @@ module cv32e40x_soc
 
     obi_wb_bridge i_obi_wb_bridge
     (
-        .obi_clk_i      (clk_i    ),
-        .wb_clk_i       (wfg_clk_i),
-        .rst_ni         (rst_ni   ),
-        .en             (select_wb),
+        .obi_clk_i      (clk_i     ),
+        .wb_clk_i       (wfg_clk_i ),
+        .soc_rst_ni     (rst_ni    ),
+        .gbl_rst_ni     (gbl_rst_ni),
 
         /* OBI Signals */
-        .obi_req_i      (obi_req_o      ),
+        .obi_req_i      (obi_req_o & select_wb),
         .obi_gnt_o      (obi_gnt_i      ),
         .obi_addr_i     (obi_addr_o     ),
         .obi_wr_en_i    (obi_we_o       ),
@@ -390,50 +384,5 @@ module cv32e40x_soc
       .q_b      (dram2wb_data                       )
     );
     
-    // ----------------------------------
-    //               UART
-    // ----------------------------------
-
-    // logic select_uart_data;
-    // logic select_uart_busy;
-
-    // assign select_uart_data = select_uart && soc_addr[15:0]  == 16'h0000;
-    // assign select_uart_busy = select_uart && soc_addr[15:0]  == 16'h0004;
-
-    // logic [31:0] uart_soc_rdata;
-    // logic [31:0] uart_soc_rdata_del;
-
-    // logic uart_busy;
-
-    // // Prevent metastability
-    // logic [3:0] ser_rx_ff;
-
-    // always @(posedge clk_i) begin
-    //     ser_rx_ff <= {ser_rx_ff[2:0], ser_rx};
-    // end
-
-    // simpleuart #(
-    //     .DEFAULT_DIV(CLK_FREQ / BAUDRATE)
-    // ) simpleuart_inst (
-    //     .clk    (clk_i),
-    //     .resetn(rst_ni),
-
-    //     .ser_tx (ser_tx),
-    //     .ser_rx (ser_rx_ff[3]),
-
-    //     .reg_div_we ('0),
-    //     .reg_div_di ('0),
-    //     .reg_div_do (),
-
-    //     .reg_dat_we (soc_gnt && select_uart_data && soc_we),
-    //     .reg_dat_re (soc_gnt && select_uart_data && !soc_we),
-    //     .reg_dat_di (soc_wdata),
-    //     .reg_dat_do (uart_soc_rdata),
-    //     .reg_dat_wait (uart_busy)
-    // );
-
-    // always @(posedge clk_i) begin
-    //     uart_soc_rdata_del <= uart_soc_rdata;
-    // end
 
 endmodule
