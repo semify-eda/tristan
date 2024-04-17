@@ -101,4 +101,4 @@ firmware: firmware/firmware.mem firmware/firmware.o
 .PHONY: all
 
 cleanall:
-	rm -r -f *.vvp *.fst *.fst.hier *.vcd *.log *.json *.asc *.bin *.bit firmware/rle/*.o firmware/*.o firmware/*.elf firmware/*.bin firmware/firmware.map preprocessed.v cv32e40x_yosys.v abc.history sim_build results.xml
+	rm -r -f *.vvp *.fst *.fst.hier *.vcd *.log *.json *.asc *.bin *.bit firmware/rle/*.o firmware/*.o firmware/*.elf firmware/*.bin firmware/firmware.map preprocessed.v abc.history sim_build results.xml
