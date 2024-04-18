@@ -34,6 +34,13 @@ module wb_ram_interface #(
     logic ram_comm;
     logic ram_resp;
 
+    /*************** RAM Signals ******************/
+    enum logic [1:0] {
+        RAM_IDLE,   // no data being transfered
+        RAM_REQ,    // RAM receives a read/write request
+        RAM_RESP    // RAM responds
+    } ram_state, ram_next_state;
+
     assign select_iram = (wb_addr_i[16:13] == IRAM_ADDR_MASK);  // TODO: move these to a package
     assign select_dram = (wb_addr_i[16:13] == DRAM_ADDR_MASK);
     assign ram_comm    = (select_dram | select_iram) & en_i;
@@ -82,12 +89,6 @@ module wb_ram_interface #(
     /**********************************************/
 
     /*************** RAM Signals ******************/
-    enum logic [1:0] {
-        RAM_IDLE,   // no data being transfered
-        RAM_REQ,    // RAM receives a read/write request
-        RAM_RESP    // RAM responds
-    } ram_state, ram_next_state;
-
     always_ff @(posedge ram_clk_i, negedge rst_ni) begin : ram_state_assignment
         if (~rst_ni) begin
             ram_state <= RAM_IDLE;
