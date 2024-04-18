@@ -47,6 +47,43 @@ module cv32e40x_soc
     input  wire                         wb_cyc_i
 );
 
+    // ----------------------------------
+    //           CV32E40X Core
+    // ----------------------------------
+
+    logic cpu_instr_req;
+    logic cpu_instr_gnt;
+    logic cpu_instr_rvalid;
+    logic [SOC_ADDR_WIDTH-1:0] cpu_instr_addr;
+    logic [31: 0] cpu_instr_rdata;
+
+    logic cpu_data_req;
+    logic cpu_data_gnt;
+    logic cpu_data_rvalid;
+    logic [SOC_ADDR_WIDTH-1:0] cpu_data_addr;
+    logic [3 : 0] cpu_data_be;
+    logic         cpu_data_we;
+    logic [31: 0] cpu_data_wdata;
+    logic [31: 0] cpu_data_rdata;
+    logic [SOC_ADDR_WIDTH-1:0] soc_addr;
+    logic soc_req;
+    logic soc_gnt;
+    logic soc_rvalid;
+    logic [3 : 0] soc_be;
+    logic         soc_we;
+    logic [31: 0] soc_wdata;
+    logic [31: 0] soc_rdata;
+
+    logic [31:0] instr_rdata;
+    logic [31:0] ram_rdata;
+
+    // ----------------------------------
+    //            Multiplexer
+    // ----------------------------------
+    logic select_dram;
+    logic select_iram;
+    logic select_wb;
+
     // The alignment offset ensures that the RAM is addressed correctly regardless of its width.
     // This offset can change based on the width and depth of the RAM, and is calculated as:
     //          alignment offset = log2 (RAM Width / 8)
@@ -55,26 +92,26 @@ module cv32e40x_soc
     localparam ALIGNMENT_OFFSET = $clog2( RAM_DATA_WIDTH / 8 );
 
     //TODO: move these to a package
+    
+    // ----------------------------------
+    //           Communication Signals
+    // ----------------------------------
+    logic       ram_sel;
+    localparam RAM_MASK = 3'h6;
 
-    typedef enum logic {
+    typedef enum logic{
         INTERNAL = 1'b0,
         EXTERNAL = 1'b1
     } e_chip_sel;
 
-    typedef enum logic [2:0] {
+    typedef enum logic[2:0] {
         DRAM = 3'h0,
         IRAM = 3'h1,
         UART = 3'h2
     } e_block_sel;
 
-    localparam RAM_MASK = 3'h6;
-
-    // ----------------------------------
-    //           Communication Signals
-    // ----------------------------------
     e_chip_sel  chip_sel;
     e_block_sel block_sel;
-    logic       ram_sel;
 
     assign chip_sel  = e_chip_sel'(soc_addr[22]);
     assign block_sel = e_block_sel'(soc_addr[21:19]);
@@ -96,35 +133,6 @@ module cv32e40x_soc
     assign obi_we_o     = soc_we;
     assign obi_be_o     = soc_be;
     assign obi_wdata_o  = soc_wdata;
-
-    // ----------------------------------
-    //           CV32E40X Core
-    // ----------------------------------
-
-    logic cpu_instr_req;
-    logic cpu_instr_gnt;
-    logic cpu_instr_rvalid;
-    logic [SOC_ADDR_WIDTH-1:0] cpu_instr_addr;
-    logic [31: 0] cpu_instr_rdata;
-
-    logic cpu_data_req;
-    logic cpu_data_gnt;
-    logic cpu_data_rvalid;
-    logic [SOC_ADDR_WIDTH-1:0] cpu_data_addr;
-    logic [3 : 0] cpu_data_be;
-    logic         cpu_data_we;
-    logic [31: 0] cpu_data_wdata;
-    logic [31: 0] cpu_data_rdata;
-
-    logic soc_req;
-    logic soc_gnt;
-    logic soc_rvalid;
-    logic [SOC_ADDR_WIDTH-1:0] soc_addr;
-    logic [3 : 0] soc_be;
-    logic         soc_we;
-    logic [31: 0] soc_wdata;
-    logic [31: 0] soc_rdata;
-
     // ----------------------------------
     //            Grant Logic
     // ----------------------------------
@@ -223,9 +231,6 @@ module cv32e40x_soc
     // ----------------------------------
     //            Multiplexer
     // ----------------------------------
-    logic select_dram;
-    logic select_iram;
-    logic select_wb;
 
     // Data select signals
     assign select_wb           = chip_sel == EXTERNAL;
@@ -331,9 +336,6 @@ module cv32e40x_soc
     // ----------------------------------
     //           DP BRAM - Instr
     // ----------------------------------
-
-    logic [31:0] instr_rdata;
-
     soc_sram_dualport #(
         .INITFILEEN     (1),
         .INITFILE       (FIRMWARE_INITFILE),
@@ -362,9 +364,6 @@ module cv32e40x_soc
     // ----------------------------------
     //           DP BRAM - Data
     // ----------------------------------
-
-    logic [31:0] ram_rdata;
-
     soc_sram_dualport #(
         .DATAWIDTH      (RAM_DATA_WIDTH),
         .ADDRWIDTH      (RAM_ADDR_WIDTH),

@@ -42,6 +42,7 @@ logic       wb_clk_ff;
 logic       capture;
 logic [1:0] bufr;
 logic       resp_gate;
+logic       wb_resp;
 
 /********** Reset Handler          ***********/
 // gate the responses to the OBI master based on whether a reset invalidated data
@@ -93,7 +94,6 @@ always_ff @(posedge obi_clk_i, negedge soc_rst_ni) begin : obi_state_assignment
 end : obi_state_assignment
 
 // ensures that the wb response is recorded so that the slower OBI layer can accurately detect it
-logic wb_resp;
 logic wb_resp_ff;
 
 assign wb_resp = wb_resp_ff | wb_ack_i;
