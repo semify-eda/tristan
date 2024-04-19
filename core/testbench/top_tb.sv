@@ -48,7 +48,8 @@ module top_tb;
         .clk_i          ( core_clk     ),
         .wfg_clk_i      ( wfg_clk      ),
         .rst_ni         ( core_rst_n   ),
-        .soc_fetch_enable_i ('1),
+        .gbl_rst_ni     ( core_rst_n   ),
+        .soc_fetch_enable_i ('1        ),
         // .ser_tx,
         // .ser_rx,
 

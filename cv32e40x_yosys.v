@@ -10659,7 +10659,7 @@ module cv32e40x_top(clk_i, rst_ni, instr_req_o, instr_gnt_i, instr_rvalid_i, ins
         _4818_ = a;
     endcase
   endfunction
-  assign \cv32e40x_core_inst.if_stage_i.branch_addr_n  = _4818_(32'd524288, { \cv32e40x_core_inst.id_stage_i.id_ex_pipe_o [279:248], \cv32e40x_core_inst.cs_registers_i.mepc_csr_i.rdata_q [31:2], _0159_, 1'h0, \cv32e40x_core_inst.cs_registers_i.gen_debug_csr.dpc_csr_i.rdata_q [31:1], 1'h0, \cv32e40x_core_inst.cs_registers_i.ctrl_fsm_i [105:74], \cv32e40x_core_inst.cs_registers_i.basic_mode_csrs.mtvec_csr_i.rdata_q [31:7], 7'h00, \cv32e40x_core_inst.cs_registers_i.basic_mode_csrs.mtvec_csr_i.rdata_q [31:7], \cv32e40x_core_inst.controller_i.controller_fsm_i.sv2v_tmp_5381E , 66'h01a11080000000000, \cv32e40x_core_inst.cs_registers_i.basic_mode_csrs.mtvec_csr_i.rdata_q [31:7], \cv32e40x_core_inst.controller_i.controller_fsm_i.sv2v_tmp_63C61 , 27'h0000000, \cv32e40x_core_inst.controller_i.controller_fsm_i.exc_cause [4:0], 2'h0, \cv32e40x_core_inst.if_stage_i.if_id_pipe_o [34:3], \cv32e40x_core_inst.id_stage_i.bch_target  }, { _1728_, _1233_, _1727_, _1726_, _1725_, _1724_, _1723_, _1722_, _0336_, _1232_, _1721_, _0309_ });
+  assign \cv32e40x_core_inst.if_stage_i.branch_addr_n  = _4818_(32'd131072, { \cv32e40x_core_inst.id_stage_i.id_ex_pipe_o [279:248], \cv32e40x_core_inst.cs_registers_i.mepc_csr_i.rdata_q [31:2], _0159_, 1'h0, \cv32e40x_core_inst.cs_registers_i.gen_debug_csr.dpc_csr_i.rdata_q [31:1], 1'h0, \cv32e40x_core_inst.cs_registers_i.ctrl_fsm_i [105:74], \cv32e40x_core_inst.cs_registers_i.basic_mode_csrs.mtvec_csr_i.rdata_q [31:7], 7'h00, \cv32e40x_core_inst.cs_registers_i.basic_mode_csrs.mtvec_csr_i.rdata_q [31:7], \cv32e40x_core_inst.controller_i.controller_fsm_i.sv2v_tmp_5381E , 66'h01a11080000000000, \cv32e40x_core_inst.cs_registers_i.basic_mode_csrs.mtvec_csr_i.rdata_q [31:7], \cv32e40x_core_inst.controller_i.controller_fsm_i.sv2v_tmp_63C61 , 27'h0000000, \cv32e40x_core_inst.controller_i.controller_fsm_i.exc_cause [4:0], 2'h0, \cv32e40x_core_inst.if_stage_i.if_id_pipe_o [34:3], \cv32e40x_core_inst.id_stage_i.bch_target  }, { _1728_, _1233_, _1727_, _1726_, _1725_, _1724_, _1723_, _1722_, _0336_, _1232_, _1721_, _0309_ });
   assign _1720_ = \cv32e40x_core_inst.controller_i.controller_fsm_i.ctrl_fsm_o [196:193] == 4'hf;
   assign _1721_ = \cv32e40x_core_inst.controller_i.controller_fsm_i.ctrl_fsm_o [196:193] == 4'he;
   assign _1722_ = \cv32e40x_core_inst.controller_i.controller_fsm_i.ctrl_fsm_o [196:193] == 4'hb;
@@ -10742,7 +10742,7 @@ module cv32e40x_top(clk_i, rst_ni, instr_req_o, instr_gnt_i, instr_rvalid_i, ins
   assign \cv32e40x_core_inst.alu_en_id  = \cv32e40x_core_inst.controller_i.controller_fsm_i.alu_en_id_i ;
   assign \cv32e40x_core_inst.alu_jmp_id  = \cv32e40x_core_inst.id_stage_i.decoder_i.decoder_i_ctrl [52];
   assign \cv32e40x_core_inst.alu_jmpr_id  = \cv32e40x_core_inst.id_stage_i.decoder_i.decoder_i_ctrl [51];
-  assign \cv32e40x_core_inst.boot_addr_i  = 32'd524288;
+  assign \cv32e40x_core_inst.boot_addr_i  = 32'd131072;
   assign \cv32e40x_core_inst.branch_decision_ex  = \cv32e40x_core_inst.controller_i.controller_fsm_i.branch_decision_ex_i ;
   assign \cv32e40x_core_inst.branch_target_ex  = \cv32e40x_core_inst.id_stage_i.id_ex_pipe_o [279:248];
   assign \cv32e40x_core_inst.clic_irq_i  = 1'h0;
@@ -11750,7 +11750,7 @@ module cv32e40x_top(clk_i, rst_ni, instr_req_o, instr_gnt_i, instr_rvalid_i, ins
   assign \cv32e40x_core_inst.if_busy  = \cv32e40x_core_inst.sleep_unit_i.if_busy_i ;
   assign \cv32e40x_core_inst.if_id_pipe  = { \cv32e40x_core_inst.if_stage_i.if_id_pipe_o [190:99], 31'h00000000, \cv32e40x_core_inst.if_stage_i.if_id_pipe_o [67], 32'h00000000, \cv32e40x_core_inst.if_stage_i.if_id_pipe_o [34:0] };
   assign \cv32e40x_core_inst.if_stage_i.abort_op_o  = \cv32e40x_core_inst.controller_i.controller_fsm_i.abort_op_if_i ;
-  assign \cv32e40x_core_inst.if_stage_i.boot_addr_i  = 32'd524288;
+  assign \cv32e40x_core_inst.if_stage_i.boot_addr_i  = 32'd131072;
   assign \cv32e40x_core_inst.if_stage_i.branch_target_ex_i  = \cv32e40x_core_inst.id_stage_i.id_ex_pipe_o [279:248];
   assign \cv32e40x_core_inst.if_stage_i.bus_resp  = { instr_rdata_i, 1'h0 };
   assign \cv32e40x_core_inst.if_stage_i.bus_resp_valid  = instr_rvalid_i;

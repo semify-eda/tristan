@@ -10,7 +10,7 @@ module cv32e40x_soc
     parameter RAM_DATA_WIDTH    = 32,
     parameter CLK_FREQ          = 25_000_000,
     parameter BAUDRATE          = 115200,
-    parameter BOOT_ADDR         = 32'h00080000,
+    parameter BOOT_ADDR         = 32'h00020000,
     parameter DATA_START_ADDR   = 32'h00000000,
     parameter WB_INPUT_FREQ     = 100_000_000,
     parameter FIRMWARE_INITFILE = "firmware.mem"
@@ -97,7 +97,7 @@ module cv32e40x_soc
     //           Communication Signals
     // ----------------------------------
     logic       ram_sel;
-    localparam RAM_MASK = 3'h6;
+    localparam  RAM_MASK = 3'h6;
 
     typedef enum logic{
         INTERNAL = 1'b0,
@@ -113,8 +113,8 @@ module cv32e40x_soc
     e_chip_sel  chip_sel;
     e_block_sel block_sel;
 
-    assign chip_sel  = e_chip_sel'(soc_addr[22]);
-    assign block_sel = e_block_sel'(soc_addr[21:19]);
+    assign chip_sel  = e_chip_sel'(soc_addr[20]);
+    assign block_sel = e_block_sel'(soc_addr[19:17]);
     // TODO: move this ram sel mask value to a package
     assign ram_sel   = wb_addr_i[19:17] == RAM_MASK;
 
