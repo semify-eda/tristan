@@ -95,11 +95,9 @@ end : obi_state_assignment
 
 // ensures that the wb response is recorded so that the slower OBI layer can accurately detect it
 logic wb_resp_ff;
-logic trigger_remap;
 
 
 assign wb_resp          = wb_resp_ff | wb_ack_i;
-assign trigger_remap    = obi_addr_i[19:17] == 3'b010 & obi_addr_i[16:13] == 4'b0010 & obi_addr_i[12:8] == 5'b0;
 
 always_ff @(posedge wb_clk_i, negedge soc_rst_ni) begin : wb_resp_logic
     if(~soc_rst_ni) begin
@@ -171,9 +169,7 @@ always_ff @(posedge wb_clk_i, negedge gbl_rst_ni) begin : wb_state_assignment
                     wb_wdata_o   <= obi_wdata_i;
                     wb_wr_en_o   <= obi_wr_en_i;
                     wb_byte_en_o <= obi_byte_en_i;
-                    wb_addr_o    <= trigger_remap ? // if communication is being made with the interconnect, manually remap the address
-                        {12'h0, obi_addr_i[19:4], 2'b0, obi_addr[3:2]}:
-                        {12'h0, obi_addr_i[19:0]};
+                    wb_addr_o    <= {12'h0, obi_addr_i[19:0]};
                 end   
             end
             WB_AWAIT: begin
