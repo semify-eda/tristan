@@ -5,178 +5,11 @@
 */
 #include <stdint.h>
 
-/********************** WISHBONE START *********************/
-
-//! TODO: update these to be pointers
-// Read Data from external module
-#define _MODR(mod)          *((volatile int*)(mod.addr))
-
-// Write Data to external module
-#define _MODW(mod, data)    *((volatile int*)(mod.addr)) = data
-
-typedef union module_t {
-    uint32_t addr;
-    struct {
-        uint32_t reserved0  : 2;
-        uint32_t reg        : 8;
-        uint32_t id         : 5;
-        uint32_t type       : 4;
-        uint32_t block      : 3;
-        uint32_t chip_sel   : 1;
-        uint32_t reserved1  : 9;
-    } __attribute__ ((packed));
-} module_t;
-
-typedef union wfg_memory_t {
-    uint32_t addr;
-    struct {
-        uint32_t reserved0  : 2;
-        uint32_t word_addr  : 13;
-        uint32_t type       : 4;
-        uint32_t block      : 3;
-        uint32_t chip_sel   : 1;
-        uint32_t reserved1  : 9;
-    } __attribute__ ((packed));
-} wfg_memory_t;
-
-
-///////////////////////////
-//      Block
-///////////////////////////
-enum CHIP_SEL {
-    CS_INTERNAL = 0,
-    CS_EXTERNAL = 1
-};
-
-enum BLOCK {
-    BLOCK_TIMER      = 0x7,
-    // RESERVED      = 0x6,
-    BLOCK_RECORDER   = 0x5,
-    BLOCK_DRIVER     = 0x4,
-    BLOCK_STIMULI    = 0x3,
-    BLOCK_GEN_CONFIG = 0x2,
-    BLOCK_MEMORY     = 0x1
-    // RESERVED      = 0x0
-};
-
-///////////////////////////
-//      Type
-///////////////////////////
-enum TYPE {
-    TYPE_I2CT        = 0x4,
-    TYPE_PIN_MUX     = 0x3,
-    TYPE_SOC_TIMER   = 0x0
-};
-
-///////////////////////////
-//      ID
-///////////////////////////
-enum ID {
-    ID_I2CT          = 0x0,
-    ID_PIN_MUX       = 0x0,
-    ID_TIMER0        = 0x0
-};
-
-///////////////////////////
-//      Registers
-///////////////////////////
-typedef enum {
-    I2CT_CTRL        = 0x00,
-    I2CT_CFG         = 0x04,
-    I2CT_REGCFG      = 0x10,
-    I2CT_REGADDR     = 0x14,
-    I2CT_REGWDATA    = 0x18,
-    I2CT_REGWMASK    = 0x1C,
-    I2CT_REGRDATA    = 0x20,
-    I2CT_REGRMASK    = 0x24
-} i2ct_reg_t;
-
-enum TIMER_REG {
-    TIMER_CTRL      = 0x00,
-    TIMER_CFG       = 0x04,
-    TIMER_STATUS    = 0x08,
-    TIMER_CLR       = 0x10,
-    TIMER_ISR       = 0xA0,
-    TIMER_IER       = 0xA4,
-    TIMER_ICR       = 0xA8,
-    TIMER_MOD_INFO  = 0xFC
-};
-
-enum PINMUX_REG {
-    PINMUX_OUTPUT_SEL_0     = 0x00,
-    PINMUX_OUTPUT_SEL_1     = 0x04,
-    PINMUX_OUTPUT_SEL_2     = 0x08,
-    PINMUX_OUTPUT_SEL_3     = 0x0C,
-    PINMUX_PULLUP_SEL_0     = 0x10,
-    PINMUX_PULLUP_SEL_1     = 0x14,
-    PINMUX_PULLUP_SEL_2     = 0x18,
-    PINMUX_PULLUP_SEL_3     = 0x1C,
-    PINMUX_INPUT_SEL_0      = 0x20,
-    PINMUX_INPUT_SEL_1      = 0x24,
-    PINMUX_INPUT_SEL_2      = 0x28,
-    PINMUX_INPUT_SEL_3      = 0x2C,
-    PINMUX_MIRROR_OUTPUT    = 0x30,
-    PINMUX_MIRROR_PULLUP    = 0x34,
-    PINMUX_MIRROR_INPUT     = 0x38,
-    PINMUX_PIN_IR_RISING    = 0x90,
-    PINMUX_PIN_IR_FALLING   = 0x94,
-    PINMUX_ISR              = 0xA0,
-    PINMUX_IER              = 0xA4,
-    PINMUX_ICR              = 0xA8,
-    PINMUX_MODULE_INFO      = 0xFC
-};
-
-enum PINMUX_MOD_SEL {
-    PINMUX_IN_MOD_I2CT_SDA      = 0x2,
-    PINMUX_IN_MOD_I2CT_SCL      = 0x3,
-    PINMUX_OUT_MOD_I2CT_SDA     = 0x5,
-    PINMUX_OUT_MOD_I2CT_SCL     = 0x6,
-    PINMUX_OUT_MOD_I2CT_WR_UPDATE = 0x4,
-    PINMUX_OUT_MOD_I2CT_PDWN_SDA = 0x3
-};
-
-typedef struct acc_t {
-    uint16_t x_acc;
-    uint16_t y_acc;
-    uint16_t z_acc;
-    uint16_t x_gyro;
-    uint16_t y_gyro;
-    uint16_t z_gyro;
-    uint8_t  x_dir;
-    uint8_t  y_dir;
-    uint8_t  z_dir;
-} acc_t;
-
-enum direction_t {
-    UP,
-    DOWN
-};
-
-/********************** WISHBONE END   *********************/
-
 #define TIMER_FREQ          100000000
 #define TIMER_IRQ_FREQ      10
 #define TIMER_RELOAD_VAL    (TIMER_FREQ / TIMER_IRQ_FREQ)
 
-// timer
-void configure_timer(module_t timer, uint32_t cfg);
-uint8_t timer_irq(module_t timer);
-void ack_timer(module_t timer);
-
-// i2ct
-void initialize_i2ct(module_t i2ct);
-void update_x_accel(module_t i2ct, uint16_t val);
-void update_y_accel(module_t i2ct, uint16_t val);
-void update_z_accel(module_t i2ct, uint16_t val);
-void update_x_gyro(module_t i2ct, uint16_t val);
-void update_y_gyro(module_t i2ct, uint16_t val);
-void update_z_gyro(module_t i2ct, uint16_t val);
-
-// pinmux
-void configure_pinmux(module_t pinmux, uint8_t sda_pin, uint8_t scl_pin);
-
 // debugging function
-void set_led(module_t pinmux, uint8_t value);
 #define LED_ON  0x2
 #define LED_OFF 0x1
 
@@ -202,52 +35,56 @@ void set_led(module_t pinmux, uint8_t value);
 
 typedef enum pinmux_output_pins_t {
 
-    PINMUX_OUT_WFG_DRIVE_SPI_TOP_0_SCLK = 32,
-    PINMUX_OUT_WFG_DRIVE_SPI_TOP_0_CS = 31,
-    PINMUX_OUT_WFG_DRIVE_SPI_TOP_0_DOUT = 30,
-    PINMUX_OUT_WFG_DRIVE_SPI_TOP_1_SCLK = 29,
-    PINMUX_OUT_WFG_DRIVE_SPI_TOP_1_CS = 28,
-    PINMUX_OUT_WFG_DRIVE_SPI_TOP_1_DOUT = 27,
-    PINMUX_OUT_WFG_DRIVE_PAT_TOP_0_OUTPUT_0 = 26,
-    PINMUX_OUT_WFG_DRIVE_PAT_TOP_0_OUTPUT_1 = 25,
-    PINMUX_OUT_WFG_DRIVE_PAT_TOP_0_OUTPUT_2 = 24,
-    PINMUX_OUT_WFG_DRIVE_PAT_TOP_0_OUTPUT_3 = 23,
-    PINMUX_OUT_WFG_DRIVE_PAT_TOP_0_OUTPUT_4 = 22,
-    PINMUX_OUT_WFG_DRIVE_PAT_TOP_0_OUTPUT_5 = 21,
-    PINMUX_OUT_WFG_DRIVE_PAT_TOP_0_OUTPUT_6 = 20,
-    PINMUX_OUT_WFG_DRIVE_PAT_TOP_0_OUTPUT_7 = 19,
-    PINMUX_OUT_WFG_DRIVE_PAT_TOP_0_OUTPUT_8 = 18,
-    PINMUX_OUT_WFG_DRIVE_PAT_TOP_0_OUTPUT_9 = 17,
-    PINMUX_OUT_WFG_DRIVE_PAT_TOP_0_OUTPUT_10 = 16,
-    PINMUX_OUT_WFG_DRIVE_PAT_TOP_0_OUTPUT_11 = 15,
-    PINMUX_OUT_WFG_DRIVE_PAT_TOP_0_OUTPUT_12 = 14,
-    PINMUX_OUT_WFG_DRIVE_PAT_TOP_0_OUTPUT_13 = 13,
-    PINMUX_OUT_WFG_DRIVE_PAT_TOP_0_OUTPUT_14 = 12,
-    PINMUX_OUT_WFG_DRIVE_PAT_TOP_0_OUTPUT_15 = 11,
-    PINMUX_OUT_WFG_DRIVE_I2C_TOP_0_SCL = 10,
-    PINMUX_OUT_WFG_DRIVE_I2C_TOP_0_SDA = 9,
-    PINMUX_OUT_WFG_DRIVE_I2C_TOP_1_SCL = 8,
-    PINMUX_OUT_WFG_DRIVE_I2C_TOP_1_SDA = 7,
-    PINMUX_OUT_WFG_DRIVE_I2CT_TOP_0_SCL = 6,
-    PINMUX_OUT_WFG_DRIVE_I2CT_TOP_0_SDA = 5,
-    PINMUX_OUT_WFG_DRIVE_UART_TOP_0_TX = 4,
-    PINMUX_OUT_WFG_DRIVE_UART_TOP_1_TX = 3
+    WFG_PINMUX_OUT_WFG_DRIVE_SPI_TOP_0_SCLK = 32,
+    WFG_PINMUX_OUT_WFG_DRIVE_SPI_TOP_0_CS = 31,
+    WFG_PINMUX_OUT_WFG_DRIVE_SPI_TOP_0_DOUT = 30,
+    WFG_PINMUX_OUT_WFG_DRIVE_SPI_TOP_1_SCLK = 29,
+    WFG_PINMUX_OUT_WFG_DRIVE_SPI_TOP_1_CS = 28,
+    WFG_PINMUX_OUT_WFG_DRIVE_SPI_TOP_1_DOUT = 27,
+    WFG_PINMUX_OUT_WFG_DRIVE_PAT_TOP_0_OUTPUT_0 = 26,
+    WFG_PINMUX_OUT_WFG_DRIVE_PAT_TOP_0_OUTPUT_1 = 25,
+    WFG_PINMUX_OUT_WFG_DRIVE_PAT_TOP_0_OUTPUT_2 = 24,
+    WFG_PINMUX_OUT_WFG_DRIVE_PAT_TOP_0_OUTPUT_3 = 23,
+    WFG_PINMUX_OUT_WFG_DRIVE_PAT_TOP_0_OUTPUT_4 = 22,
+    WFG_PINMUX_OUT_WFG_DRIVE_PAT_TOP_0_OUTPUT_5 = 21,
+    WFG_PINMUX_OUT_WFG_DRIVE_PAT_TOP_0_OUTPUT_6 = 20,
+    WFG_PINMUX_OUT_WFG_DRIVE_PAT_TOP_0_OUTPUT_7 = 19,
+    WFG_PINMUX_OUT_WFG_DRIVE_PAT_TOP_0_OUTPUT_8 = 18,
+    WFG_PINMUX_OUT_WFG_DRIVE_PAT_TOP_0_OUTPUT_9 = 17,
+    WFG_PINMUX_OUT_WFG_DRIVE_PAT_TOP_0_OUTPUT_10 = 16,
+    WFG_PINMUX_OUT_WFG_DRIVE_PAT_TOP_0_OUTPUT_11 = 15,
+    WFG_PINMUX_OUT_WFG_DRIVE_PAT_TOP_0_OUTPUT_12 = 14,
+    WFG_PINMUX_OUT_WFG_DRIVE_PAT_TOP_0_OUTPUT_13 = 13,
+    WFG_PINMUX_OUT_WFG_DRIVE_PAT_TOP_0_OUTPUT_14 = 12,
+    WFG_PINMUX_OUT_WFG_DRIVE_PAT_TOP_0_OUTPUT_15 = 11,
+    WFG_PINMUX_OUT_WFG_DRIVE_I2C_TOP_0_SCL = 10,
+    WFG_PINMUX_OUT_WFG_DRIVE_I2C_TOP_0_SDA = 9,
+    WFG_PINMUX_OUT_WFG_DRIVE_I2C_TOP_1_SCL = 8,
+    WFG_PINMUX_OUT_WFG_DRIVE_I2C_TOP_1_SDA = 7,
+    WFG_PINMUX_OUT_WFG_DRIVE_I2CT_TOP_0_SCL = 6,
+    WFG_PINMUX_OUT_WFG_DRIVE_I2CT_TOP_0_SDA = 5,
+    WFG_PINMUX_OUT_WFG_DRIVE_UART_TOP_0_TX = 4,
+    WFG_PINMUX_OUT_WFG_DRIVE_UART_TOP_1_TX = 3
 } pinmux_output_pins_t;
 
 typedef enum pinmux_input_pins_t {
 
-    PINMUX_IN_WFG_DRIVE_SPI_TOP_0_DIN = 9,
-    PINMUX_IN_WFG_DRIVE_SPI_TOP_1_DIN = 8,
-    PINMUX_IN_WFG_DRIVE_I2C_TOP_0_SCL = 7,
-    PINMUX_IN_WFG_DRIVE_I2C_TOP_0_SDA = 6,
-    PINMUX_IN_WFG_DRIVE_I2C_TOP_1_SCL = 5,
-    PINMUX_IN_WFG_DRIVE_I2C_TOP_1_SDA = 4,
-    PINMUX_IN_WFG_DRIVE_I2CT_TOP_0_SCL = 3,
-    PINMUX_IN_WFG_DRIVE_I2CT_TOP_0_SDA = 2,
-    PINMUX_IN_WFG_DRIVE_UART_TOP_0_RX = 1,
-    PINMUX_IN_WFG_DRIVE_UART_TOP_1_RX = 0
+    WFG_PINMUX_IN_WFG_DRIVE_SPI_TOP_0_DIN = 9,
+    WFG_PINMUX_IN_WFG_DRIVE_SPI_TOP_1_DIN = 8,
+    WFG_PINMUX_IN_WFG_DRIVE_I2C_TOP_0_SCL = 7,
+    WFG_PINMUX_IN_WFG_DRIVE_I2C_TOP_0_SDA = 6,
+    WFG_PINMUX_IN_WFG_DRIVE_I2C_TOP_1_SCL = 5,
+    WFG_PINMUX_IN_WFG_DRIVE_I2C_TOP_1_SDA = 4,
+    WFG_PINMUX_IN_WFG_DRIVE_I2CT_TOP_0_SCL = 3,
+    WFG_PINMUX_IN_WFG_DRIVE_I2CT_TOP_0_SDA = 2,
+    WFG_PINMUX_IN_WFG_DRIVE_UART_TOP_0_RX = 1,
+    WFG_PINMUX_IN_WFG_DRIVE_UART_TOP_1_RX = 0
 } pinmux_input_pins_t;
 
+typedef enum pinmux_pullup_values_t {
+    WFG_PINMUX_PULLUP_ENABLE = 1,
+    WFG_PINMUX_PULLUP_DISABLE = 0
+} pinmux_pullup_values_t;
 
 typedef enum interconnect_values_t {
     WFG_INTERCONNECT_SELECT_WFG_DRIVE_SPI_TOP_0 = 0x01U,
@@ -264,32 +101,31 @@ typedef enum interconnect_values_t {
     WFG_INTERCONNECT_SELECT_WFG_STIM_MEM_TOP_3 = 0x04U    
 } interconnect_values_t;
 
-
 ////////////////////////////////////////////
 //********** module base addresses *******//
 ////////////////////////////////////////////
-#define MOD_WFG_MEMORY 0x420000U
+#define MOD_WFG_MEMORY 0x120000U
 #define MOD_WFG_INTERCONNECT_BASE 0x44000U
-#define MOD_WFG_CORE_TOP_BASE 0x440000U
-#define MOD_WFG_PIN_MUX_TOP_BASE 0x446000U
-#define MOD_WFG_SYSCTRL_REG_BASE 0x448000U
-#define MOD_WFG_STIM_MEM_TOP_0_BASE 0x460000U
-#define MOD_WFG_STIM_MEM_TOP_1_BASE 0x460100U
-#define MOD_WFG_STIM_MEM_TOP_2_BASE 0x460200U
-#define MOD_WFG_STIM_MEM_TOP_3_BASE 0x460300U
-#define MOD_WFG_DRIVE_SPI_TOP_0_BASE 0x480000U
-#define MOD_WFG_DRIVE_SPI_TOP_1_BASE 0x480100U
-#define MOD_WFG_DRIVE_PAT_TOP_0_BASE 0x482000U
-#define MOD_WFG_DRIVE_I2C_TOP_0_BASE 0x484000U
-#define MOD_WFG_DRIVE_I2C_TOP_1_BASE 0x484100U
-#define MOD_WFG_DRIVE_I2CT_TOP_0_BASE 0x488000U
-#define MOD_WFG_DRIVE_UART_TOP_0_BASE 0x486000U
-#define MOD_WFG_DRIVE_UART_TOP_1_BASE 0x486100U
-#define MOD_WFG_RECORD_MEM_TOP_0_BASE 0x4a0000U
-#define MOD_WFG_RECORD_MEM_TOP_1_BASE 0x4a0100U
-#define MOD_WFG_RECORD_MEM_TOP_2_BASE 0x4a0200U
-#define MOD_WFG_RECORD_MEM_TOP_3_BASE 0x4a0300U
-#define MOD_TIMER_BASE 0x4e0000U
+#define MOD_WFG_CORE_TOP_BASE 0x140000U
+#define MOD_WFG_PIN_MUX_TOP_BASE 0x146000U
+#define MOD_WFG_SYSCTRL_REG_BASE 0x148000U
+#define MOD_WFG_STIM_MEM_TOP_0_BASE 0x160000U
+#define MOD_WFG_STIM_MEM_TOP_1_BASE 0x160100U
+#define MOD_WFG_STIM_MEM_TOP_2_BASE 0x160200U
+#define MOD_WFG_STIM_MEM_TOP_3_BASE 0x160300U
+#define MOD_WFG_DRIVE_SPI_TOP_0_BASE 0x180000U
+#define MOD_WFG_DRIVE_SPI_TOP_1_BASE 0x180100U
+#define MOD_WFG_DRIVE_PAT_TOP_0_BASE 0x182000U
+#define MOD_WFG_DRIVE_I2C_TOP_0_BASE 0x184000U
+#define MOD_WFG_DRIVE_I2C_TOP_1_BASE 0x184100U
+#define MOD_WFG_DRIVE_I2CT_TOP_0_BASE 0x188000U
+#define MOD_WFG_DRIVE_UART_TOP_0_BASE 0x186000U
+#define MOD_WFG_DRIVE_UART_TOP_1_BASE 0x186100U
+#define MOD_WFG_RECORD_MEM_TOP_0_BASE 0x1a0000U
+#define MOD_WFG_RECORD_MEM_TOP_1_BASE 0x1a0100U
+#define MOD_WFG_RECORD_MEM_TOP_2_BASE 0x1a0200U
+#define MOD_WFG_RECORD_MEM_TOP_3_BASE 0x1a0300U
+#define MOD_TIMER_BASE 0x1e0000U
 
 ////////////////////////////////////////////
 //********** register bitfields **********//
@@ -1270,7 +1106,7 @@ typedef struct wfg_record_mem_top_t {
 } wfg_record_mem_top_t;
 
 // timer
-typedef struct timer_t {
+typedef struct wfg_timer_t {
     bitfield_timer_ctrl_t ctrl;
     bitfield_timer_cfg_t cfg;
     bitfield_timer_status_t status;
@@ -1282,31 +1118,31 @@ typedef struct timer_t {
     bitfield_timer_icr_t icr;
     uint32_t reserved2[20];
     bitfield_timer_module_info_t module_info;
-} timer_t;
+} wfg_timer_t;
 
 ////////////////////////////////////////////
 //********** module pointers *************//
 ////////////////////////////////////////////
-extern const wfg_core_top_t* wfg_core_top;
-extern const wfg_pin_mux_top_t* wfg_pin_mux_top;
-extern const wfg_sysctrl_reg_t* wfg_sysctrl_reg;
-extern const wfg_stim_mem_top_t* wfg_stim_mem_top_0;
-extern const wfg_stim_mem_top_t* wfg_stim_mem_top_1;
-extern const wfg_stim_mem_top_t* wfg_stim_mem_top_2;
-extern const wfg_stim_mem_top_t* wfg_stim_mem_top_3;
-extern const wfg_drive_spi_top_t* wfg_drive_spi_top_0;
-extern const wfg_drive_spi_top_t* wfg_drive_spi_top_1;
-extern const wfg_drive_pat_top_t* wfg_drive_pat_top_0;
-extern const wfg_drive_i2c_top_t* wfg_drive_i2c_top_0;
-extern const wfg_drive_i2c_top_t* wfg_drive_i2c_top_1;
-extern const wfg_drive_i2ct_top_t* wfg_drive_i2ct_top_0;
-extern const wfg_drive_uart_top_t* wfg_drive_uart_top_0;
-extern const wfg_drive_uart_top_t* wfg_drive_uart_top_1;
-extern const wfg_record_mem_top_t* wfg_record_mem_top_0;
-extern const wfg_record_mem_top_t* wfg_record_mem_top_1;
-extern const wfg_record_mem_top_t* wfg_record_mem_top_2;
-extern const wfg_record_mem_top_t* wfg_record_mem_top_3;
-extern const timer_t* timer;
+extern volatile wfg_core_top_t* const wfg_core_top;
+extern volatile wfg_pin_mux_top_t* const wfg_pin_mux_top;
+extern volatile wfg_sysctrl_reg_t* const wfg_sysctrl_reg;
+extern volatile wfg_stim_mem_top_t* const wfg_stim_mem_top_0;
+extern volatile wfg_stim_mem_top_t* const wfg_stim_mem_top_1;
+extern volatile wfg_stim_mem_top_t* const wfg_stim_mem_top_2;
+extern volatile wfg_stim_mem_top_t* const wfg_stim_mem_top_3;
+extern volatile wfg_drive_spi_top_t* const wfg_drive_spi_top_0;
+extern volatile wfg_drive_spi_top_t* const wfg_drive_spi_top_1;
+extern volatile wfg_drive_pat_top_t* const wfg_drive_pat_top_0;
+extern volatile wfg_drive_i2c_top_t* const wfg_drive_i2c_top_0;
+extern volatile wfg_drive_i2c_top_t* const wfg_drive_i2c_top_1;
+extern volatile wfg_drive_i2ct_top_t* const wfg_drive_i2ct_top_0;
+extern volatile wfg_drive_uart_top_t* const wfg_drive_uart_top_0;
+extern volatile wfg_drive_uart_top_t* const wfg_drive_uart_top_1;
+extern volatile wfg_record_mem_top_t* const wfg_record_mem_top_0;
+extern volatile wfg_record_mem_top_t* const wfg_record_mem_top_1;
+extern volatile wfg_record_mem_top_t* const wfg_record_mem_top_2;
+extern volatile wfg_record_mem_top_t* const wfg_record_mem_top_3;
+extern volatile wfg_timer_t* const wfg_timer;
 //marker_template_end
 
 #endif
