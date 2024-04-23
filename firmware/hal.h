@@ -9,7 +9,6 @@
 #define TIMER_IRQ_FREQ      10
 #define TIMER_RELOAD_VAL    (TIMER_FREQ / TIMER_IRQ_FREQ)
 
-// debugging function
 #define LED_ON  0x2
 #define LED_OFF 0x1
 
@@ -151,6 +150,7 @@ typedef union bitfield_wfg_core_top_module_info_t {
         uint32_t patch : 8;
         uint32_t minor : 8;
         uint32_t major : 8;
+        uint32_t reserved0 : 3;
         uint32_t type : 1;
         uint32_t block : 4;
     } __attribute__ ((packed));
@@ -338,6 +338,7 @@ typedef union bitfield_wfg_pin_mux_top_module_info_t {
         uint32_t patch : 8;
         uint32_t minor : 8;
         uint32_t major : 8;
+        uint32_t reserved0 : 3;
         uint32_t type : 1;
         uint32_t block : 4;
     } __attribute__ ((packed));
@@ -443,6 +444,7 @@ typedef union bitfield_wfg_sysctrl_reg_module_info_t {
         uint32_t patch : 8;
         uint32_t minor : 8;
         uint32_t major : 8;
+        uint32_t reserved0 : 3;
         uint32_t type : 1;
         uint32_t block : 4;
     } __attribute__ ((packed));
@@ -535,6 +537,7 @@ typedef union bitfield_wfg_stim_mem_top_module_info_t {
         uint32_t patch : 8;
         uint32_t minor : 8;
         uint32_t major : 8;
+        uint32_t reserved0 : 3;
         uint32_t type : 1;
         uint32_t block : 4;
     } __attribute__ ((packed));
@@ -594,6 +597,7 @@ typedef union bitfield_wfg_drive_spi_top_module_info_t {
         uint32_t patch : 8;
         uint32_t minor : 8;
         uint32_t major : 8;
+        uint32_t reserved0 : 3;
         uint32_t type : 1;
         uint32_t block : 4;
     } __attribute__ ((packed));
@@ -635,6 +639,7 @@ typedef union bitfield_wfg_drive_pat_top_module_info_t {
         uint32_t patch : 8;
         uint32_t minor : 8;
         uint32_t major : 8;
+        uint32_t reserved0 : 3;
         uint32_t type : 1;
         uint32_t block : 4;
     } __attribute__ ((packed));
@@ -651,6 +656,7 @@ typedef union bitfield_wfg_drive_i2c_top_cfg_t {
     uint32_t value;
     struct {
         uint32_t dev_id : 7;
+        uint32_t reserved0 : 1;
         uint32_t wait_state_enabled : 1;
     } __attribute__ ((packed));
 } bitfield_wfg_drive_i2c_top_cfg_t;
@@ -692,6 +698,7 @@ typedef union bitfield_wfg_drive_i2c_top_module_info_t {
         uint32_t patch : 8;
         uint32_t minor : 8;
         uint32_t major : 8;
+        uint32_t reserved0 : 3;
         uint32_t type : 1;
         uint32_t block : 4;
     } __attribute__ ((packed));
@@ -709,6 +716,7 @@ typedef union bitfield_wfg_drive_i2ct_top_cfg_t {
     struct {
         uint32_t devid : 7;
         uint32_t addrsize : 1;
+        uint32_t reserved0 : 7;
         uint32_t datasize : 2;
     } __attribute__ ((packed));
 } bitfield_wfg_drive_i2ct_top_cfg_t;
@@ -787,6 +795,7 @@ typedef union bitfield_wfg_drive_uart_top_module_info_t {
         uint32_t patch : 8;
         uint32_t minor : 8;
         uint32_t major : 8;
+        uint32_t reserved0 : 3;
         uint32_t type : 1;
         uint32_t block : 4;
     } __attribute__ ((packed));
@@ -864,6 +873,7 @@ typedef union bitfield_wfg_record_mem_top_module_info_t {
         uint32_t patch : 8;
         uint32_t minor : 8;
         uint32_t major : 8;
+        uint32_t reserved0 : 3;
         uint32_t type : 1;
         uint32_t block : 4;
     } __attribute__ ((packed));
@@ -880,6 +890,7 @@ typedef union bitfield_timer_cfg_t {
     uint32_t value;
     struct {
         uint32_t auto_reload : 1;
+        uint32_t reserved0 : 7;
         uint32_t reload_value : 24;
     } __attribute__ ((packed));
 } bitfield_timer_cfg_t;
@@ -887,6 +898,7 @@ typedef union bitfield_timer_cfg_t {
 typedef union bitfield_timer_status_t {
     uint32_t value;
     struct {
+        uint32_t reserved0 : 7;
         uint32_t count_value : 24;
     } __attribute__ ((packed));
 } bitfield_timer_status_t;
@@ -925,6 +937,7 @@ typedef union bitfield_timer_module_info_t {
         uint32_t patch : 8;
         uint32_t minor : 8;
         uint32_t major : 8;
+        uint32_t reserved0 : 3;
         uint32_t type : 1;
         uint32_t block : 4;
     } __attribute__ ((packed));
