@@ -1,15 +1,14 @@
 `default_nettype none
-module wb_ram_interface #(
+import soc_pkg::*;
+module wb_ram_interface
+#(
     parameter WB_ADDR_WIDTH  = 32,
     parameter RAM_ADDR_WIDTH = 32,
-    parameter RAM_DATA_WIDTH = 32,
-    parameter IRAM_ADDR_MASK = 4'h1,    // TODO: move these values to a package
-    parameter DRAM_ADDR_MASK = 4'h0
+    parameter RAM_DATA_WIDTH = 32
 )(
     input  wire  wb_clk_i,                          // I - clock signal for wishbone state machine
     input  wire  ram_clk_i,                         // I - clock signal for ram state machine
     input  wire  rst_ni,                            // I - global reset
-    input  wire  en_i,                              // I - enable
 
     /************ Wishbone Signals  *************/
     input  wire  [WB_ADDR_WIDTH-1:0]    wb_addr_i,  // I - address requested by wishbone master, must be translated
@@ -31,7 +30,6 @@ module wb_ram_interface #(
 
     logic select_iram;
     logic select_dram;
-    logic ram_comm;
     logic ram_resp;
 
     /*************** RAM Signals ******************/
@@ -41,9 +39,8 @@ module wb_ram_interface #(
         RAM_RESP    // RAM responds
     } ram_state, ram_next_state;
 
-    assign select_iram = (wb_addr_i[16:13] == IRAM_ADDR_MASK);  // TODO: move these to a package
-    assign select_dram = (wb_addr_i[16:13] == DRAM_ADDR_MASK);
-    assign ram_comm    = (select_dram | select_iram) & en_i;
+    assign select_iram = (wb_addr_i[RAM_ADDR_WIDTH] == IRAM[0]);
+    assign select_dram = (wb_addr_i[RAM_ADDR_WIDTH] == DRAM[0]);
     assign ram_resp    = ram_state == RAM_RESP;
 
     /*************** Wishbone Signals *************/
@@ -60,7 +57,7 @@ module wb_ram_interface #(
             wb_state  <= wb_next_state;
             case(wb_state)
                 WB_IDLE: begin
-                    if(ram_resp & ram_comm & wb_stb_i & wb_cyc_i) begin
+                    if(ram_resp & wb_stb_i & wb_cyc_i) begin
                         wb_ack_o   <= '1;
                         wb_rdata_o <= select_iram ? iram_data_i : dram_data_i;
                     end
@@ -98,7 +95,7 @@ module wb_ram_interface #(
             ram_state <= ram_next_state;
             case(ram_state)
                 RAM_IDLE: begin
-                    if(ram_comm & wb_stb_i & wb_cyc_i) begin
+                    if(wb_stb_i & wb_cyc_i) begin
                         ram_addr_o <= wb_addr_i[RAM_ADDR_WIDTH-1 : 0];
                         ram_data_o <= wb_wdata_i;
                         iram_we_o  <= select_iram & wb_wr_en_i & (wb_state == WB_IDLE);

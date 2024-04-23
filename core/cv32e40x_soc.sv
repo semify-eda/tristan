@@ -1,6 +1,6 @@
 `default_nettype none
-
 `timescale 1ns/1ps
+import soc_pkg::*;
 
 module cv32e40x_soc
 #(
@@ -94,27 +94,12 @@ module cv32e40x_soc
     // ----------------------------------
     //           Communication Signals
     // ----------------------------------
-    logic       ram_sel;
-    localparam  RAM_MASK = 3'h6;
-
-    typedef enum logic{
-        INTERNAL = 1'b0,
-        EXTERNAL = 1'b1
-    } e_chip_sel;
-
-    typedef enum logic[2:0] {
-        DRAM = 3'h0,
-        IRAM = 3'h1,
-        UART = 3'h2
-    } e_block_sel;
 
     e_chip_sel  chip_sel;
     e_block_sel block_sel;
 
     assign chip_sel  = e_chip_sel'(soc_addr[20]);
     assign block_sel = e_block_sel'(soc_addr[19:17]);
-    // TODO: move this ram sel mask value to a package
-    assign ram_sel   = wb_addr_i[19:17] == RAM_MASK;
 
     // standard OBI signals
     logic                       obi_req_o;
@@ -310,7 +295,6 @@ module cv32e40x_soc
         .ram_clk_i      (clk_i          ),
         .wb_clk_i       (wfg_clk_i      ),
         .rst_ni         (gbl_rst_ni     ),
-        .en_i           (ram_sel        ),
 
         // Wishbone input signals
         .wb_addr_i      (wb_addr_i      ),
