@@ -38,7 +38,6 @@ module top_tb;
     #(
         .SOC_ADDR_WIDTH    (SOC_ADDR_WIDTH),
         .RAM_ADDR_WIDTH    (RAM_ADDR_WIDTH),
-        .CLK_FREQ          (CLK_FREQ),
         .BAUDRATE          (BAUDRATE),
         .BOOT_ADDR         (BOOT_ADDR),
         .FIRMWARE_INITFILE ("firmware/firmware.mem")
