@@ -13,6 +13,7 @@ RTL = 	$(wildcard core/cv32e40x/rtl/*.sv) \
 RTL_CUSTOM = $(wildcard core/custom/*.sv)
 
 SRC = 	core/cv32e40x_yosys.v \
+	core/include/soc_pkg.sv
 	core/cv32e40x_soc.sv \
 	core/simpleuart.v \
    	core/core_sram.sv \
