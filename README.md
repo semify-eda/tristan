@@ -1,6 +1,6 @@
 # TRISTAN
 
-This repository contains the `CV32E40X` core and all additional material for an FPGA prototype and ASIC implementation.
+This repository contains the `CV32E40X` core and all additional material for an FPGA implementation.
 
 ## Setup
 
@@ -22,33 +22,20 @@ To enable all tools, add  `/opt/riscv/riscv32-unknown-elf/bin` and `/opt/riscv/b
 
 
 ## Instructions
+Compile the firmware:
+
+	make firmware
+
+Compile the core (sv2v conversion):
+
+ 	make core/cv32e40x_yosys.v
 
 Run the simulation:
 
-	make sim-ulx3s
-
-View the waveforms:
-
-	make view-ulx3s
-
----
-
-Test the core on the `ULX3S` FPGA:
-
-Synthesize the SoC:
-
-	make synth-ulx3s
-
-Run Place and Route:
-
-	make build-ulx3s
-
-Upload the bitstream:
-
-	make upload-ulx3s
+	make
 
 ---
 
 To cleanup the files:
 
-	make clean
+	make cleanall
