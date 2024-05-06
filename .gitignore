@@ -68,3 +68,4 @@ top_tb.vcd
 __pycache__
 sim_build
 abc.history
+.vscode

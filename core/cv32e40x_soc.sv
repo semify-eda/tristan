@@ -23,6 +23,10 @@ module cv32e40x_soc
     //core control signals
     input  wire                         soc_fetch_enable_i,
     output logic                        soc_core_sleep_o,
+    
+    // UART
+    output logic                        core_tx,
+    input wire                          core_rx,
 
     // WB output interface for external modules
     output logic [SOC_ADDR_WIDTH-1:0]   wb_addr_o,
@@ -44,6 +48,15 @@ module cv32e40x_soc
     output logic                        wb_ack_o,
     input  wire                         wb_cyc_i
 );
+
+    //----------------------------------
+    //              UART
+    //----------------------------------
+    logic select_uart_data;
+    logic select_uart_busy;
+    logic [31:0] uart_soc_rdata;
+    logic [31:0] uart_soc_rdata_del;
+    logic uart_busy;
 
     // ----------------------------------
     //           CV32E40X Core
@@ -81,6 +94,7 @@ module cv32e40x_soc
     logic select_dram;
     logic select_iram;
     logic select_wb;
+    logic select_uart;
 
     // The alignment offset ensures that the RAM is addressed correctly regardless of its width.
     // This offset can change based on the width and depth of the RAM, and is calculated as:
@@ -219,6 +233,7 @@ module cv32e40x_soc
     assign select_wb           = chip_sel == EXTERNAL;
     assign select_dram         = chip_sel == INTERNAL & block_sel == DRAM;
     assign select_iram         = chip_sel == INTERNAL & block_sel == IRAM;
+    assign select_uart         = chip_sel == INTERNAL & block_sel == UART;
 
     always_comb begin
         soc_rdata = '0;
@@ -229,6 +244,10 @@ module cv32e40x_soc
                 soc_rdata = instr_rdata;
             select_wb:
                 soc_rdata = obi_rdata_i;
+            select_uart_data:
+                soc_rdata = uart_soc_rdata_del;       
+            select_uart_busy:
+                soc_rdata = {{31{1'b0}}, uart_busy};                        
         endcase
     end
 
@@ -365,5 +384,43 @@ module cv32e40x_soc
       .q_b      (dram2wb_data                       )
     );
     
+    // ----------------------------------
+    //               UART
+    // ----------------------------------
+    localparam CLK_FREQ = 25_000_000;
+       
+    assign select_uart_data = select_uart && soc_addr[15:0]  == 16'h0000;
+    assign select_uart_busy = select_uart && soc_addr[15:0]  == 16'h0004;
+        
+    // Prevent metastability
+    logic [3:0] core_rx_ff;
+    
+    always @(posedge clk_i) begin
+        core_rx_ff <= {core_rx_ff[2:0], core_rx};
+    end
+    
+    simpleuart #(
+        .DEFAULT_DIV(CLK_FREQ / BAUDRATE)
+    ) simpleuart_inst (
+        .clk    (clk_i),
+        .resetn(rst_ni),
+
+        .ser_tx (core_tx),
+        .ser_rx (core_rx_ff[3]),
+
+        .reg_div_we ('0),
+        .reg_div_di ('0),
+        .reg_div_do (),
+
+        .reg_dat_we (soc_gnt && select_uart_data && soc_we),
+        .reg_dat_re (soc_gnt && select_uart_data && !soc_we),
+        .reg_dat_di (soc_wdata),
+        .reg_dat_do (uart_soc_rdata),
+        .reg_dat_wait (uart_busy)
+    );
+    
+    always @(posedge clk_i) begin
+        uart_soc_rdata_del <= uart_soc_rdata;
+    end
 
 endmodule
