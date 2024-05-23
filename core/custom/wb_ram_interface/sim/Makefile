@@ -1,3 +1,4 @@
+SRC += ../../../include/soc_pkg.sv
 SRC += $(wildcard ../rtl/*.sv)
 SRC += $(wildcard ../testbench/*.sv)
 SRC += ../../../core_sram.sv

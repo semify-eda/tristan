@@ -51,10 +51,11 @@ module wb_ram_interface
 
     always_ff @(posedge wb_clk_i, negedge rst_ni) begin : wb_state_assignment
         if (~rst_ni) begin
-            wb_state  <= WB_IDLE;
-            wb_ack_o  <= '0;
+            wb_state    <= WB_IDLE;
+            wb_ack_o    <= '0;
+            wb_rdata_o  <= '0;
         end else begin : wb_state_actions
-            wb_state  <= wb_next_state;
+            wb_state <= wb_next_state;
             case(wb_state)
                 WB_IDLE: begin
                     if(ram_resp & wb_stb_i & wb_cyc_i) begin
@@ -88,9 +89,11 @@ module wb_ram_interface
     /*************** RAM Signals ******************/
     always_ff @(posedge ram_clk_i, negedge rst_ni) begin : ram_state_assignment
         if (~rst_ni) begin
-            ram_state <= RAM_IDLE;
-            iram_we_o <= '0;
-            dram_we_o <= '0;
+            ram_state  <= RAM_IDLE;
+            iram_we_o  <= '0;
+            dram_we_o  <= '0;
+            ram_addr_o <= '0;
+            ram_data_o <= '0;
         end else begin : ram_state_actions
             ram_state <= ram_next_state;
             case(ram_state)
