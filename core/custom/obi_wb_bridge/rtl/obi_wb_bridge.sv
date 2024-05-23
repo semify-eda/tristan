@@ -70,6 +70,7 @@ end
 always_ff @(posedge wb_clk_i, negedge soc_rst_ni) begin
     if (~soc_rst_ni) begin
         bufr    <= '0;
+        capture <= '0;
     end else begin
         bufr[0] <= obi_clk_ff;
         bufr[1] <= bufr[0] ^ obi_clk_ff;
@@ -159,6 +160,11 @@ always_ff @(posedge wb_clk_i, negedge gbl_rst_ni) begin : wb_state_assignment
         wb_state <= WB_IDLE;
         wb_stb_o <= '0;
         wb_cyc_o <= '0;
+        obi_rdata_o  <= '0;
+        wb_wr_en_o   <= '0;
+        wb_byte_en_o <= '0;
+        wb_wdata_o   <= '0;
+        wb_addr_o    <= '0;
     end else begin
         case(wb_state)
             WB_IDLE: begin

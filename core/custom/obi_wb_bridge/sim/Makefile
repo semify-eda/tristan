@@ -2,6 +2,7 @@
 # SRC := ../../../../pkg/wfg_pkg.sv 
 SRC += $(wildcard ../rtl/*.sv)
 SRC += ../testbench/obi_wb_bridge_tb.sv
+SRC += ../../../include/soc_pkg.sv
 SRC += ../../wb_ram_interface/rtl/wb_ram_interface.sv
 SRC += ../../../../../pkg/wfg_pkg.sv
 SRC += ../../../../../wfg/wfg_timer/rtl/wfg_timer_wishbone_reg.sv
@@ -9,7 +10,7 @@ SRC += ../../../../../wfg/wfg_timer/rtl/wfg_timer.sv
 SRC += ../../../../../wfg/wfg_timer/rtl/wfg_timer_top.sv
 
 # SoC modules
-SRC +=  ../../../../cv32e40x_yosys.v \
+SRC +=  ../../../cv32e40x_yosys.v \
 		../../../cv32e40x_soc.sv \
 		../../../simpleuart.v \
 		../../../core_sram.sv \
@@ -33,34 +34,3 @@ MODULE = obi_wb_bridge_test
 
 # include cocotb's make rules to take care of the simulator setup
 include $(shell cocotb-config --makefiles)/Makefile.sim
-
-firmware0:
-	if ! [ -d firmware ]; then \
-		mkdir firmware; \
-	fi
-
-firmware1: firmware0
-	make -C ../../../../ firmware/firmware.mem
-
-firmware: firmware1
-	cp ../../../../firmware/firmware.mem firmware/firmware.mem
-
-preprocessed:
-	make -C ../../../../ cv32e40x_yosys.v
-
-asm1:
-	make -C ../../../../ firmware/firmware.o
-
-asm: asm1
-	cp ../../../../firmware/firmware.o firmware/firmware.o
-
-cleanall1:
-	rm -r -f *.vcd *.fst sim_build results.xml firmware
-
-cleanall: cleanall1
-	make -C ../../../../ clean
-
-all: firmware preprocessed asm
-	echo ""
-
-.PHONY: all

@@ -39,15 +39,15 @@ module obi_wb_bridge_tb;
     #(
         .SOC_ADDR_WIDTH    (SOC_ADDR_WIDTH),
         .RAM_ADDR_WIDTH    (RAM_ADDR_WIDTH),
-        .CLK_FREQ          (CLK_FREQ),
-        .BAUDRATE          (BAUDRATE),
-        .BOOT_ADDR         (BOOT_ADDR)
+        .BOOT_ADDR         (BOOT_ADDR),
+        .FIRMWARE_INITFILE ("../../../../../../firmware/firmware.mem")
     )
     cv32e40x_soc
     (
         .clk_i          ( core_clk     ),
         .wfg_clk_i      ( wfg_clk      ),
         .rst_ni         ( core_rst_n   ),
+        .gbl_rst_ni     ( core_rst_n   ),
         .soc_fetch_enable_i ('1),
         // .ser_tx,
         // .ser_rx,
