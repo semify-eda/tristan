@@ -46,7 +46,9 @@ module cv32e40x_soc
     input  wire  [3 : 0]                wb_byte_en_i,
     input  wire                         wb_stb_i,
     output logic                        wb_ack_o,
-    input  wire                         wb_cyc_i
+    input  wire                         wb_cyc_i,
+    
+    output logic meas_pin
 );
 
     //----------------------------------
@@ -95,6 +97,7 @@ module cv32e40x_soc
     logic select_iram;
     logic select_wb;
     logic select_uart;
+    logic select_meas;
 
     // The alignment offset ensures that the RAM is addressed correctly regardless of its width.
     // This offset can change based on the width and depth of the RAM, and is calculated as:
@@ -228,12 +231,14 @@ module cv32e40x_soc
     // ----------------------------------
     //            Multiplexer
     // ----------------------------------
+     localparam MEAS_MASK       = 4'hF;
 
     // Data select signals
     assign select_wb           = chip_sel == EXTERNAL;
     assign select_dram         = chip_sel == INTERNAL & block_sel == DRAM;
     assign select_iram         = chip_sel == INTERNAL & block_sel == IRAM;
     assign select_uart         = chip_sel == INTERNAL & block_sel == UART;
+    assign select_meas         = soc_addr[31:24]  == MEAS_MASK; 
 
     always_comb begin
         soc_rdata = '0;
@@ -247,7 +252,9 @@ module cv32e40x_soc
             select_uart_data:
                 soc_rdata = uart_soc_rdata_del;       
             select_uart_busy:
-                soc_rdata = {{31{1'b0}}, uart_busy};                        
+                soc_rdata = {{31{1'b0}}, uart_busy};     
+            select_meas:
+                soc_rdata = {{31{1'b0}}, meas_pin};           
         endcase
     end
 
@@ -263,6 +270,20 @@ module cv32e40x_soc
             end
         end
     end
+    
+    // ----------------------------------
+    //      Toogle measurement Pin
+    // ----------------------------------
+    always_ff @(posedge clk_i, negedge rst_ni) begin
+        if (!rst_ni) begin
+            meas_pin <= 1'b1;
+        end else begin
+            if(soc_gnt && select_meas && soc_we) begin
+                meas_pin <= soc_wdata[0];
+            end
+        end
+    end
+    
 
     // ----------------------------------
     //          OBI - WB Bridge

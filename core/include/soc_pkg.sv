@@ -13,5 +13,5 @@ package soc_pkg;
         UART = 3'h2
     } e_block_sel;
 
-endpackage;
+endpackage
 `endif
