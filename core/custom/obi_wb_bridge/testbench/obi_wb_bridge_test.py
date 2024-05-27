@@ -62,7 +62,7 @@ async def obi_wb_bridge_test(dut):
                             "datrd": "default_dat",
                             "ack": "default_ack"
                         },
-                        datgen = iter([0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1]))
+                        datgen = None)
 
 
     await RisingEdge(dut.wbm1_cyc_i)
@@ -73,11 +73,11 @@ async def obi_wb_bridge_test(dut):
         await Timer(50, units='us')
         dut._log.info("50us")
 
-    '''
+   
     wbs.log.info("received %d transactions" % len(wbs._recvQ))
     for transaction in wbs._recvQ:
         wbs.log.info(f"{[f'@{hex(v.adr)}r{hex(v.datrd)}w{hex(0 if v.datwr is None else v.datwr)}' for v in transaction]}")
-    '''
+    
 
 
 

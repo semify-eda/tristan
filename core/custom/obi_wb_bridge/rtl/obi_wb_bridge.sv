@@ -43,6 +43,9 @@ logic       capture;
 logic [1:0] bufr;
 logic       resp_gate;
 logic       wb_resp;
+logic       wb_resp_ff;
+logic       obi_trans;
+logic       obi_trans_ff;
 
 /********** Reset Handler          ***********/
 // gate the responses to the OBI master based on whether a reset invalidated data
@@ -95,16 +98,26 @@ always_ff @(posedge obi_clk_i, negedge soc_rst_ni) begin : obi_state_assignment
 end : obi_state_assignment
 
 // ensures that the wb response is recorded so that the slower OBI layer can accurately detect it
-logic wb_resp_ff;
+assign wb_resp   = wb_resp_ff   | wb_ack_i;
+assign obi_trans = obi_trans_ff | obi_req_i;
 
-
-assign wb_resp          = wb_resp_ff | wb_ack_i;
+always_ff @(posedge wb_clk_i, negedge soc_rst_ni) begin : obi_transaction_detection
+    if(~soc_rst_ni) begin
+        obi_trans_ff <= '0;
+    end else begin
+        if(obi_req_i) begin
+            obi_trans_ff <= '1;
+        end else if (wb_state == WB_IDLE) begin
+            obi_trans_ff <= '0;
+        end
+    end
+end : obi_transaction_detection
 
 always_ff @(posedge wb_clk_i, negedge soc_rst_ni) begin : wb_resp_logic
     if(~soc_rst_ni) begin
         wb_resp_ff <= '0;
     end else begin
-        if(obi_req_i) begin
+        if(obi_trans) begin
             // reset the wb valid flag when it is handed off to the OBI rvalid signal            
             if(obi_rvalid_o) begin
                 wb_resp_ff <= '0;
