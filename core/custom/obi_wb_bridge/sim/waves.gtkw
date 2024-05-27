@@ -1,0 +1,73 @@
+[*]
+[*] GTKWave Analyzer v3.3.100 (w)1999-2019 BSI
+[*] Mon May 27 12:21:12 2024
+[*]
+[dumpfile] "C:\Users\Erwin\Documents\wfg_luke\wfg_git\design\tristan\core\custom\obi_wb_bridge\sim\wb_obi_test.vcd"
+[savefile] "C:\Users\Erwin\Documents\wfg_luke\wfg_git\design\tristan\core\custom\obi_wb_bridge\sim\waves.gtkw"
+[timestart] 169977000
+[size] 2560 1377
+[pos] -1 -1
+*-17.000000 170564800 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] obi_wb_bridge_tb.
+[treeopen] obi_wb_bridge_tb.cv32e40x_soc.
+[treeopen] timer.
+[sst_width] 211
+[signals_width] 266
+[sst_expanded] 1
+[sst_vpaned_height] 427
+@28
+obi_wb_bridge_tb.wfg_clk
+obi_wb_bridge_tb.core_clk
+obi_wb_bridge_tb.core_rst_n
+@200
+-obi
+@28
+obi_wb_bridge_tb.cv32e40x_soc.i_obi_wb_bridge.obi_req_i
+obi_wb_bridge_tb.cv32e40x_soc.i_obi_wb_bridge.obi_gnt_o
+obi_wb_bridge_tb.cv32e40x_soc.i_obi_wb_bridge.obi_rvalid_o
+@22
+obi_wb_bridge_tb.cv32e40x_soc.i_obi_wb_bridge.obi_addr_i[31:0]
+obi_wb_bridge_tb.cv32e40x_soc.i_obi_wb_bridge.obi_rdata_o[31:0]
+@200
+-wbm0
+@28
+obi_wb_bridge_tb.wbm0_cyc_i
+obi_wb_bridge_tb.wbm0_stb_i
+obi_wb_bridge_tb.wbm0_ack_o
+@200
+-wb (obi-arb)
+@28
+obi_wb_bridge_tb.wbm1_cyc_i
+@29
+obi_wb_bridge_tb.wbm1_stb_i
+@28
+obi_wb_bridge_tb.wbm1_ack_o
+@22
+obi_wb_bridge_tb.wbm1_adr_i[19:0]
+obi_wb_bridge_tb.wbm1_dat_i[31:0]
+obi_wb_bridge_tb.wbm1_dat_o[31:0]
+@28
+obi_wb_bridge_tb.wbm1_we_i
+@200
+-wb (arb-timer)
+@28
+obi_wb_bridge_tb.cyc_wb
+obi_wb_bridge_tb.stb_wb
+obi_wb_bridge_tb.ack_wb
+obi_wb_bridge_tb.timer_sel
+@22
+obi_wb_bridge_tb.data_i_wb[31:0]
+obi_wb_bridge_tb.data_o_wb[31:0]
+@28
+obi_wb_bridge_tb.default_ack
+obi_wb_bridge_tb.timer_ack
+@200
+-arb
+@28
+i_wb_arbiter.clk
+i_wb_arbiter.grant_0_P
+i_wb_arbiter.grant_1_P
+i_wb_arbiter.wbm0_cyc_i
+i_wb_arbiter.wbm1_cyc_i
+[pattern_trace] 1
+[pattern_trace] 0
