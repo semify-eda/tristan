@@ -8,6 +8,8 @@ SRC += ../../../../../pkg/wfg_pkg.sv
 SRC += ../../../../../wfg/wfg_timer/rtl/wfg_timer_wishbone_reg.sv
 SRC += ../../../../../wfg/wfg_timer/rtl/wfg_timer.sv
 SRC += ../../../../../wfg/wfg_timer/rtl/wfg_timer_top.sv
+SRC += ../../../../../semify_common/wishbone/arbiter/rtl/wb_arbiter_2.sv
+
 
 # SoC modules
 SRC +=  ../../../cv32e40x_yosys.v \
