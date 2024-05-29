@@ -38,7 +38,6 @@ module obi_wb_bridge
 );
 
 logic       obi_clk_ff;
-logic       wb_clk_ff;
 logic       capture;
 logic [1:0] bufr;
 logic       resp_gate;
@@ -46,6 +45,19 @@ logic       wb_resp;
 logic       wb_resp_ff;
 logic       obi_trans;
 logic       obi_trans_ff;
+
+enum logic [1:0] {
+    WB_IDLE,    // no data being transfered to/from WB master
+    WB_AWAIT,   // WB layer is awaiting a response from the wishbone slave
+    WB_ACK      // WB slave acknowledged request and sent a response
+} wb_state;
+
+enum logic [1:0] {
+    OBI_IDLE,   // no data being transfered to/from OBI master
+    OBI_GNT,    // Wishbone layer acknowledged OBI master transfer request
+    OBI_AWAIT,  // OBI master awaiting a response from the wishbone layer
+    OBI_VALID   // Send valid signal to OBI Master
+} obi_state, obi_next_state;
 
 /********** Reset Handler          ***********/
 // gate the responses to the OBI master based on whether a reset invalidated data
@@ -82,13 +94,6 @@ always_ff @(posedge wb_clk_i, negedge soc_rst_ni) begin
 end
 
 /*************** OBI Layer     ****************/
-enum logic [1:0] {
-    OBI_IDLE,   // no data being transfered to/from OBI master
-    OBI_GNT,    // Wishbone layer acknowledged OBI master transfer request
-    OBI_AWAIT,  // OBI master awaiting a response from the wishbone layer
-    OBI_VALID   // Send valid signal to OBI Master
-} obi_state, obi_next_state;
-
 always_ff @(posedge obi_clk_i, negedge soc_rst_ni) begin : obi_state_assignment
     if(~soc_rst_ni) begin
         obi_state <= OBI_IDLE;
@@ -162,12 +167,6 @@ assign obi_rvalid_o = (OBI_VALID == obi_state) & ~resp_gate;
 
 
 /*************** Wishbone Layer ***************/
-enum logic [1:0] {
-    WB_IDLE,    // no data being transfered to/from WB master
-    WB_AWAIT,   // WB layer is awaiting a response from the wishbone slave
-    WB_ACK      // WB slave acknowledged request and sent a response
-} wb_state;
-
 always_ff @(posedge wb_clk_i, negedge gbl_rst_ni) begin : wb_state_assignment
     if(~gbl_rst_ni) begin
         wb_state <= WB_IDLE;
