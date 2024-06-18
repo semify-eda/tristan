@@ -1,18 +1,24 @@
 `timescale 1ns/1ps
-`default_nettype none 
+`default_nettype none
 
 module cv32e40x_top import cv32e40x_pkg::*;
 #(
     parameter INSTR_RDATA_WIDTH = 32,
               BOOT_ADDR         = 32'h00020000,
               DM_HALTADDRESS    = 32'h1A11_0800,
+              DM_EXCEPTION_ADDR = 32'h0,
               HART_ID           = 32'h0000_0000,
-              NUM_MHPMCOUNTERS  = 1
+              NUM_MHPMCOUNTERS  = 1,
+              DEBUG             = 1
 )
 (
     // Clock and reset
     input  wire                          clk_i,
     input  wire                          rst_ni,
+
+    input  wire [31:0]                   boot_addr_i,
+    input  wire [31:0]                   dm_exception_addr_i,
+    input  wire [31:0]                   dm_halt_addr_i,
 
     // Instruction memory interface
     output wire                          instr_req_o,
@@ -43,11 +49,16 @@ module cv32e40x_top import cv32e40x_pkg::*;
     //if_xif.cpu_result                     xif_result_if,
 
     // Debug interface
-    input  wire                          debug_req_i,
+    input  wire                           debug_req_i,
+    output logic                          debug_havereset_o,
+    output logic                          debug_running_o,
+    output logic                          debug_halted_o,
+    output logic                          debug_pc_valid_o,
+    output logic [31:0]                   debug_pc_o,
 
     // CPU control signals
-    input  wire                          fetch_enable_i,
-    output wire                          core_sleep_o
+    input  wire                           fetch_enable_i,
+    output wire                           core_sleep_o
 );
 
     localparam X_NUM_RS = 2;
@@ -79,88 +90,91 @@ module cv32e40x_top import cv32e40x_pkg::*;
         .B_EXT (B_NONE), //ZBA_ZBB_ZBC_ZBS
         .M_EXT (M_NONE),
         .X_EXT (1'b0), // enable xtension interface
-        .X_NUM_RS (X_NUM_RS)
+        .X_NUM_RS (X_NUM_RS),
+        .DEBUG  ('1)
     )
     cv32e40x_core_inst
     (
-      // Clock and reset
-      .clk_i                 ( clk_i                 ),
-      .rst_ni                ( rst_ni                ),
-      .scan_cg_en_i          ( '0                    ),
+        // Clock and reset
+        .clk_i                  ( clk_i                 ),
+        .rst_ni                 ( rst_ni                ),
+        .scan_cg_en_i           ( '0                    ),
 
-      // Static configuration
-     .boot_addr_i            ( BOOT_ADDR             ),
-     .dm_exception_addr_i    ( '0                    ),
-     .dm_halt_addr_i         ( DM_HALTADDRESS        ),
-     .mhartid_i              ( HART_ID               ),
-     .mimpid_patch_i         ( '0                    ),
-     .mtvec_addr_i           ( '0                    ),
+        // Static configuration
+        .boot_addr_i            ( boot_addr_i           ),
+        .dm_exception_addr_i    ( dm_exception_addr_i   ),
+        .dm_halt_addr_i         ( dm_halt_addr_i        ),
+        .mhartid_i              ( HART_ID               ),
+        .mimpid_patch_i         ( '0                    ),
+        .mtvec_addr_i           ( '0                    ),
 
-      // Instruction memory interface
-     .instr_req_o            ( instr_req_o           ),
-     .instr_gnt_i            ( instr_gnt_i           ),
-     .instr_rvalid_i         ( instr_rvalid_i        ),
-     .instr_addr_o           ( instr_addr_o          ),
-     .instr_memtype_o        (                       ),
-     .instr_prot_o           (                       ),
-     .instr_dbg_o            (                       ),
-     .instr_rdata_i          ( instr_rdata_i         ),
-     .instr_err_i            ( 1'b0                  ),
+        // Instruction memory interface
+        .instr_req_o            ( instr_req_o           ),
+        .instr_gnt_i            ( instr_gnt_i           ),
+        .instr_rvalid_i         ( instr_rvalid_i        ),
+        .instr_addr_o           ( instr_addr_o          ),
+        .instr_memtype_o        (                       ),
+        .instr_prot_o           (                       ),
+        .instr_dbg_o            (                       ),
+        .instr_rdata_i          ( instr_rdata_i         ),
+        .instr_err_i            ( 1'b0                  ),
 
-      // Data memory interface
-     .data_req_o             ( data_req_o            ),
-     .data_gnt_i             ( data_gnt_i            ),
-     .data_rvalid_i          ( data_rvalid_i         ),
-     .data_addr_o            ( data_addr_o           ),
-     .data_be_o              ( data_be_o             ),
-     .data_we_o              ( data_we_o             ),
-     .data_wdata_o           ( data_wdata_o          ),
-     .data_memtype_o         (                       ),
-     .data_prot_o            (                       ),
-     .data_dbg_o             (                       ),
-     .data_atop_o            (                       ),
-     .data_rdata_i           ( data_rdata_i          ),
-     .data_err_i             ( 1'b0                  ),
-     .data_exokay_i          ( 1'b1                  ),
+        // Data memory interface
+        .data_req_o             ( data_req_o            ),
+        .data_gnt_i             ( data_gnt_i            ),
+        .data_rvalid_i          ( data_rvalid_i         ),
+        .data_addr_o            ( data_addr_o           ),
+        .data_be_o              ( data_be_o             ),
+        .data_we_o              ( data_we_o             ),
+        .data_wdata_o           ( data_wdata_o          ),
+        .data_memtype_o         (                       ),
+        .data_prot_o            (                       ),
+        .data_dbg_o             (                       ),
+        .data_atop_o            (                       ),
+        .data_rdata_i           ( data_rdata_i          ),
+        .data_err_i             ( 1'b0                  ),
+        .data_exokay_i          ( 1'b1                  ),
 
-      // Cycle count
-      .mcycle_o              ( mcycle_o              ),
-      .time_i                ( 64'b0                 ),
+        // Cycle count
+        .mcycle_o               ( mcycle_o              ),
+        .time_i                 ( 64'b0                 ),
 
-      // eXtension interface
-      .xif_compressed_if     ( ext_if                ),
-      .xif_issue_if          ( ext_if                ),
-      .xif_commit_if         ( ext_if                ),
-      .xif_mem_if            ( ext_if                ),
-      .xif_mem_result_if     ( ext_if                ),
-      .xif_result_if         ( ext_if                ),
+        // eXtension interface
+        .xif_compressed_if      ( ext_if                ),
+        .xif_issue_if           ( ext_if                ),
+        .xif_commit_if          ( ext_if                ),
+        .xif_mem_if             ( ext_if                ),
+        .xif_mem_result_if      ( ext_if                ),
+        .xif_result_if          ( ext_if                ),
 
-      // Basic interrupt architecture
-      .irq_i                 ( {32{1'b0}}            ),
+        // Basic interrupt architecture
+        .irq_i                  ( {32{1'b0}}            ),
 
-      // Event wakeup signal
-      .wu_wfe_i              ( 1'b0                  ),
+        // Event wakeup signal
+        .wu_wfe_i               ( 1'b0                  ),
 
-      // Smclic interrupt architecture
-      .clic_irq_i            ( 1'b0                  ),
-      .clic_irq_id_i         ( '0                    ),
-      .clic_irq_level_i      ( 8'h0                  ),
-      .clic_irq_priv_i       ( 2'h0                  ),
-      .clic_irq_shv_i        ( 1'b0                  ),
+        // Smclic interrupt architecture
+        .clic_irq_i             ( 1'b0                  ),
+        .clic_irq_id_i          ( '0                    ),
+        .clic_irq_level_i       ( 8'h0                  ),
+        .clic_irq_priv_i        ( 2'h0                  ),
+        .clic_irq_shv_i         ( 1'b0                  ),
 
-     // Fencei flush handshake
-     .fencei_flush_req_o     (                       ),
-     .fencei_flush_ack_i     ( 1'b0                  ),
+        // Fencei flush handshake
+        .fencei_flush_req_o     (                       ),
+        .fencei_flush_ack_i     ( 1'b0                  ),
 
-     .debug_req_i            ( debug_req_i           ),
-     .debug_havereset_o      (                       ),
-     .debug_running_o        (                       ),
-     .debug_halted_o         (                       ),
+        .debug_req_i            ( debug_req_i           ),
+        .debug_havereset_o      ( debug_havereset_o     ),
+        .debug_running_o        ( debug_running_o       ),
+        .debug_halted_o         ( debug_halted_o        ),
+        .debug_pc_valid_o       ( debug_pc_valid_o      ),
+        .debug_pc_o             ( debug_pc_o            ),
 
-     // CPU Control Signals
-     .fetch_enable_i         ( fetch_enable_i        ),
-     .core_sleep_o           ( core_sleep_o          )
+        // CPU Control Signals
+        .fetch_enable_i         ( fetch_enable_i        ),
+        .core_sleep_o           ( core_sleep_o          )
     );
 
 endmodule
-`default_nettype wire 
+`default_nettype wire

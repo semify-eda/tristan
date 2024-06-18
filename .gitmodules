@@ -2,3 +2,12 @@
 	path = core/cv32e40x
 	url = git@github.com:semify-eda/cv32e40x.git
 	branch = tristan
+[submodule "core/riscv-dbg"]
+	path = core/riscv-dbg
+	url = git@github.com:pulp-platform/riscv-dbg.git
+[submodule "core/common_cells"]
+	path = core/common_cells
+	url = git@github.com:pulp-platform/common_cells.git
+[submodule "core/tech_cells_generic"]
+	path = core/tech_cells_generic
+	url = https://github.com/pulp-platform/tech_cells_generic.git

@@ -16,15 +16,18 @@ SRC = 	core/cv32e40x_yosys.v \
 	core/include/soc_pkg.sv \
 	core/cv32e40x_soc.sv \
 	core/simpleuart.v \
-   	core/core_sram.sv \
-    core/custom/ram_arbiter/rtl/ram_arbiter.sv \
+	core/core_sram.sv \
+	core/custom/ram_arbiter/rtl/ram_arbiter.sv \
 	core/custom/obi_wb_bridge/rtl/obi_wb_bridge.sv \
 	core/custom/wb_ram_interface/rtl/wb_ram_interface.sv \
 	../pkg/wfg_pkg.sv \
 	../wfg/wfg_timer/rtl/wfg_timer_wishbone_reg.sv \
 	../wfg/wfg_timer/rtl/wfg_timer.sv \
 	../wfg/wfg_timer/rtl/wfg_timer_top.sv \
-	core/testbench/top_tb.sv
+	core/testbench/top_tb.sv 
+
+SRC += $(wildcard core/riscv-dbg/src/*.sv)
+SRC += $(wildcard core/tech_cells_generic/src/fpga/*.sv)
 
 TB = core/tb_top.sv
 
