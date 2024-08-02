@@ -8,7 +8,6 @@ module cv32e40x_soc
     parameter SOC_DATA_WIDTH    = 32,
     parameter RAM_ADDR_WIDTH    = 12,
     parameter RAM_DATA_WIDTH    = 32,
-    parameter BAUDRATE          = 115200,
     parameter BOOT_ADDR         = 32'h00020000,
     parameter DATA_START_ADDR   = 32'h00000000,
     parameter FIRMWARE_INITFILE = "firmware.mem"
@@ -174,10 +173,7 @@ module cv32e40x_soc
     //               CPU
     // ----------------------------------
 
-    cv32e40x_top #(
-        //.BOOT_ADDR(BOOT_ADDR) // set in module because of yosys
-    )
-    cv32e40x_top_inst
+    cv32e40x_top cv32e40x_top_inst
     (
       // Clock and reset
       .clk_i        (clk_i ),
