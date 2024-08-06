@@ -13,11 +13,12 @@ RTL = 	$(wildcard core/cv32e40x/rtl/*.sv) \
 RTL_CUSTOM = $(wildcard core/custom/*.sv)
 
 SRC = 	core/cv32e40x_yosys.v \
+	$(wildcard core/custom/*.sv) \
 	core/include/soc_pkg.sv \
 	core/cv32e40x_soc.sv \
 	core/simpleuart.v \
-   	core/core_sram.sv \
-    core/custom/ram_arbiter/rtl/ram_arbiter.sv \
+  core/core_sram.sv \
+  core/custom/ram_arbiter/rtl/ram_arbiter.sv \
 	core/custom/obi_wb_bridge/rtl/obi_wb_bridge.sv \
 	core/custom/wb_ram_interface/rtl/wb_ram_interface.sv \
 	../pkg/wfg_pkg.sv \
@@ -56,12 +57,15 @@ preprocessed.v: $(INCLUDE) $(RTL) $(RTL_CUSTOM)
 core/cv32e40x_yosys.v: core/tech/rtl/cv32e40x_clock_gate.sv preprocessed.v
 	yosys -l $(basename $@)-yosys.log -DSYNTHESIS -p 'read -sv core/tech/rtl/cv32e40x_clock_gate.sv preprocessed.v; hierarchy -top cv32e40x_top; proc; flatten; opt; fsm; opt; write_verilog -noattr core/cv32e40x_yosys.v' 
 
+firmware:
+	cd ../../firmware && $(MAKE) riscv && cp riscv/firmware.mem ../design/tristan
+
 all: firmware core/cv32e40x_yosys.v
 	echo ""
 
 # --- General ---
 
-.PHONY: all
+.PHONY: all firmware
 
 cleanall:
-	rm -r -f *.vvp *.fst *.fst.hier *.vcd *.log *.json *.asc *.bin *.bit preprocessed.v abc.history sim_build results.xml
+	rm -r -f *.vvp *.fst *.fst.hier *.vcd *.log *.json *.asc *.bin *.bit preprocessed.v abc.history sim_build results.xml firmware.mem

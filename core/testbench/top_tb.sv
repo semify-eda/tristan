@@ -1,13 +1,11 @@
 `timescale 1ns/1ps
 module top_tb;
 
-    localparam BAUDRATE          = 115200;
     localparam SOC_ADDR_WIDTH    = 32;
     localparam RAM_ADDR_WIDTH    = 14;
     localparam INSTR_RDATA_WIDTH = 32;
-    localparam BOOT_ADDR         = 32'h00080000;
+    localparam BOOT_ADDR         = 32'h02000000;
     parameter int CLK_FREQ       = 25_000_000;
-    parameter int  SER_BIT_PERIOD_NS = 1_000_000_000 / BAUDRATE;
 
     logic core_clk;
     logic core_rst_n;
@@ -38,9 +36,8 @@ module top_tb;
     #(
         .SOC_ADDR_WIDTH    (SOC_ADDR_WIDTH),
         .RAM_ADDR_WIDTH    (RAM_ADDR_WIDTH),
-        .BAUDRATE          (BAUDRATE),
         .BOOT_ADDR         (BOOT_ADDR),
-        .FIRMWARE_INITFILE ("firmware/firmware.mem")
+        .FIRMWARE_INITFILE ("firmware.mem")
     )
     cv32e40x_soc
     (
@@ -49,8 +46,6 @@ module top_tb;
         .rst_ni         ( core_rst_n   ),
         .gbl_rst_ni     ( core_rst_n   ),
         .soc_fetch_enable_i ('1        ),
-        // .ser_tx,
-        // .ser_rx,
 
         // WB output interface
         .wb_addr_o      (addr_wb),
@@ -98,47 +93,5 @@ module top_tb;
 
     assign ack_wb = timer_sel ? timer_ack : default_ack;
     assign data_i_wb = timer_sel ? timer_dat : default_dat;
-    
-    // logic [7:0] recv_byte = 0;
-
-    // always @(negedge ser_tx) begin
-    //     read_byte_ser;
-    // end
-
-    // task automatic read_byte_ser;
-    //     #(SER_BIT_PERIOD_NS / 2);  // Wait half baud
-    //     if ((ser_tx == 0)) begin
-
-    //         #SER_BIT_PERIOD_NS;
-
-    //         // Read data LSB first
-    //         for (int j = 0; j < 8; j++) begin
-    //             recv_byte[j] = ser_tx;
-    //             #SER_BIT_PERIOD_NS;
-    //         end
-
-    //         if ((ser_tx == 1)) begin
-    //             $display("cpu --> uart: 0x%h '%c'", recv_byte, recv_byte);
-    //         end
-    //     end
-    // endtask
-
-    // task automatic send_byte_ser(input bit [7:0] data);
-    //     $display("uart --> cpu: 0x%h '%c'", data, data);
-
-    //     // Start bit
-    //     ser_rx = 0;
-    //     #SER_BIT_PERIOD_NS;
-
-    //     // Send data LSB first
-    //     for (int i = 0; i < 8; i++) begin
-    //         ser_rx = data[i];
-    //         #SER_BIT_PERIOD_NS;
-    //     end
-
-    //     // Stop bit
-    //     ser_rx = 1;
-    //     #SER_BIT_PERIOD_NS;
-    // endtask
 
 endmodule
