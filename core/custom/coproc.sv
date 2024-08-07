@@ -120,12 +120,49 @@ module coproc
   } coproc_opcode_e;
 
   always_ff @(posedge clk_i, negedge rst_ni) begin
-    if (!rst_ni) begin
+    if (~rst_ni) begin
       rs0               <= '0;
       rs1               <= '0;
       rd                <= '0;
       id                <= '0;
       issue_resp_accept <= '0;
+
+      /* eXtension interface outputs */
+      compressed_ready        <= '0;
+      compressed_resp_instr   <= '0;
+      compressed_resp_accept  <= '0;
+      issue_ready             <= '0;
+      issue_resp_accept       <= '0;
+      issue_resp_writeback    <= '0;
+      issue_resp_dualwrite    <= '0;
+      issue_resp_dualread     <= '0;
+      issue_resp_loadstore    <= '0;
+      issue_resp_ecswrite     <= '0;
+      issue_resp_exc          <= '0;
+      mem_ready               <= '0;
+      mem_req_id              <= '0;
+      mem_req_addr            <= '0;
+      mem_req_mode            <= '0;
+      mem_req_we              <= '0;
+      mem_req_size            <= '0;
+      mem_req_be              <= '0;
+      mem_req_attr            <= '0;
+      mem_req_wdata           <= '0;
+      mem_req_last            <= '0;
+      mem_req_spec            <= '0;
+      result_valid            <= '0;
+      result_id               <= '0;
+      result_data             <= '0;
+      result_rd               <= '0;
+      result_we               <= '0;
+      result_ecsdata          <= '0;
+      result_ecswe            <= '0;
+      result_exc              <= '0;
+      result_exccode          <= '0;
+      result_err              <= '0;
+      result_dbg              <= '0;
+
+
     end else begin
       if(issue_valid) begin
         rs0             <= issue_req_rs[0];
