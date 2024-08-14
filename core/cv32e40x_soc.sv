@@ -602,7 +602,7 @@ module cv32e40x_soc
     .DATAWIDTH      (RAM_DATA_WIDTH     ),
     .ADDRWIDTH      (RAM_ADDR_WIDTH     ),
     .BYTE_ENABLE    (1                  )
-  ) ram_dualport_i (
+  ) data_dualport_i (
     .clk      (clk_i                      ),
 
     .addr_a   (addr[RAM_ADDR_WIDTH + ALIGNMENT_OFFSET - 1 : ALIGNMENT_OFFSET]),

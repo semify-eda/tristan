@@ -11,7 +11,6 @@ module cv32e40x_top import cv32e40x_pkg::*;
   parameter A_EXT             = A,
   parameter B_EXT             = B_NONE, //ZBA_ZBB_ZBC_ZBS
   parameter M_EXT             = M_NONE,
-  parameter X_EXT             = 1'b1, // enable xtension interface
   parameter DEBUG             = 1'b0,
 
   // eXtension interface params
@@ -146,6 +145,7 @@ module cv32e40x_top import cv32e40x_pkg::*;
   input   wire                                      result_dbg
 );
 
+  localparam X_EXT = 1'b1; // enable xtension interface
   cv32e40x_if_xif #(
     .X_NUM_RS    ( X_NUM_RS ),
     .X_MEM_WIDTH ( 32 ),
@@ -287,12 +287,12 @@ module cv32e40x_top import cv32e40x_pkg::*;
     .time_i                 ( 64'b0                 ),
 
     // eXtension interface
-    .xif_compressed_if      ( ext_if                ),
-    .xif_issue_if           ( ext_if                ),
-    .xif_commit_if          ( ext_if                ),
-    .xif_mem_if             ( ext_if                ),
-    .xif_mem_result_if      ( ext_if                ),
-    .xif_result_if          ( ext_if                ),
+    .xif_compressed_if      ( ext_if.cpu_compressed ),
+    .xif_issue_if           ( ext_if.cpu_issue      ),
+    .xif_commit_if          ( ext_if.cpu_commit     ),
+    .xif_mem_if             ( ext_if.cpu_mem        ),
+    .xif_mem_result_if      ( ext_if.cpu_mem_result ),
+    .xif_result_if          ( ext_if.cpu_result     ),
 
     // Basic interrupt architecture
     .irq_i                  ( {32{1'b0}}            ),

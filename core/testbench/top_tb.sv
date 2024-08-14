@@ -16,7 +16,7 @@ module top_tb;
         $dumpfile("top_tb.vcd");
         $dumpvars();
     end
-    
+
     // ----------------------------------
     //         Wishbone Signals
     // ----------------------------------
@@ -59,10 +59,10 @@ module top_tb;
 
         // WB input interface to access RAM
         .wb_addr_i      ('0),
-        .wb_wdata_i     ('0),  
-        .wb_wr_en_i     ('0),  
+        .wb_wdata_i     ('0),
+        .wb_wr_en_i     ('0),
         .wb_byte_en_i   ('0),
-        .wb_stb_i       ('0),    
+        .wb_stb_i       ('0),
         .wb_cyc_i       ('0)
     );
 
@@ -74,7 +74,7 @@ module top_tb;
     logic [31:0] default_dat;
     logic timer_ack;
     logic [31:0] timer_dat;
-    
+
     wfg_timer_top timer
     (
         .clk         (wfg_clk),

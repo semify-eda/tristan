@@ -131,7 +131,7 @@ module coproc
       compressed_ready        <= '0;
       compressed_resp_instr   <= '0;
       compressed_resp_accept  <= '0;
-      issue_ready             <= '0;
+      issue_ready             <= '1;
       issue_resp_accept       <= '0;
       issue_resp_writeback    <= '0;
       issue_resp_dualwrite    <= '0;
@@ -139,7 +139,7 @@ module coproc
       issue_resp_loadstore    <= '0;
       issue_resp_ecswrite     <= '0;
       issue_resp_exc          <= '0;
-      mem_ready               <= '0;
+      mem_ready               <= '1;
       mem_req_id              <= '0;
       mem_req_addr            <= '0;
       mem_req_mode            <= '0;
@@ -169,7 +169,7 @@ module coproc
         rs1             <= issue_req_rs[1];
         rd              <= issue_req_instr[11:7];
         id              <= issue_req_id;
-        
+
         case(issue_req_instr[6:0])
           OPCODE_RMLD: begin
             issue_ready           <= '0;
