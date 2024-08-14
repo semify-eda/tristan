@@ -2,7 +2,7 @@
 `timescale 1ns/1ps
 import soc_pkg::*;
 
-module cv32e40x_soc
+module cv32e40x_soc import cv32e40x_pkg::*;
 #(
   parameter SOC_ADDR_WIDTH    = 32,
   parameter SOC_DATA_WIDTH    = 32,
@@ -10,7 +10,10 @@ module cv32e40x_soc
   parameter RAM_DATA_WIDTH    = 32,
   parameter BOOT_ADDR         = 32'h00020000,
   parameter DATA_START_ADDR   = 32'h00000000,
-  parameter FIRMWARE_INITFILE = "firmware.mem"
+  parameter FIRMWARE_INITFILE = "firmware.mem",
+  parameter DM_HALTADDRESS    = 32'h1A11_0800,
+  parameter NUM_MHPMCOUNTERS  = 1,
+  parameter HART_ID           = 32'h0000_0000
 )
 (
   // Clock and reset
@@ -91,14 +94,14 @@ module cv32e40x_soc
 
   assign chip_sel  = e_chip_sel'(addr[20]);
   assign block_sel = e_block_sel'(addr[19:17]);
-  
+
   // The alignment offset ensures that the RAM is addressed correctly regardless of its width.
   // This offset can change based on the width and depth of the RAM, and is calculated as:
   //          alignment offset = log2 (RAM Width / 8)
   // It is added to the beginning and end of the addr_width when addressing into the addr, in order to use
   // the correct bits of addr to index into the RAM, since larger width RAM means more bytes are packed together in a single row.
   localparam ALIGNMENT_OFFSET = $clog2( RAM_DATA_WIDTH / 8 );
- 
+
   /* =====================================================================
   *                             OBI Signals
   * ====================================================================== */
@@ -129,94 +132,17 @@ module cv32e40x_soc
   localparam int unsigned X_RFW_WIDTH     =  32; // Register file write access width for the eXtension interface
   localparam logic [31:0] X_MISA          =  '0; // MISA extensions implemented on the eXtension interface
   localparam logic [ 1:0] X_ECS_XS        =  '0; // Default value for mstatus.XS
-  localparam int XLEN                     = 32;
-  localparam int FLEN                     = 32;
+  localparam int          XLEN            =  32;
+  localparam int          FLEN            =  32;
 
-  /* ====================== Compressed Interface ====================== */
-  // logic
-  logic                                     compressed_valid;
-  logic                                     compressed_ready;
-  // x_compressed_req
-  logic [          15: 0]                   compressed_req_instr;
-  logic [           1: 0]                   compressed_req_mode;
-  logic [X_ID_WIDTH-1: 0]                   compressed_req_id;
-  // x_compressed_resp
-  logic [          31: 0]                   compressed_resp_instr;
-  logic                                     compressed_resp_accept;
+  cv32e40x_if_xif #(
+    .X_NUM_RS    (X_NUM_RS    ),
+    .X_MEM_WIDTH (X_MEM_WIDTH ),
+    .X_RFR_WIDTH (X_RFR_WIDTH ),
+    .X_RFW_WIDTH (X_RFW_WIDTH ),
+    .X_MISA      (X_MISA      )
+  ) ext_if();
 
-  /* ====================== Issue Interface =========================== */
-  // logic
-  logic                                     issue_valid;
-  logic                                     issue_ready;
-  // x_issue_req_t
-  logic [          31: 0]                   issue_req_instr;
-  logic [           1: 0]                   issue_req_mode;
-  logic [X_ID_WIDTH-1: 0]                   issue_req_id;
-  logic [X_NUM_RS  -1: 0][X_RFR_WIDTH-1: 0] issue_req_rs;
-  logic [X_NUM_RS  -1: 0]                   issue_req_rs_valid;
-  logic [           5: 0]                   issue_req_ecs;
-  logic                                     issue_req_ecs_valid;
-  // x_issue_resp_t
-  logic                                     issue_resp_accept;
-  logic                                     issue_resp_writeback;
-  logic                                     issue_resp_dualwrite;
-  logic [ 2: 0]                             issue_resp_dualread;
-  logic                                     issue_resp_loadstore;
-  logic                                     issue_resp_ecswrite;
-  logic                                     issue_resp_exc;
-  
-  /* ====================== Commit Interface ========================== */ 
-  // logic
-  logic                                     commit_valid;
-  // x_commit_t
-  logic [X_ID_WIDTH-1: 0]                   commit_id;
-  logic                                     commit_kill;
- 
-  /* ====================== Memory Req/Resp Interface ================= */
-  // logic
-  logic                                     mem_valid;
-  logic                                     mem_ready;
-  // x_mem_req_t
-  logic  [X_ID_WIDTH   -1: 0]               mem_req_id;
-  logic  [             31: 0]               mem_req_addr;
-  logic  [              1: 0]               mem_req_mode;
-  logic                                     mem_req_we;
-  logic  [              2: 0]               mem_req_size;
-  logic  [X_MEM_WIDTH/8-1: 0]               mem_req_be;
-  logic  [              1: 0]               mem_req_attr;
-  logic  [X_MEM_WIDTH  -1: 0]               mem_req_wdata;
-  logic                                     mem_req_last;
-  logic                                     mem_req_spec;
-  // x_mem_resp_t
-  logic                                     mem_resp_exc;
-  logic [ 5: 0]                             mem_resp_exccode;
-  logic                                     mem_resp_dbg;
-
-  /* ====================== Memory Result Interface =================== */
-  // logic
-  logic                                     mem_result_valid;
-  // x_mem_result_t
-  logic [X_ID_WIDTH -1:0]                   mem_result_id;
-  logic [X_MEM_WIDTH-1:0]                   mem_result_rdata;
-  logic                                     mem_result_err;
-  logic                                     mem_result_dbg;
-  
-  /*======================= Result Interface ========================== */
-  // logic
-  logic                                     result_valid;
-  logic                                     result_ready;
-  // x_result_t
-  logic [X_ID_WIDTH      -1:0]              result_id;
-  logic [X_RFW_WIDTH     -1:0]              result_data;
-  logic [                 4:0]              result_rd;
-  logic [X_RFW_WIDTH/XLEN-1:0]              result_we;
-  logic [                 5:0]              result_ecsdata;
-  logic [                 2:0]              result_ecswe;
-  logic                                     result_exc;
-  logic [                 5:0]              result_exccode;
-  logic                                     result_err;
-  logic                                     result_dbg;
- 
   /* =====================================================================
   *                           Bus Grant Logic
   * ====================================================================== */
@@ -240,8 +166,8 @@ module cv32e40x_soc
   * ================================================================= */
   ram_arbiter i_ram_arbiter
   (
-    .clk_i                  (clk_i),
-    .rst_ni                 (rst_ni),
+    .clk_i                  (clk_i              ),
+    .rst_ni                 (rst_ni             ),
 
     // I RAM Signals
     .cpu_instr_addr_i       (cpu_instr_addr     ),
@@ -261,127 +187,110 @@ module cv32e40x_soc
     .cpu_data_wdata_i       (cpu_data_wdata     ),
 
     // Unified Signals
-    .soc_rvalid_i           (rvalid         ),
-    .soc_gnt_i              (gnt            ),
-    .soc_req_o              (req            ),
-    .soc_addr_o             (addr           ),
-    .soc_be_o               (be             ),
-    .soc_we_o               (we             ),
-    .soc_wdata_o            (wdata          ),
-    .soc_rdata_i            (rdata          )
+    .soc_rvalid_i           (rvalid             ),
+    .soc_gnt_i              (gnt                ),
+    .soc_req_o              (req                ),
+    .soc_addr_o             (addr               ),
+    .soc_be_o               (be                 ),
+    .soc_we_o               (we                 ),
+    .soc_wdata_o            (wdata              ),
+    .soc_rdata_i            (rdata              )
   );
 
-
-  /* ================================================================
+  /* ===============================================================
   *                         CPU
   * ================================================================= */
-  cv32e40x_top cv32e40x_top_inst
+  cv32e40x_core
+  #(
+    .NUM_MHPMCOUNTERS       (NUM_MHPMCOUNTERS       ), 
+    .A_EXT                  (A                      ),
+    .B_EXT                  (B_NONE                 ), //ZBA_ZBB_ZBC_ZBS
+    .M_EXT                  (M_NONE                 ),
+    .X_EXT                  (1'b1                   ), // enable xtension interface
+    .X_NUM_RS               (X_NUM_RS               ),
+    .DEBUG                  (1'b0                   )
+  )
+  cv32e40x_core_inst
   (
-    .clk_i                  (clk_i                    ),
-    .rst_ni                 (rst_ni                   ),
+    .clk_i                  (clk_i                  ),
+    .rst_ni                 (rst_ni                 ),
+    .scan_cg_en_i           ('0                     ),
 
-    /* ================== Instruction Memory Interface ========== */
-    .instr_req_o            (cpu_instr_req            ),
-    .instr_gnt_i            (cpu_instr_gnt            ),
-    .instr_rvalid_i         (cpu_instr_rvalid         ),
-    .instr_addr_o           (cpu_instr_addr           ),
-    .instr_rdata_i          (cpu_instr_rdata          ),
+    // Static configuration
+    .boot_addr_i            (BOOT_ADDR              ),
+    .dm_exception_addr_i    ('0                     ),
+    .dm_halt_addr_i         (DM_HALTADDRESS         ),
+    .mhartid_i              (HART_ID                ),
+    .mimpid_patch_i         ('0                     ),
+    .mtvec_addr_i           ('0                     ),
 
-    /* ================== Data Memory Interface ================= */
-    .data_req_o             (cpu_data_req             ),
-    .data_gnt_i             (cpu_data_gnt             ),
-    .data_rvalid_i          (cpu_data_rvalid          ),
-    .data_addr_o            (cpu_data_addr            ),
-    .data_be_o              (cpu_data_be              ),
-    .data_we_o              (cpu_data_we              ),
-    .data_wdata_o           (cpu_data_wdata           ),
-    .data_rdata_i           (cpu_data_rdata           ),
+    // Instruction memory interface
+    .instr_req_o            (cpu_instr_req          ),
 
-    /* ================== Cycle Count =========================== */
-    .mcycle_o               (                         ),
+    .instr_gnt_i            (cpu_instr_gnt          ),
+    .instr_rvalid_i         (cpu_instr_rvalid       ),
+    .instr_addr_o           (cpu_instr_addr         ),
 
-    /* ================== Debug Interface ======================= */
-    .debug_req_i            (1'b0                     ),
+    .instr_memtype_o        (                       ),
+    .instr_prot_o           (                       ),
+    .instr_dbg_o            (                       ),
+    .instr_rdata_i          (cpu_instr_rdata        ),
+    .instr_err_i            ('0                     ),
 
-    /* ================== CPU Control Signals =================== */
-    .fetch_enable_i         (soc_fetch_enable_i       ),
-    .core_sleep_o           (soc_core_sleep_o         ),
+    // Data memory interface
+    .data_req_o             (cpu_data_req           ),
+    .data_gnt_i             (cpu_data_gnt           ),
+    .data_rvalid_i          (cpu_data_rvalid        ),
+    .data_addr_o            (cpu_data_addr          ),
+    .data_be_o              (cpu_data_be            ),
+    .data_we_o              (cpu_data_we            ),
+    .data_wdata_o           (cpu_data_wdata         ),
+    .data_memtype_o         (                       ),
+    .data_prot_o            (                       ),
+    .data_dbg_o             (                       ),
+    .data_atop_o            (                       ),
+    .data_rdata_i           (cpu_data_rdata         ),
+    .data_err_i             ('0                     ),
+    .data_exokay_i          ('1                     ),
 
-    /* ==========================================================
-    *                     eXtension Interface
-    * =========================================================== */
-    /* ================== Compressed Interface ================== */
-    .compressed_valid       (compressed_valid         ),
-    .compressed_ready       (compressed_ready         ),
-    .compressed_req_instr   (compressed_req_instr     ),
-    .compressed_req_mode    (compressed_req_mode      ),
-    .compressed_req_id      (compressed_req_id        ),
-    .compressed_resp_instr  (compressed_resp_instr    ),
-    .compressed_resp_accept (compressed_resp_accept   ),
+    // Cycle count
+    .mcycle_o               (                       ),
+    .time_i                 ('0                     ),
 
-    /* ================== Issue Interface ======================= */
-    .issue_valid            (issue_valid              ),
-    .issue_ready            (issue_ready              ),
-    .issue_req_instr        (issue_req_instr          ),
-    .issue_req_mode         (issue_req_mode           ),
-    .issue_req_id           (issue_req_id             ),
-    .issue_req_rs           (issue_req_rs             ),
-    .issue_req_rs_valid     (issue_req_rs_valid       ),
-    .issue_req_ecs          (issue_req_ecs            ),
-    .issue_req_ecs_valid    (issue_req_ecs_valid      ),
-    .issue_resp_accept      (issue_resp_accept        ),
-    .issue_resp_writeback   (issue_resp_writeback     ),
-    .issue_resp_dualwrite   (issue_resp_dualwrite     ),
-    .issue_resp_dualread    (issue_resp_dualread      ),
-    .issue_resp_loadstore   (issue_resp_loadstore     ),
-    .issue_resp_ecswrite    (issue_resp_ecswrite      ),
-    .issue_resp_exc         (issue_resp_exc           ),
-    
-    /* ================== Commit Interface ====================== */ 
-    .commit_valid           (commit_valid             ),
-    .commit_id              (commit_id                ),
-    .commit_kill            (commit_kill              ),
-  
-    /* ================== Memory Req/Resp Interface ============= */
-    .mem_valid              (mem_valid                ),
-    .mem_ready              (mem_ready                ),
-    .mem_req_id             (mem_req_id               ),
-    .mem_req_addr           (mem_req_addr             ),
-    .mem_req_mode           (mem_req_mode             ),
-    .mem_req_we             (mem_req_we               ),
-    .mem_req_size           (mem_req_size             ),
-    .mem_req_be             (mem_req_be               ),
-    .mem_req_attr           (mem_req_attr             ),
-    .mem_req_wdata          (mem_req_wdata            ),
-    .mem_req_last           (mem_req_last             ),
-    .mem_req_spec           (mem_req_spec             ),
-    .mem_resp_exc           (mem_resp_exc             ),
-    .mem_resp_exccode       (mem_resp_exccode         ),
-    .mem_resp_dbg           (mem_resp_dbg             ),
+    // eXtension interface
+    .xif_compressed_if      (ext_if.cpu_compressed  ),
+    .xif_issue_if           (ext_if.cpu_issue       ),
+    .xif_commit_if          (ext_if.cpu_commit      ),
+    .xif_mem_if             (ext_if.cpu_mem         ),
+    .xif_mem_result_if      (ext_if.cpu_mem_result  ),
+    .xif_result_if          (ext_if.cpu_result      ),
 
-    /* ================== Memory Result Interface =============== */
-    .mem_result_valid       (mem_result_valid         ),
-    .mem_result_id          (mem_result_id            ),
-    .mem_result_rdata       (mem_result_rdata         ),
-    .mem_result_err         (mem_result_err           ),
-    .mem_result_dbg         (mem_result_dbg           ),
-    
-    /* ================== Result Interface ====================== */
-    .result_valid           (result_valid             ),
-    .result_ready           (result_ready             ),
-    .result_id              (result_id                ),
-    .result_data            (result_data              ),
-    .result_rd              (result_rd                ),
-    .result_we              (result_we                ),
-    .result_ecsdata         (result_ecsdata           ),
-    .result_ecswe           (result_ecswe             ),
-    .result_exc             (result_exc               ),
-    .result_exccode         (result_exccode           ),
-    .result_err             (result_err               ),
-    .result_dbg             (result_dbg               )
+    // Basic interrupt architecture
+    .irq_i                  ( {32{1'b0}}            ),
 
+    // Event wakeup signal
+    .wu_wfe_i               ('0                     ),
+
+    // Smclic interrupt architecture
+    .clic_irq_i             ('0                     ),
+    .clic_irq_id_i          ('0                     ),
+    .clic_irq_level_i       ('0                     ),
+    .clic_irq_priv_i        ('0                     ),
+    .clic_irq_shv_i         ('0                     ),
+
+    // Fencei flush handshake
+    .fencei_flush_req_o     (                       ),
+    .fencei_flush_ack_i     ('0                     ),
+
+    .debug_req_i            ('0                     ),
+    .debug_havereset_o      (                       ),
+    .debug_running_o        (                       ),
+    .debug_halted_o         (                       ),
+
+    // CPU Control Signals
+    .fetch_enable_i         (soc_fetch_enable_i     ),
+    .core_sleep_o           (soc_core_sleep_o       )
   );
-
 
   /* ================================================================
   *                         Co-Processor
@@ -391,75 +300,13 @@ module cv32e40x_soc
     .clk_i                  (clk_i                    ),
     .rst_ni                 (rst_ni                   ),
 
-    /* ================== Compressed Interface ================== */
-    .compressed_valid       (compressed_valid         ),
-    .compressed_ready       (compressed_ready         ),
-    .compressed_req_instr   (compressed_req_instr     ),
-    .compressed_req_mode    (compressed_req_mode      ),
-    .compressed_req_id      (compressed_req_id        ),
-    .compressed_resp_instr  (compressed_resp_instr    ),
-    .compressed_resp_accept (compressed_resp_accept   ),
-
-    /* ================== Issue Interface ======================= */
-    .issue_valid            (issue_valid              ),
-    .issue_ready            (issue_ready              ),
-    .issue_req_instr        (issue_req_instr          ),
-    .issue_req_mode         (issue_req_mode           ),
-    .issue_req_id           (issue_req_id             ),
-    .issue_req_rs           (issue_req_rs             ),
-    .issue_req_rs_valid     (issue_req_rs_valid       ),
-    .issue_req_ecs          (issue_req_ecs            ),
-    .issue_req_ecs_valid    (issue_req_ecs_valid      ),
-    .issue_resp_accept      (issue_resp_accept        ),
-    .issue_resp_writeback   (issue_resp_writeback     ),
-    .issue_resp_dualwrite   (issue_resp_dualwrite     ),
-    .issue_resp_dualread    (issue_resp_dualread      ),
-    .issue_resp_loadstore   (issue_resp_loadstore     ),
-    .issue_resp_ecswrite    (issue_resp_ecswrite      ),
-    .issue_resp_exc         (issue_resp_exc           ),
-    
-    /* ================== Commit Interface ====================== */ 
-    .commit_valid           (commit_valid             ),
-    .commit_id              (commit_id                ),
-    .commit_kill            (commit_kill              ),
-  
-    /* ================== Memory Req/Resp Interface ============= */
-    .mem_valid              (mem_valid                ),
-    .mem_ready              (mem_ready                ),
-    .mem_req_id             (mem_req_id               ),
-    .mem_req_addr           (mem_req_addr             ),
-    .mem_req_mode           (mem_req_mode             ),
-    .mem_req_we             (mem_req_we               ),
-    .mem_req_size           (mem_req_size             ),
-    .mem_req_be             (mem_req_be               ),
-    .mem_req_attr           (mem_req_attr             ),
-    .mem_req_wdata          (mem_req_wdata            ),
-    .mem_req_last           (mem_req_last             ),
-    .mem_req_spec           (mem_req_spec             ),
-    .mem_resp_exc           (mem_resp_exc             ),
-    .mem_resp_exccode       (mem_resp_exccode         ),
-    .mem_resp_dbg           (mem_resp_dbg             ),
-
-    /* ================== Memory Result Interface =============== */
-    .mem_result_valid       (mem_result_valid         ),
-    .mem_result_id          (mem_result_id            ),
-    .mem_result_rdata       (mem_result_rdata         ),
-    .mem_result_err         (mem_result_err           ),
-    .mem_result_dbg         (mem_result_dbg           ),
-    
-    /* ================== Result Interface ====================== */
-    .result_valid           (result_valid             ),
-    .result_ready           (result_ready             ),
-    .result_id              (result_id                ),
-    .result_data            (result_data              ),
-    .result_rd              (result_rd                ),
-    .result_we              (result_we                ),
-    .result_ecsdata         (result_ecsdata           ),
-    .result_ecswe           (result_ecswe             ),
-    .result_exc             (result_exc               ),
-    .result_exccode         (result_exccode           ),
-    .result_err             (result_err               ),
-    .result_dbg             (result_dbg               )
+    // eXtension interface
+    .xif_compressed_if      (ext_if.coproc_compressed ),
+    .xif_issue_if           (ext_if.coproc_issue      ),
+    .xif_commit_if          (ext_if.coproc_commit     ),
+    .xif_mem_if             (ext_if.coproc_mem        ),
+    .xif_mem_result_if      (ext_if.coproc_mem_result ),
+    .xif_result_if          (ext_if.coproc_result     )
   );
 
 
@@ -502,30 +349,30 @@ module cv32e40x_soc
   * ================================================================= */
   obi_wb_bridge i_obi_wb_bridge
   (
-    .obi_clk_i      (clk_i     ),
-    .wb_clk_i       (wfg_clk_i ),
-    .soc_rst_ni     (rst_ni    ),
-    .gbl_rst_ni     (gbl_rst_ni),
+    .obi_clk_i      (clk_i                ),
+    .wb_clk_i       (wfg_clk_i            ),
+    .soc_rst_ni     (rst_ni               ),
+    .gbl_rst_ni     (gbl_rst_ni           ),
 
     /* OBI Signals */
     .obi_req_i      (obi_req_o & select_wb),
-    .obi_gnt_o      (obi_gnt_i      ),
-    .obi_addr_i     (obi_addr_o     ),
-    .obi_wr_en_i    (obi_we_o       ),
-    .obi_byte_en_i  (obi_be_o       ),
-    .obi_wdata_i    (obi_wdata_o    ),
-    .obi_rvalid_o   (obi_rvalid_i   ),
-    .obi_rdata_o    (obi_rdata_i    ),
+    .obi_gnt_o      (obi_gnt_i            ),
+    .obi_addr_i     (obi_addr_o           ),
+    .obi_wr_en_i    (obi_we_o             ),
+    .obi_byte_en_i  (obi_be_o             ),
+    .obi_wdata_i    (obi_wdata_o          ),
+    .obi_rvalid_o   (obi_rvalid_i         ),
+    .obi_rdata_o    (obi_rdata_i          ),
 
     /* Wishbone Signals */
-    .wb_addr_o      (wb_addr_o      ),
-    .wb_rdata_i     (wb_rdata_i     ),
-    .wb_wdata_o     (wb_wdata_o     ),
-    .wb_wr_en_o     (wb_wr_en_o     ),
-    .wb_byte_en_o   (wb_byte_en_o   ),
-    .wb_stb_o       (wb_stb_o       ),
-    .wb_ack_i       (wb_ack_i       ),
-    .wb_cyc_o       (wb_cyc_o       )
+    .wb_addr_o      (wb_addr_o            ),
+    .wb_rdata_i     (wb_rdata_i           ),
+    .wb_wdata_o     (wb_wdata_o           ),
+    .wb_wr_en_o     (wb_wr_en_o           ),
+    .wb_byte_en_o   (wb_byte_en_o         ),
+    .wb_stb_o       (wb_stb_o             ),
+    .wb_ack_i       (wb_ack_i             ),
+    .wb_cyc_o       (wb_cyc_o             )
   );
 
   logic [RAM_ADDR_WIDTH-1 : 0] wb2ram_addr;
@@ -616,6 +463,5 @@ module cv32e40x_soc
     .d_b      (wb2ram_data                ),
     .q_b      (dram2wb_data               )
   );
-    
 
 endmodule

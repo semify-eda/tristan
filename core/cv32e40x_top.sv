@@ -91,18 +91,18 @@ module cv32e40x_top import cv32e40x_pkg::*;
   input   wire                                      issue_resp_loadstore,
   input   wire                                      issue_resp_ecswrite,
   input   wire                                      issue_resp_exc,
-  
-  /* ====================== Commit Interface ========================== */ 
+
+  /* ====================== Commit Interface ========================== */
   // logic
   output  logic                                     commit_valid,
   // x_commit_t
   output  logic [X_ID_WIDTH-1: 0]                   commit_id,
   output  logic                                     commit_kill,
- 
+
   /* ====================== Memory Req/Resp Interface ================= */
   // logic
-  output  logic mem_valid,
-  input   wire  mem_ready,
+  input   logic mem_valid,
+  output  wire  mem_ready,
   // x_mem_req_t
   input   wire   [X_ID_WIDTH   -1: 0]               mem_req_id,
   input   wire   [             31: 0]               mem_req_addr,
@@ -191,8 +191,8 @@ module cv32e40x_top import cv32e40x_pkg::*;
   assign commit_kill                              = ext_if.commit.commit_kill;
 
   /* ====================== Memory Req/Resp Interface ================= */
-  assign mem_valid                                = ext_if.mem_valid;
-  assign ext_if.mem_ready                         = mem_ready;
+  assign ext_if.mem_valid                         = mem_valid;
+  assign mem_ready                                = ext_if.mem_ready;
   assign ext_if.mem_req.id                        = mem_req_id;
   assign ext_if.mem_req.addr                      = mem_req_addr;
   assign ext_if.mem_req.mode                      = mem_req_mode;

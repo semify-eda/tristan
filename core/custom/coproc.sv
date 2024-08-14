@@ -18,90 +18,14 @@ module coproc
   input wire clk_i,
   input wire rst_ni,
 
-  /* ====================== Compressed Interface ====================== */
-  // logic
-  input   wire                                      compressed_valid,
-  output  logic                                     compressed_ready,
-  // x_compressed_req
-  input   wire  [          15: 0]                   compressed_req_instr,
-  input   wire  [           1: 0]                   compressed_req_mode,
-  input   wire  [X_ID_WIDTH-1: 0]                   compressed_req_id,
-  // x_compressed_resp
-  output  logic [          31: 0]                   compressed_resp_instr,
-  output  logic                                     compressed_resp_accept,
 
-  /* ====================== Issue Interface =========================== */
-  // logic
-  input   wire                                      issue_valid,
-  output  logic                                     issue_ready,
-  // x_issue_req_t
-  input   wire  [          31: 0]                   issue_req_instr,
-  input   wire  [           1: 0]                   issue_req_mode,
-  input   wire  [X_ID_WIDTH-1: 0]                   issue_req_id,
-  input   wire  [X_NUM_RS  -1: 0][X_RFR_WIDTH-1: 0] issue_req_rs,
-  input   wire  [X_NUM_RS  -1: 0]                   issue_req_rs_valid,
-  input   wire  [           5: 0]                   issue_req_ecs,
-  input   wire                                      issue_req_ecs_valid,
-  // x_issue_resp_t
-  output  logic                                     issue_resp_accept,
-  output  logic                                     issue_resp_writeback,
-  output  logic                                     issue_resp_dualwrite,
-  output  logic [ 2: 0]                             issue_resp_dualread,
-  output  logic                                     issue_resp_loadstore,
-  output  logic                                     issue_resp_ecswrite,
-  output  logic                                     issue_resp_exc,
-  
-  /* ====================== Commit Interface ========================== */ 
-  // logic
-  input   wire                                      commit_valid,
-  // x_commit_t
-  input   wire  [X_ID_WIDTH-1: 0]                   commit_id,
-  input   wire                                      commit_kill,
- 
-  /* ====================== Memory Req/Resp Interface ================= */
-  // logic
-  input   wire                                      mem_valid,
-  output  logic                                     mem_ready,
-  // x_mem_req_t
-  output  logic  [X_ID_WIDTH   -1: 0]               mem_req_id,
-  output  logic  [             31: 0]               mem_req_addr,
-  output  logic  [              1: 0]               mem_req_mode,
-  output  logic                                     mem_req_we,
-  output  logic  [              2: 0]               mem_req_size,
-  output  logic  [X_MEM_WIDTH/8-1: 0]               mem_req_be,
-  output  logic  [              1: 0]               mem_req_attr,
-  output  logic  [X_MEM_WIDTH  -1: 0]               mem_req_wdata,
-  output  logic                                     mem_req_last,
-  output  logic                                     mem_req_spec,
-  // x_mem_resp_t
-  input   wire                                      mem_resp_exc,
-  input   wire  [ 5: 0]                             mem_resp_exccode,
-  input   wire                                      mem_resp_dbg,
-
-  /* ====================== Memory Result Interface =================== */
-  // logic
-  input   wire                                      mem_result_valid,
-  // x_mem_result_t
-  input   wire  [X_ID_WIDTH -1:0]                   mem_result_id,
-  input   wire  [X_MEM_WIDTH-1:0]                   mem_result_rdata,
-  input   wire                                      mem_result_err,
-  input   wire                                      mem_result_dbg,
-  
-  /*======================= Result Interface ========================== */
-  // logic
-  output  logic                                     result_valid,
-  input   wire                                      result_ready,
-  // x_result_t
-  output  logic [X_ID_WIDTH      -1:0]              result_id,
-  output  logic [X_RFW_WIDTH     -1:0]              result_data,
-  output  logic [                 4:0]              result_rd,
-  output  logic [X_RFW_WIDTH/XLEN-1:0]              result_we,
-  output  logic [                 5:0]              result_ecsdata,
-  output  logic [                 2:0]              result_ecswe,
-  output  logic                                     result_exc,
-  output  logic [                 5:0]              result_exccode,
-  output  logic                                     result_err,
-  output  logic                                     result_dbg
+  /* ====================== eXtension Interface ====================== */
+  cv32e40x_if_xif.coproc_compressed        xif_compressed_if,
+  cv32e40x_if_xif.coproc_issue             xif_issue_if,
+  cv32e40x_if_xif.coproc_commit            xif_commit_if,
+  cv32e40x_if_xif.coproc_mem               xif_mem_if,
+  cv32e40x_if_xif.coproc_mem_result        xif_mem_result_if,
+  cv32e40x_if_xif.coproc_result            xif_result_if
 );
 
   /**
@@ -125,97 +49,96 @@ module coproc
       rs1               <= '0;
       rd                <= '0;
       id                <= '0;
-      issue_resp_accept <= '0;
 
       /* eXtension interface outputs */
-      compressed_ready        <= '0;
-      compressed_resp_instr   <= '0;
-      compressed_resp_accept  <= '0;
-      issue_ready             <= '1;
-      issue_resp_accept       <= '0;
-      issue_resp_writeback    <= '0;
-      issue_resp_dualwrite    <= '0;
-      issue_resp_dualread     <= '0;
-      issue_resp_loadstore    <= '0;
-      issue_resp_ecswrite     <= '0;
-      issue_resp_exc          <= '0;
-      mem_ready               <= '1;
-      mem_req_id              <= '0;
-      mem_req_addr            <= '0;
-      mem_req_mode            <= '0;
-      mem_req_we              <= '0;
-      mem_req_size            <= '0;
-      mem_req_be              <= '0;
-      mem_req_attr            <= '0;
-      mem_req_wdata           <= '0;
-      mem_req_last            <= '0;
-      mem_req_spec            <= '0;
-      result_valid            <= '0;
-      result_id               <= '0;
-      result_data             <= '0;
-      result_rd               <= '0;
-      result_we               <= '0;
-      result_ecsdata          <= '0;
-      result_ecswe            <= '0;
-      result_exc              <= '0;
-      result_exccode          <= '0;
-      result_err              <= '0;
-      result_dbg              <= '0;
+      xif_compressed_if.compressed_ready        <= '0;
+      xif_compressed_if.compressed_resp.instr   <= '0;
+      xif_compressed_if.compressed_resp.accept  <= '0;
+      xif_issue_if.issue_ready                  <= '1;
+      xif_issue_if.issue_resp.accept            <= '0;
+      xif_issue_if.issue_resp.writeback         <= '0;
+      xif_issue_if.issue_resp.dualwrite         <= '0;
+      xif_issue_if.issue_resp.dualread          <= '0;
+      xif_issue_if.issue_resp.loadstore         <= '0;
+      xif_issue_if.issue_resp.ecswrite          <= '0;
+      xif_issue_if.issue_resp.exc               <= '0;
+      xif_mem_if.mem_valid                      <= '1;
+      xif_mem_if.mem_req.id                     <= '0;
+      xif_mem_if.mem_req.addr                   <= '0;
+      xif_mem_if.mem_req.mode                   <= '0;
+      xif_mem_if.mem_req.we                     <= '0;
+      xif_mem_if.mem_req.size                   <= '0;
+      xif_mem_if.mem_req.be                     <= '0;
+      xif_mem_if.mem_req.attr                   <= '0;
+      xif_mem_if.mem_req.wdata                  <= '0;
+      xif_mem_if.mem_req.last                   <= '0;
+      xif_mem_if.mem_req.spec                   <= '0;
+      xif_result_if.result_valid                <= '0;
+      xif_result_if.result.id                   <= '0;
+      xif_result_if.result.data                 <= '0;
+      xif_result_if.result.rd                   <= '0;
+      xif_result_if.result.we                   <= '0;
+      xif_result_if.result.ecsdata              <= '0;
+      xif_result_if.result.ecswe                <= '0;
+      xif_result_if.result.exc                  <= '0;
+      xif_result_if.result.exccode              <= '0;
+      xif_result_if.result.err                  <= '0;
+      xif_result_if.result.dbg                  <= '0;
 
 
     end else begin
-      if(issue_valid) begin
-        rs0             <= issue_req_rs[0];
-        rs1             <= issue_req_rs[1];
-        rd              <= issue_req_instr[11:7];
-        id              <= issue_req_id;
+      if(xif_issue_if.issue_valid) begin
+        rs0 <= xif_issue_if.issue_req.rs[0];
+        rs1 <= xif_issue_if.issue_req.rs[1];
+        rd  <= xif_issue_if.issue_req.instr[11:7];
+        id  <= xif_issue_if.issue_req.id;
 
-        case(issue_req_instr[6:0])
+        case(xif_issue_if.issue_req.instr[6:0])
           OPCODE_RMLD: begin
-            issue_ready           <= '0;
-            issue_resp_accept     <= '0;
-            issue_resp_writeback  <= '1;
-            issue_resp_dualwrite  <= '0;
-            issue_resp_dualread   <= '0;
-            issue_resp_loadstore  <= '1;
-            issue_resp_ecswrite   <= '0;
-            issue_resp_exc        <= '1;  //! can cause an exception for 
-                                          //  an incorrect mem address
+            xif_issue_if.issue_ready           <= '0;
+            xif_issue_if.issue_resp.accept     <= '0;
+            xif_issue_if.issue_resp.writeback  <= '1;
+            xif_issue_if.issue_resp.dualwrite  <= '0;
+            xif_issue_if.issue_resp.dualread   <= '0;
+            xif_issue_if.issue_resp.loadstore  <= '1;
+            xif_issue_if.issue_resp.ecswrite   <= '0;
+            xif_issue_if.issue_resp.exc        <= '1;  //! can cause an exception for 
+                                                        //  an incorrect mem address
           end
           OPCODE_RMST: begin
-            issue_ready           <= '0;
-            issue_resp_accept     <= '0;
-            issue_resp_writeback  <= '0;
-            issue_resp_dualwrite  <= '0;
-            issue_resp_dualread   <= '0;
-            issue_resp_loadstore  <= '1;
-            issue_resp_ecswrite   <= '0;
-            issue_resp_exc        <= '1;  //! can cause an exception for 
-                                          //  an incorrect mem address
+            xif_issue_if.issue_ready           <= '0;
+            xif_issue_if.issue_resp.accept     <= '0;
+            xif_issue_if.issue_resp.writeback  <= '0;
+            xif_issue_if.issue_resp.dualwrite  <= '0;
+            xif_issue_if.issue_resp.dualread   <= '0;
+            xif_issue_if.issue_resp.loadstore  <= '1;
+            xif_issue_if.issue_resp.ecswrite   <= '0;
+            xif_issue_if.issue_resp.exc        <= '1;  //! can cause an exception for 
+                                                        //  an incorrect mem address
           end
           OPCODE_TEST: begin
-            issue_ready           <= '0;
-            issue_resp_accept     <= '0;
-            issue_resp_writeback  <= '1;
-            issue_resp_dualwrite  <= '0;
-            issue_resp_dualread   <= '0;
-            issue_resp_loadstore  <= '0;
-            issue_resp_ecswrite   <= '0;
-            issue_resp_exc        <= '0;
+            xif_issue_if.issue_ready           <= '0;
+            xif_issue_if.issue_resp.accept     <= '0;
+            xif_issue_if.issue_resp.writeback  <= '1;
+            xif_issue_if.issue_resp.dualwrite  <= '0;
+            xif_issue_if.issue_resp.dualread   <= '0;
+            xif_issue_if.issue_resp.loadstore  <= '0;
+            xif_issue_if.issue_resp.ecswrite   <= '0;
+            xif_issue_if.issue_resp.exc        <= '0;
           end
           default: begin
-            issue_ready           <= '0;
-            issue_resp_accept     <= '0;
-            issue_resp_writeback  <= '0;
-            issue_resp_dualwrite  <= '0;
-            issue_resp_dualread   <= '0;
-            issue_resp_loadstore  <= '0;
-            issue_resp_ecswrite   <= '0;
-            issue_resp_exc        <= '0;
+            xif_issue_if.issue_ready           <= '0;
+            xif_issue_if.issue_resp.accept     <= '0;
+            xif_issue_if.issue_resp.writeback  <= '0;
+            xif_issue_if.issue_resp.dualwrite  <= '0;
+            xif_issue_if.issue_resp.dualread   <= '0;
+            xif_issue_if.issue_resp.loadstore  <= '0;
+            xif_issue_if.issue_resp.ecswrite   <= '0;
+            xif_issue_if.issue_resp.exc        <= '0;
           end
         endcase
-      end else if (result_valid) begin
-        case(issue_req_instr[6:0])
+      end else if (xif_result_if.result_valid) begin
+        case(xif_issue_if.issue_req.instr[6:0])
           OPCODE_RMLD: begin
             //!TODO
           end
@@ -223,28 +146,28 @@ module coproc
             //!TODO
           end
           OPCODE_TEST: begin
-            result_id         <= id;
-            result_data       <= 32'hDEADBEEF; // write a magic number to data
-            result_rd         <= rd;
-            result_we         <= '1;
-            result_ecsdata    <= '0;
-            result_ecswe      <= '0;
-            result_exc        <= '0;
-            result_exccode    <= '0;
-            result_err        <= '0;
-            result_dbg        <= '0;
+            xif_result_if.result.id         <= id;
+            xif_result_if.result.data       <= 32'hDEADBEEF; // write a magic number to data
+            xif_result_if.result.rd         <= rd;
+            xif_result_if.result.we         <= '1;
+            xif_result_if.result.ecsdata    <= '0;
+            xif_result_if.result.ecswe      <= '0;
+            xif_result_if.result.exc        <= '0;
+            xif_result_if.result.exccode    <= '0;
+            xif_result_if.result.err        <= '0;
+            xif_result_if.result.dbg        <= '0;
           end
-          default: begin 
-            result_id         <= '0;
-            result_data       <= '0;
-            result_rd         <= '0;
-            result_we         <= '0;
-            result_ecsdata    <= '0;
-            result_ecswe      <= '0;
-            result_exc        <= '0;
-            result_exccode    <= '0;
-            result_err        <= '0;
-            result_dbg        <= '0;
+          default: begin
+            xif_result_if.result.id         <= '0;
+            xif_result_if.result.data       <= '0;
+            xif_result_if.result.rd         <= '0;
+            xif_result_if.result.we         <= '0;
+            xif_result_if.result.ecsdata    <= '0;
+            xif_result_if.result.ecswe      <= '0;
+            xif_result_if.result.exc        <= '0;
+            xif_result_if.result.exccode    <= '0;
+            xif_result_if.result.err        <= '0;
+            xif_result_if.result.dbg        <= '0;
           end
         endcase
       end
