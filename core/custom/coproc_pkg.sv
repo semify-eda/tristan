@@ -5,9 +5,9 @@ package coproc_pkg;
 *   https://five-embeddev.com/riscv-user-isa-manual/Priv-v1.12/opcode-map.html#opcodemap
 */
 typedef enum logic [6:0] {
-  OPCODE_RMLD   = 7'h0b,
+  OPCODE_RMLD   = 7'h6b,
   OPCODE_RMST   = 7'h1b,
-  OPCODE_TEST   = 7'h6b
+  OPCODE_TEST   = 7'h0b
 } coproc_opcode_e;
 
 endpackage
