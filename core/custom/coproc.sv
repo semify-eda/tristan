@@ -54,7 +54,7 @@ module coproc
       xif_compressed_if.compressed_ready        <= '0;
       xif_compressed_if.compressed_resp.instr   <= '0;
       xif_compressed_if.compressed_resp.accept  <= '0;
-      xif_issue_if.issue_ready                  <= '1;
+      xif_issue_if.issue_ready                  <= '0;
       xif_issue_if.issue_resp.accept            <= '0;
       xif_issue_if.issue_resp.writeback         <= '0;
       xif_issue_if.issue_resp.dualwrite         <= '0;
@@ -62,7 +62,7 @@ module coproc
       xif_issue_if.issue_resp.loadstore         <= '0;
       xif_issue_if.issue_resp.ecswrite          <= '0;
       xif_issue_if.issue_resp.exc               <= '0;
-      xif_mem_if.mem_valid                      <= '1;
+      xif_mem_if.mem_valid                      <= '0;
       xif_mem_if.mem_req.id                     <= '0;
       xif_mem_if.mem_req.addr                   <= '0;
       xif_mem_if.mem_req.mode                   <= '0;
