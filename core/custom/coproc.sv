@@ -95,6 +95,10 @@ module coproc import coproc_pkg::*;
     end
   end : commit_monitor
 
+  // Combinational Signals
+  assign xif_issue_if.issue_resp.accept = (opcode == OPCODE_RMLD | opcode == OPCODE_RMST | opcode == OPCODE_TEST);
+  assign xif_issue_if.issue_resp.writeback = (opcode == OPCODE_TEST | opcode == OPCODE_RMST);
+
   always_ff @(posedge clk_i, negedge rst_ni) begin
     if (~rst_ni) begin
       /* local variables */
@@ -109,8 +113,6 @@ module coproc import coproc_pkg::*;
       xif_compressed_if.compressed_resp.instr   <= '0;
       xif_compressed_if.compressed_resp.accept  <= '0;
       xif_issue_if.issue_ready                  <= '1;
-      xif_issue_if.issue_resp.accept            <= '0;
-      xif_issue_if.issue_resp.writeback         <= '0;
       xif_issue_if.issue_resp.dualwrite         <= '0;
       xif_issue_if.issue_resp.dualread          <= '0;
       xif_issue_if.issue_resp.loadstore         <= '0;
@@ -140,6 +142,7 @@ module coproc import coproc_pkg::*;
       xif_result_if.result.dbg                  <= '0;
 
     end else begin
+      xif_result_if.result_valid                <= '0;
       case(state_next)
         EXECUTE: begin
           rs1 <= xif_issue_if.issue_req.rs[0];
@@ -147,20 +150,17 @@ module coproc import coproc_pkg::*;
           rd  <= xif_issue_if.issue_req.instr[11:7];
           id  <= xif_issue_if.issue_req.id;
 
-          xif_issue_if.issue_resp.accept     <= '0;
-          xif_issue_if.issue_resp.writeback  <= '0;
           xif_issue_if.issue_resp.dualwrite  <= '0;
           xif_issue_if.issue_resp.dualread   <= '0;
           xif_issue_if.issue_resp.loadstore  <= '0;
           xif_issue_if.issue_resp.ecswrite   <= '0;
           xif_issue_if.issue_resp.exc        <= '0;
-
+          xif_issue_if.issue_ready           <= '0;
           // keep issue_ready high for the first cycle in the the EXECUTE state
-          xif_issue_if.issue_ready           <= state_ff == EXECUTE ? '0 : '1;
+          // xif_issue_if.issue_ready           <= state_ff == EXECUTE ? '0 : '1;
           case(opcode)
             OPCODE_RMLD: begin
               //! wiggle these signals
-              xif_issue_if.issue_resp.writeback  <= '1;
               xif_issue_if.issue_resp.loadstore  <= '1;
               xif_issue_if.issue_resp.exc        <= '1; //! can cause an exception for
                                                         //  an incorrect mem address
@@ -173,8 +173,6 @@ module coproc import coproc_pkg::*;
             end
             OPCODE_TEST: begin
               //! wiggle these signals
-              xif_issue_if.issue_resp.accept     <= '1;
-              xif_issue_if.issue_resp.writeback  <= '1;
             end
           endcase
         end
