@@ -60,7 +60,6 @@ module coproc import coproc_pkg::*;
   logic [ 3:0]    id;
   logic           issue_valid_ff;
   logic           commit_valid,     commit_valid_ff;
-  logic           commit_kill;
 
   /* ====================== Memory Signals ====================== */
   logic [31:0]    mem_rdata;
@@ -73,7 +72,6 @@ module coproc import coproc_pkg::*;
 
   assign opcode = coproc_opcode_e'(xif_issue_if.issue_req.instr[ 6: 0]);
   assign funct3 =  rmst_funct3_e'(xif_issue_if.issue_req.instr[14:12]);
-  assign commit_kill = xif_commit_if.commit.commit_kill;
 
   // sticky signals
   /* ====================== Sticky Signals ====================== */
@@ -96,12 +94,12 @@ module coproc import coproc_pkg::*;
     end
   end : commit_monitor
 
-  // Combinational Signals
   /* ================== Combinational Handshake Signals ====================== */
-  assign xif_issue_if.issue_resp.accept     = (opcode == OPCODE_RMLD | opcode == OPCODE_RMST | opcode == OPCODE_TEST);
-  assign xif_issue_if.issue_resp.writeback  = (opcode == OPCODE_TEST | opcode == OPCODE_RMST);
+  assign xif_issue_if.issue_resp.accept     = opcode == OPCODE_RMLD | opcode == OPCODE_RMST;
+  assign xif_issue_if.issue_resp.writeback  = opcode == OPCODE_RMST;
 
 
+  /* ================== State Machine ====================== */
   always_ff @(posedge clk_i, negedge rst_ni) begin : next_state_assign
     if (~rst_ni) begin
       state_ff <= IDLE;
@@ -112,8 +110,8 @@ module coproc import coproc_pkg::*;
 
   always_comb begin : next_state_logic
     state_next = state_ff;
-    if(commit_kill) begin
-      state_next = IDLE;
+    if(xif_commit_if.commit.commit_kill) begin
+      state_next = KILL;
     end else begin
       unique case(state_ff)
         IDLE:
@@ -127,20 +125,14 @@ module coproc import coproc_pkg::*;
         CFG:
           if(commit_valid) begin
             state_next = RETIRE;
-          end else if (commit_kill) begin
-            state_next = KILL;
           end
         MEM_RD1:
           if(xif_mem_result_if.mem_result_valid) begin
             state_next = MEM_RD2;
-          end else if (commit_kill) begin
-            state_next = KILL;
           end
         MEM_RD2:
           if(xif_mem_result_if.mem_result_valid) begin
             state_next = UPDATE;
-          end else if (commit_kill) begin
-            state_next = KILL;
           end
         UPDATE:
           if(commit_valid) begin
@@ -276,32 +268,30 @@ module coproc import coproc_pkg::*;
         end
         MEM_RD2: begin
           if(xif_mem_result_if.mem_result_valid) begin
-            rbuf[31:0]                        <= xif_mem_result_if.mem_result.rdata;
+            rbuf                              <= xif_mem_result_if.mem_result.rdata;
             xif_mem_if.mem_req.addr           <= xif_mem_if.mem_req.addr + 3'b100;
           end
         end
         UPDATE: begin
           if(xif_mem_result_if.mem_result_valid) begin
-            rbuf[63:32]                       <= xif_mem_result_if.mem_result.rdata;
+            //TODO: determine how much to shift rbuf when loading it into shadow register
+            shadow_reg                        <= {{xif_mem_result_if.mem_result.rdata[15:0]}, {rbuf}};
           end
           xif_mem_if.mem_valid                <= '0;
+
         end
         MEM_WR1: begin
-          //! wiggle these signals
           xif_mem_if.mem_valid                <= '1;
-          xif_mem_if.mem_req.id               <= xif_issue_if.issue_req.id;
           xif_mem_if.mem_req.addr             <= st_addr;
-          xif_mem_if.mem_req.mode             <= '1;    // set to machine level for now
           xif_mem_if.mem_req.we               <= '1;
           xif_mem_if.mem_req.size             <= 3'h2;  // set to a word (32b)
-          xif_mem_if.mem_req.be               <= '1;    // enable all bytes
-          xif_mem_if.mem_req.attr[1]          <= '1;    // set as modifiable
           xif_mem_if.mem_req.attr[0]          <= '0;    // set as aligned
-          xif_mem_if.mem_req.last             <= '0;    // declare the memory transaction to be the last for the offloaded instruction
+          xif_mem_if.mem_req.last             <= '0;    // declare the memory transaction to not be the last
           xif_mem_if.mem_req.spec             <= '0;    // memory trasnaction is not speculative
           case(funct3)
             RMCS:
-              xif_mem_if.mem_req.wdata        <= shadow_reg;
+              //TODO: update this value
+              xif_mem_if.mem_req.wdata        <= {{16'b0}, {shadow_reg[31:16]}};
             RMCC:
               xif_mem_if.mem_req.wdata        <= data_load_reg;
             RMXR:
@@ -311,14 +301,28 @@ module coproc import coproc_pkg::*;
               //TODO: update this value
               xif_mem_if.mem_req.wdata        <= '1;
           endcase
-
-          xif_issue_if.issue_resp.loadstore   <= '1;
-          xif_issue_if.issue_resp.exc         <= '1; //! can cause an exception for
-                                                      //  an incorrect mem address
         end
         MEM_WR2: begin
+          if(xif_mem_result_if.mem_result_valid) begin
+            xif_mem_if.mem_req.addr             <= st_addr + 3'b100;
+            xif_mem_if.mem_req.last             <= '1;    // declare the memory transaction to be the last
+          end
+          case(funct3)
+            RMCS:
+              //TODO: update this value
+              xif_mem_if.mem_req.wdata        <= {{shadow_reg[15:0]}, 16'b0};
+            RMCC:
+              xif_mem_if.mem_req.wdata        <= data_load_reg;
+            RMXR:
+              //TODO: update this value
+              xif_mem_if.mem_req.wdata        <= '0;
+            RMXS:
+              //TODO: update this value
+              xif_mem_if.mem_req.wdata        <= '1;
+          endcase
         end
         STALL: begin
+          xif_mem_if.mem_valid            <= '0;
         end
         RETIRE: begin
           xif_issue_if.issue_ready        <= '1;
@@ -336,21 +340,11 @@ module coproc import coproc_pkg::*;
           xif_result_if.result.dbg        <= '0;
 
 
-          //!TODO: move this to the update data state or similar
           case(opcode)
-            OPCODE_RMLD: begin
-              shadow_reg                      <= rbuf[47:16];
-            end
             OPCODE_RMST: begin
-              //! wiggle these signals
-              mem_rdata                       <= xif_mem_result_if.mem_result.rdata;
-              mem_dbg                         <= xif_mem_result_if.mem_result.dbg;
-              mem_err                         <= xif_mem_result_if.mem_result.err;
-            end
-            OPCODE_TEST: begin
-              xif_result_if.result.data       <= 32'hDEADBEEF; // write a magic number to data
-              xif_result_if.result.rd         <= rd;
-              xif_result_if.result.we         <= '1;
+              mem_rdata   <= xif_mem_result_if.mem_result.rdata;
+              mem_dbg     <= xif_mem_result_if.mem_result.dbg;
+              mem_err     <= xif_mem_result_if.mem_result.err;
             end
           endcase
         end
