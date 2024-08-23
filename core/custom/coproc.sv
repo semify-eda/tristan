@@ -35,6 +35,14 @@ module coproc import coproc_pkg::*;
     RETIRE        = 4'b1000
   } coproc_state_e;
 
+  // Control Registers
+  logic [31:0] ld_addr;             // address of start of read (load) stream
+  logic [31:0] st_addr;             // address of start of write (store) stream
+  logic [31:0] shadow_reg;          // shadow data register
+  logic [31:0] data_load_reg;       // custom data register
+  logic [63:0] rbuf;                // read data buffer
+
+
   /**
   *   NOTES:
   *     - for now, do not pipeline the coprocessor. This means the input id, rs1, rs2, rd
