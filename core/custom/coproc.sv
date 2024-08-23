@@ -59,10 +59,12 @@ module coproc import coproc_pkg::*;
   logic           mem_err, mem_dbg;
 
   coproc_opcode_e opcode;
+  rmst_funct3_e   funct_3;
   // FSM
   coproc_state_e state_ff, state_next;
 
-  assign opcode = coproc_opcode_e'(xif_issue_if.issue_req.instr[6:0]);
+  assign opcode = coproc_opcode_e'(xif_issue_if.issue_req.instr[ 6: 0]);
+  assign funct_3 =  rmst_funct3_e'(xif_issue_if.issue_req.instr[14:12]);
   assign commit_kill = xif_commit_if.commit.commit_kill;
 
   // sticky signals
@@ -110,7 +112,7 @@ module coproc import coproc_pkg::*;
           end
         EXECUTE:
           if(commit_valid) begin
-            if(opcode == OPCODE_RMST | opcode == OPCODE_RMLD) begin
+            if((opcode == OPCODE_RMST && (funct_3 == RMXR || funct_3 == RMXS || funct_3 == RMCS || funct_3 == RMCC)) || opcode == OPCODE_RMLD) begin
               state_next = xif_mem_if.mem_ready ? MEM_RESP : EXECUTE;
             end else begin
               state_next = RETIRE;
@@ -133,6 +135,13 @@ module coproc import coproc_pkg::*;
 
   always_ff @(posedge clk_i, negedge rst_ni) begin
     if (~rst_ni) begin
+      /* Control registers */
+      ld_addr                                   <= '0;
+      st_addr                                   <= '0;
+      shadow_reg                                <= '0;
+      data_load_reg                             <= '0;
+      rbuf                                      <= '0;
+
       /* local variables */
       rs1                                       <= '0;
       rs2                                       <= '0;
@@ -199,24 +208,52 @@ module coproc import coproc_pkg::*;
 
             end
             OPCODE_RMST: begin
-              //! wiggle these signals
-              xif_mem_if.mem_valid                <= '1;
-              xif_mem_if.mem_req.id               <= xif_issue_if.issue_req.id;
-              xif_mem_if.mem_req.addr             <= xif_issue_if.issue_req.rs[0];
-              xif_mem_if.mem_req.mode             <= '1;    // set to machine level for now
-              xif_mem_if.mem_req.we               <= '1;
-              xif_mem_if.mem_req.size             <= 3'h2;  // set to a word (32b)
-              xif_mem_if.mem_req.be               <= '1;    // enable all bytes
-              xif_mem_if.mem_req.attr[1]          <= '1;    // set as modifiable
-              xif_mem_if.mem_req.attr[0]          <= '0;    // set as aligned
-              xif_mem_if.mem_req.wdata            <= xif_issue_if.issue_req.rs[1];
-              xif_mem_if.mem_req.last             <= '1;    // declare the memory transaction to be the last for the offloaded instruction
-              xif_mem_if.mem_req.spec             <= '0;    // memory trasnaction is not speculative
+
+              case(funct_3)
+                RMXR: begin
+                  //! wiggle these signals
+                  xif_mem_if.mem_valid                <= '1;
+                  xif_mem_if.mem_req.id               <= xif_issue_if.issue_req.id;
+                  xif_mem_if.mem_req.addr             <= xif_issue_if.issue_req.rs[0];
+                  xif_mem_if.mem_req.mode             <= '1;    // set to machine level for now
+                  xif_mem_if.mem_req.we               <= '1;
+                  xif_mem_if.mem_req.size             <= 3'h2;  // set to a word (32b)
+                  xif_mem_if.mem_req.be               <= '1;    // enable all bytes
+                  xif_mem_if.mem_req.attr[1]          <= '1;    // set as modifiable
+                  xif_mem_if.mem_req.attr[0]          <= '0;    // set as aligned
+                  xif_mem_if.mem_req.wdata            <= xif_issue_if.issue_req.rs[1];
+                  xif_mem_if.mem_req.last             <= '1;    // declare the memory transaction to be the last for the offloaded instruction
+                  xif_mem_if.mem_req.spec             <= '0;    // memory trasnaction is not speculative
 
 
-              xif_issue_if.issue_resp.loadstore   <= '1;
-              xif_issue_if.issue_resp.exc         <= '1; //! can cause an exception for
-                                                        //  an incorrect mem address
+                  xif_issue_if.issue_resp.loadstore   <= '1;
+                  xif_issue_if.issue_resp.exc         <= '1; //! can cause an exception for
+                                                            //  an incorrect mem address
+                end
+                RMXS: begin
+                  //TODO
+                end
+                RMCS: begin
+                  //TODO
+                end
+                RMCC: begin
+                  //TODO
+                end
+
+                CDSRM: begin
+                  data_load_reg <= rs1;
+                end
+                CASRM: begin
+                  st_addr <= rs1;
+                end
+                CALRM: begin
+                  ld_addr <= rs1;
+                end
+                CASLRM: begin
+                  ld_addr <= rs1;
+                  st_addr <= rs2;
+                end
+              endcase
             end
             OPCODE_TEST: begin
               //! wiggle these signals
