@@ -161,32 +161,35 @@ module coproc import coproc_pkg::*;
   endgenerate
 
   logic [63:0] wmask_store;
-  // logic [63:0] shadow_reg_rot;
+  logic [63:0] reg_rot;
 
-  assign wmask_store    = {{wmask_left}, {wmask_right}};
-  // assign shadow_reg_rot = {{shadow_reg}, {shadow_reg}};
+  assign wmask_store    = count == 6'b10_0000 ? {{~wmask_left}, {~wmask_right}} : {{wmask_left}, {wmask_right}};
+  always_comb begin
+    unique case(funct3)
+      RMXR: begin
+        reg_rot = '0;
+      end
+      RMXS: begin
+        reg_rot = '1;
+      end
+      RMCS: begin
+        reg_rot = {{shadow_reg}, {shadow_reg}};
+      end
+      RMCC: begin
+        //!TODO rotate data_load_reg
+        //! this is not working yet
+        reg_rot = {{data_load_reg}, {data_load_reg}};
+      end
+      default: begin
+        reg_rot = '0;
+      end
+    endcase
+  end
+
   generate
     for (genvar j = 0; j < 64; ++j) begin
       always_comb begin
-        unique case(funct3)
-          RMXR: begin
-            wbuf[j] = wmask_store[j] ? '0 : rbuf[j];
-          end
-          RMXS: begin
-            wbuf[j] = wmask_store[j] ? '1 : rbuf[j];
-          end
-          RMCS: begin
-            wbuf[j] = wmask_store[j] ? shadow_reg[j < 32 ? j : j - 32] : rbuf[j];
-          end
-          RMCC: begin
-            //!TODO rotate data_load_reg
-            //! this is not working yet
-            wbuf[j] = wmask_store[j] ? data_load_reg[j < 32 ? j : j - 32] : rbuf[j];
-          end
-          default: begin
-            wbuf[j] = wmask_store[j] ? '0 : rbuf[j];
-          end
-        endcase
+        wbuf[j] = wmask_store[j] ? reg_rot[j] : rbuf[j];
       end
     end
   endgenerate
@@ -200,11 +203,11 @@ module coproc import coproc_pkg::*;
       MEM_RD1: begin
         shift_input   = count_unary;
         shift_amount  = op_load ? (7'b100_0000 - (count + bit_idx)) : (6'b10_0000 - bit_idx);
-        rotate_en     = ~op_load;
+        rotate_en     = ~op_load; /* & count != 6'b10_0000 */
       end
       MEM_RD2: begin
         shift_input   = op_load ? rbuf[31:0] : shadow_reg;
-        shift_amount  = bit_idx;
+        shift_amount  = op_load ? bit_idx : (6'b10_0000 - bit_idx);
         rotate_en     = ~op_load;
       end
       UPDATE: begin
