@@ -10,7 +10,7 @@ always_comb begin
   if(rotate_en) begin
     //!TODO: this does not work in vivado
     // q = {d[shift_amount:0], d[31:shift_amount]};
-    q = d >> shift_amount;
+    q = (d >> shift_amount) & (d << (31 - shift_amount));
   end else begin
     q = d >> shift_amount;
   end
