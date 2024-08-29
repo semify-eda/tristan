@@ -6,19 +6,6 @@ module rshifter32
   output  wire  [31:0]  q               // O: output value
 );
 
-
-/*
-  always_comb begin
-    if(rotate_en == 1'b1) begin
-      //!TODO: this does not work in vivado
-      // q = {d[shift_amount:0], d[31:shift_amount]};
-      q = (d >> shift_amount) | (d << (5'd32 - shift_amount));
-    end else begin
-      q = d >> shift_amount;
-    end
-  end
-*/
-
   assign q = (rotate_en == 1'b1) ?
               ((d >> shift_amount) | (d << (5'd32 - shift_amount))) :
               (d >> shift_amount);

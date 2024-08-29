@@ -25,6 +25,7 @@ module coproc import coproc_pkg::*;
   cv32e40x_if_xif.coproc_result            xif_result_if
 );
 
+  // ! TODO: custom data stores -- rotations
 
   // onehot encoding of states
   typedef enum {
@@ -53,11 +54,11 @@ module coproc import coproc_pkg::*;
   logic [31:0]  st_addr;            // computed address of start of write (store) stream
   logic [63:0]  rbuf;               // read data buffer
   logic [63:0]  wbuf;               // write data buffer
-  logic [32:0]  wmask;              // mask to apply to shadow_reg on loads, and base mask on stores
-  logic [32:0]  wmask_left;         // mask applied to wbuf[63:32]
-  logic [32:0]  wmask_right;        // mask applied to wbuf[31: 0]
+  logic [31:0]  wmask;              // mask to apply to shadow_reg on loads, and base mask on stores
+  logic [31:0]  wmask_left;         // mask applied to wbuf[63:32]
+  logic [31:0]  wmask_right;        // mask applied to wbuf[31: 0]
   logic [ 4:0]  bit_idx;            // bit index to start operation at
-  logic [ 4:0]  count;              // number of bits to operate on
+  logic [ 5:0]  count;              // number of bits to operate on
   logic [31:0]  count_unary;        // Used to generate mask
 
   /* ====================== Shifter Signals ====================== */
@@ -65,6 +66,7 @@ module coproc import coproc_pkg::*;
   logic [ 4:0]  shift_amount;
   logic         rotate_en;
   logic [31:0]  shift_output;
+  logic [31:0]  shift_output_rev;
   logic         capture_cnt_unary;
   logic         capture_rbuf31_0;
   logic         capture_rbuf63_32;
@@ -86,11 +88,14 @@ module coproc import coproc_pkg::*;
   assign op_store   = opcode == OPCODE_RMST;
   assign op_valid   = op_load | op_store;
 
+  assign shift_output_rev = {<<{shift_output}};
+
   /**
   *   NOTES:
   *     - for now, do not pipeline the coprocessor. This means the input id, rs1, rs2, rd
   *       will always be the output id, rs1, rs2, rd
   */
+  logic [31:0]    instr;
   logic [31:0]    rs1, rs2, rd;
   logic [ 3:0]    id;
   logic           issue_valid_ff;
@@ -105,8 +110,8 @@ module coproc import coproc_pkg::*;
   // FSM
   coproc_state_e state_ff, state_next;
 
-  assign opcode = coproc_opcode_e'(xif_issue_if.issue_req.instr[6: 0]);
-  assign funct3 =  rmst_funct3_e'(xif_issue_if.issue_req.instr[14:12]);
+  assign opcode = coproc_opcode_e'(xif_issue_if.issue_valid ? xif_issue_if.issue_req.instr[6: 0] : instr[6: 0]);
+  assign funct3 =  rmst_funct3_e'(xif_issue_if.issue_valid ? xif_issue_if.issue_req.instr[14:12] : instr[14:12]);
 
 
   assign bit_idx      = rs1[4:0];
@@ -150,19 +155,39 @@ module coproc import coproc_pkg::*;
   assign wmask_right    = wmask_left ^ wmask;
   assign wmask_left[0]  = wmask[0];
   generate
-    for (genvar i = 1; i <= 31; ++i) begin
+    for (genvar i = 1; i < 32; ++i) begin
       assign wmask_left[i] = wmask[i] & wmask_left[i-1];
     end
   endgenerate
 
   logic [63:0] wmask_store;
-  logic [63:0] shadow_reg_rot;
+  // logic [63:0] shadow_reg_rot;
 
   assign wmask_store    = {{wmask_left}, {wmask_right}};
-  assign shadow_reg_rot = {{shadow_reg}, {shadow_reg}};
+  // assign shadow_reg_rot = {{shadow_reg}, {shadow_reg}};
   generate
     for (genvar j = 0; j < 64; ++j) begin
-      assign wbuf[j] = wmask_store[j] ? shadow_reg_rot[j] : rbuf[j];
+      always_comb begin
+        unique case(funct3)
+          RMXR: begin
+            wbuf[j] = wmask_store[j] ? '0 : rbuf[j];
+          end
+          RMXS: begin
+            wbuf[j] = wmask_store[j] ? '1 : rbuf[j];
+          end
+          RMCS: begin
+            wbuf[j] = wmask_store[j] ? shadow_reg[j < 32 ? j : j - 32] : rbuf[j];
+          end
+          RMCC: begin
+            //!TODO rotate data_load_reg
+            //! this is not working yet
+            wbuf[j] = wmask_store[j] ? data_load_reg[j < 32 ? j : j - 32] : rbuf[j];
+          end
+          default: begin
+            wbuf[j] = wmask_store[j] ? '0 : rbuf[j];
+          end
+        endcase
+      end
     end
   endgenerate
 
@@ -301,7 +326,6 @@ module coproc import coproc_pkg::*;
       xif_mem_if.mem_req.size                   <= '0;
       xif_mem_if.mem_req.be                     <= '0;
       xif_mem_if.mem_req.attr                   <= '0;
-      xif_mem_if.mem_req.wdata                  <= '0;
       xif_mem_if.mem_req.last                   <= '0;
       xif_mem_if.mem_req.spec                   <= '0;
       xif_result_if.result_valid                <= '0;
@@ -406,21 +430,24 @@ module coproc import coproc_pkg::*;
   begin : data_state_actions
     if(~rst_ni)
     begin
-      bld_addr            <= '0;
-      bst_addr            <= '0;
-      ld_addr             <= '0;
-      st_addr             <= '0;
-      shadow_reg          <= '0;
-      data_load_reg       <= '0;
-      rbuf                <= '0;
-      wmask               <= '0;
-      rs1                 <= '0;
-      rs2                 <= '0;
-      rd                  <= '0;
-      id                  <= '0;
-      mem_rdata           <= '0;
-      mem_dbg             <= '0;
-      mem_err             <= '0;
+      bld_addr                  <= '0;
+      bst_addr                  <= '0;
+      ld_addr                   <= '0;
+      st_addr                   <= '0;
+      shadow_reg                <= '0;
+      shadow_reg_spec           <= '0;
+      data_load_reg             <= '0;
+      rbuf                      <= '0;
+      wmask                     <= '0;
+      instr                     <= '0;
+      rs1                       <= '0;
+      rs2                       <= '0;
+      rd                        <= '0;
+      id                        <= '0;
+      mem_rdata                 <= '0;
+      mem_dbg                   <= '0;
+      mem_err                   <= '0;
+      xif_mem_if.mem_req.wdata  <= '0;
     end else begin
       case(state_next)
         CFG: begin
@@ -443,9 +470,7 @@ module coproc import coproc_pkg::*;
           end
         end
         MEM_RD1: begin
-          // dynamically calculate the load and store addresses from the base and bit offset
-          ld_addr                             <= bld_addr + xif_issue_if.issue_req.rs[0][4:0];
-          st_addr                             <= bst_addr + xif_issue_if.issue_req.rs[0][4:0];
+
         end
         MEM_RD2: begin
           if(xif_mem_result_if.mem_result_valid) begin
@@ -456,37 +481,12 @@ module coproc import coproc_pkg::*;
           if(xif_mem_result_if.mem_result_valid) begin
             rbuf[63:32]                       <= xif_mem_result_if.mem_result.rdata;
           end
-            shadow_reg                        <= {{xif_mem_result_if.mem_result.rdata[15:0]}, {rbuf}};
         end
         MEM_WR1: begin
-          case(funct3)
-            RMCS:
-              //TODO: update this value
-              xif_mem_if.mem_req.wdata        <= {{16'b0}, {shadow_reg[31:16]}};
-            RMCC:
-              xif_mem_if.mem_req.wdata        <= data_load_reg;
-            RMXR:
-              //TODO: update this value
-              xif_mem_if.mem_req.wdata        <= '0;
-            RMXS:
-              //TODO: update this value
-              xif_mem_if.mem_req.wdata        <= '1;
-          endcase
+          xif_mem_if.mem_req.wdata            <= wbuf[31:0];
         end
         MEM_WR2: begin
-          case(funct3)
-            RMCS:
-              //TODO: update this value
-              xif_mem_if.mem_req.wdata        <= {{shadow_reg[15:0]}, 16'b0};
-            RMCC:
-              xif_mem_if.mem_req.wdata        <= data_load_reg;
-            RMXR:
-              //TODO: update this value
-              xif_mem_if.mem_req.wdata        <= '0;
-            RMXS:
-              //TODO: update this value
-              xif_mem_if.mem_req.wdata        <= '1;
-          endcase
+          xif_mem_if.mem_req.wdata            <= wbuf[63:32];
         end
         STALL: begin
         end
@@ -506,14 +506,26 @@ module coproc import coproc_pkg::*;
       endcase
       case(state_ff)
         IDLE: begin
-          rs1               <= xif_issue_if.issue_req.rs[0];
-          rs2               <= xif_issue_if.issue_req.rs[1];
-          rd                <= xif_issue_if.issue_req.instr[11:7];
-          id                <= xif_issue_if.issue_req.id;
+          if(xif_issue_if.issue_valid) begin
+            id                <= xif_issue_if.issue_req.id;
+            instr             <= xif_issue_if.issue_req.instr;
+            if(xif_issue_if.issue_req.rs_valid) begin
+              rs1               <= xif_issue_if.issue_req.rs[0];
+              rs2               <= xif_issue_if.issue_req.rs[1];
+              rd                <= xif_issue_if.issue_req.instr[11:7];
+
+              // dynamically calculate the load and store addresses from the base and bit offset
+              ld_addr           <= bld_addr + xif_issue_if.issue_req.rs[0][31:5];
+              st_addr           <= bst_addr + xif_issue_if.issue_req.rs[0][31:5];
+            end
+          end else if (~xif_issue_if.issue_valid & state_next == IDLE) begin
+            //TODO: remove this block
+            instr           <= '0;
+          end
         end
         MEM_RD1: begin
           if(capture_cnt_unary_ff) begin
-            wmask           <= shift_output;
+            wmask           <= op_load ? shift_output_rev : shift_output;
           end
         end
         MEM_RD2: begin
@@ -527,11 +539,11 @@ module coproc import coproc_pkg::*;
         end
         UPDATE: begin
           if(capture_rbuf63_32_ff) begin
-            shadow_reg_spec <= shadow_reg | (shift_output & wmask); // shifted_output = rotated( rbuf[63:32] )
+            shadow_reg_spec <= shadow_reg_spec | (shift_output & wmask); // shifted_output = rotated( rbuf[63:32] )
           end
           if(commit_valid) begin
-            if(capture_rbuf63_32) begin
-              shadow_reg    <= shadow_reg | (shift_output & wmask);
+            if(capture_rbuf63_32_ff) begin
+              shadow_reg    <= shadow_reg_spec | (shift_output & wmask);
             end else begin
               shadow_reg    <= shadow_reg_spec;
             end
