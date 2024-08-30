@@ -161,9 +161,14 @@ module coproc import coproc_pkg::*;
   endgenerate
 
   logic [63:0] wmask_store;
-  logic [63:0] reg_rot;
+  logic [63:0] wmask_store32;   // the store write mask in the edge case that 32 bits will be copied
+  logic [63:0] reg_rot;         // the register to source data from rotated and concatenated to its self
+  logic        _32b_copy;
 
-  assign wmask_store    = count == 6'b10_0000 ? {{~wmask_left}, {~wmask_right}} : {{wmask_left}, {wmask_right}};
+  assign _32b_copy = count == 6'b10_0000;
+  assign wmask_store32  = {<<{{wmask}, {~wmask}}};
+  assign wmask_store    = _32b_copy ? wmask_store32 : {{wmask_left}, {wmask_right}};
+
   always_comb begin
     unique case(funct3)
       RMXR: begin
@@ -203,7 +208,7 @@ module coproc import coproc_pkg::*;
       MEM_RD1: begin
         shift_input   = count_unary;
         shift_amount  = op_load ? (7'b100_0000 - (count + bit_idx)) : (6'b10_0000 - bit_idx);
-        rotate_en     = ~op_load; /* & count != 6'b10_0000 */
+        rotate_en     = ~op_load & ~_32b_copy;
       end
       MEM_RD2: begin
         shift_input   = op_load ? rbuf[31:0] : shadow_reg;
