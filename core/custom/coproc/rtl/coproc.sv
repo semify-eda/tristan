@@ -66,7 +66,6 @@ module coproc import coproc_pkg::*;
   logic [ 4:0]  shift_amount;
   logic         rotate_en;
   logic [31:0]  shift_output;
-  logic [31:0]  shift_output_rev;
   logic         capture_cnt_unary;
   logic         capture_rbuf31_0;
   logic         capture_rbuf63_32;
@@ -87,8 +86,6 @@ module coproc import coproc_pkg::*;
   assign op_load    = opcode == OPCODE_RMLD;
   assign op_store   = opcode == OPCODE_RMST;
   assign op_valid   = op_load | op_store;
-
-  assign shift_output_rev = {<<{shift_output}};
 
   /**
   *   NOTES:
@@ -162,16 +159,14 @@ module coproc import coproc_pkg::*;
   endgenerate
 
   logic        mirror_en;
+  logic        addr_overflow;
   logic [63:0] wmask_store;
-  logic [63:0] wmask_store32;   // the store write mask in the edge case that 32 bits will be copied
-  logic [63:0] wmask_store32_mirrored;
   logic [63:0] reg_rot;         // the register to source data from rotated and concatenated to its self
   logic        _32b_copy;
 
   assign _32b_copy              = count == 6'b10_0000;
   assign mirror_en              = bit_idx == '0;
-  assign wmask_store32          = {{wmask}, {~wmask}};
-  assign wmask_store32_mirrored = {<<{{wmask}, {~wmask}}};
+  assign addr_overflow          = |shift_output;
 
   always_comb begin
     wmask_store = {{wmask_left}, {wmask_right}};
@@ -199,7 +194,7 @@ module coproc import coproc_pkg::*;
       end
       RMCC: begin
         //!TODO rotate data_load_reg
-        //! this is not working yet
+        //! this has not been tested yet
         reg_rot = {{data_load_reg}, {data_load_reg}};
       end
       default: begin
@@ -224,7 +219,7 @@ module coproc import coproc_pkg::*;
     unique case(state_ff)
       MEM_RD1: begin
         shift_input   = count_unary;
-        shift_amount  = op_load ? (7'b100_0000 - (count + bit_idx)) : (6'b10_0000 - bit_idx);
+        shift_amount  = op_load ? (7'b100_0000 - bit_idx) : (6'b10_0000 - bit_idx);
         rotate_en     = ~op_load & ~_32b_copy;
       end
       MEM_RD2: begin
@@ -390,7 +385,7 @@ module coproc import coproc_pkg::*;
 
           // request read from the CPU
           xif_mem_if.mem_valid                <= '1;
-          xif_mem_if.mem_req.id               <= xif_issue_if.issue_req.id; // TODO: replace this with just the flopped id
+          xif_mem_if.mem_req.id               <= id; 
           xif_mem_if.mem_req.addr             <= op_load ? ld_addr : st_addr;
           xif_mem_if.mem_req.mode             <= '1;      // set to machine level for now
           xif_mem_if.mem_req.we               <= '0;
@@ -498,19 +493,19 @@ module coproc import coproc_pkg::*;
         end
         MEM_RD2: begin
           if(xif_mem_result_if.mem_result_valid) begin
-            rbuf[31:0]                        <= xif_mem_result_if.mem_result.rdata;
+            rbuf[31:0]              <= xif_mem_result_if.mem_result.rdata;
           end
         end
         UPDATE: begin
           if(xif_mem_result_if.mem_result_valid) begin
-            rbuf[63:32]                       <= xif_mem_result_if.mem_result.rdata;
+            rbuf[63:32]             <= xif_mem_result_if.mem_result.rdata;
           end
         end
         MEM_WR1: begin
-          xif_mem_if.mem_req.wdata            <= wbuf[31:0];
+          xif_mem_if.mem_req.wdata  <= wbuf[31:0];
         end
         MEM_WR2: begin
-          xif_mem_if.mem_req.wdata            <= wbuf[63:32];
+          xif_mem_if.mem_req.wdata  <= wbuf[63:32];
         end
         STALL: begin
         end
@@ -543,23 +538,20 @@ module coproc import coproc_pkg::*;
               ld_addr           <= bld_addr + {{xif_issue_if.issue_req.rs[0][31:5]}, 2'b00};
               st_addr           <= bst_addr + {{xif_issue_if.issue_req.rs[0][31:5]}, 2'b00};
             end
-          end else if (~xif_issue_if.issue_valid & state_next == IDLE) begin
-            //TODO: remove this block
-            instr           <= '0;
           end
         end
         MEM_RD1: begin
           if(capture_cnt_unary_ff) begin
-            wmask           <= op_load ? shift_output_rev : shift_output;
+            wmask           <= op_load & addr_overflow ? count_unary : shift_output;
           end
         end
         MEM_RD2: begin
           // shadow reg should only be updated if the instruction was commited, and if the opcode is load. do not update shadow reg on a store.
           if(capture_rbuf31_0_ff) begin
-            shadow_reg_spec <= shift_output; // shift_output = shifted( rbuf[31:0] )
+            shadow_reg_spec <= shift_output;
           end
           if(capture_shadow_reg_ff) begin
-            shadow_reg_spec <= shift_output; // shifted_output = op_load ? shifted( shadow_register ) : rotated( shadow_register )
+            shadow_reg_spec <= shift_output;
           end
         end
         UPDATE: begin
@@ -569,11 +561,11 @@ module coproc import coproc_pkg::*;
           if(commit_valid) begin
             if(capture_rbuf63_32_ff) begin
               shadow_reg                <= shadow_reg_spec | (shift_output & wmask);
-              xif_result_if.result.data <= op_load ? (shadow_reg_spec | (shift_output & wmask)) & count_unary : '0;
+              xif_result_if.result.data <= op_load ? (shadow_reg_spec | (shift_output & wmask)) : '0;
               xif_result_if.result.we   <= op_load;
             end else begin
               shadow_reg                <= shadow_reg_spec;
-              xif_result_if.result.data <= op_load ? shadow_reg_spec & count_unary : '0;
+              xif_result_if.result.data <= op_load ? shadow_reg_spec & wmask : '0;
               xif_result_if.result.we   <= op_load;
             end
           end
