@@ -96,7 +96,8 @@ module coproc import coproc_pkg::*;
   *       will always be the output id, rs1, rs2, rd
   */
   logic [31:0]    instr;
-  logic [31:0]    rs1, rs2, rd;
+  logic [31:0]    rs1, rs2;
+  logic [4:0]     rd; //! this doesnt work on the xif, problem with CV32E40X
   logic [ 3:0]    id;
   logic           issue_valid_ff;
   logic           commit_valid,     commit_valid_ff;
@@ -160,14 +161,30 @@ module coproc import coproc_pkg::*;
     end
   endgenerate
 
+  logic        mirror_en;
   logic [63:0] wmask_store;
   logic [63:0] wmask_store32;   // the store write mask in the edge case that 32 bits will be copied
+  logic [63:0] wmask_store32_mirrored;
   logic [63:0] reg_rot;         // the register to source data from rotated and concatenated to its self
   logic        _32b_copy;
 
-  assign _32b_copy = count == 6'b10_0000;
-  assign wmask_store32  = {<<{{wmask}, {~wmask}}};
-  assign wmask_store    = _32b_copy ? wmask_store32 : {{wmask_left}, {wmask_right}};
+  assign _32b_copy              = count == 6'b10_0000;
+  assign mirror_en              = bit_idx == '0;
+  assign wmask_store32          = {{wmask}, {~wmask}};
+  assign wmask_store32_mirrored = {<<{{wmask}, {~wmask}}};
+
+  always_comb begin
+    wmask_store = {{wmask_left}, {wmask_right}};
+    if(mirror_en) begin
+      wmask_store = {{wmask_right}, {wmask_left}};
+    end
+    if(_32b_copy) begin
+      wmask_store = {{wmask}, {~wmask}};
+      if(mirror_en) begin
+        wmask_store = {<<{{wmask}, {~wmask}}};
+      end
+    end
+  end
 
   always_comb begin
     unique case(funct3)
@@ -338,7 +355,6 @@ module coproc import coproc_pkg::*;
       xif_mem_if.mem_req.spec                   <= '0;
       xif_result_if.result_valid                <= '0;
       xif_result_if.result.id                   <= '0;
-      xif_result_if.result.data                 <= '0;
       xif_result_if.result.rd                   <= '0;
       xif_result_if.result.we                   <= '0;
       xif_result_if.result.ecsdata              <= '0;
@@ -420,8 +436,7 @@ module coproc import coproc_pkg::*;
           xif_result_if.result_valid          <= '1;
           xif_result_if.result.id             <= id;
 
-          xif_result_if.result.data           <= '0;
-          xif_result_if.result.rd             <= '0;
+          xif_result_if.result.rd             <= rd;
           xif_result_if.result.we             <= '0;
           xif_result_if.result.ecsdata        <= '0;
           xif_result_if.result.ecswe          <= '0;
@@ -456,6 +471,7 @@ module coproc import coproc_pkg::*;
       mem_dbg                   <= '0;
       mem_err                   <= '0;
       xif_mem_if.mem_req.wdata  <= '0;
+      xif_result_if.result.data <= '0;
     end else begin
       case(state_next)
         CFG: begin
@@ -514,6 +530,7 @@ module coproc import coproc_pkg::*;
       endcase
       case(state_ff)
         IDLE: begin
+          xif_result_if.result.we    <= '0;
           if(xif_issue_if.issue_valid) begin
             id                <= xif_issue_if.issue_req.id;
             instr             <= xif_issue_if.issue_req.instr;
@@ -523,8 +540,8 @@ module coproc import coproc_pkg::*;
               rd                <= xif_issue_if.issue_req.instr[11:7];
 
               // dynamically calculate the load and store addresses from the base and bit offset
-              ld_addr           <= bld_addr + xif_issue_if.issue_req.rs[0][31:5];
-              st_addr           <= bst_addr + xif_issue_if.issue_req.rs[0][31:5];
+              ld_addr           <= bld_addr + {{xif_issue_if.issue_req.rs[0][31:5]}, 2'b00};
+              st_addr           <= bst_addr + {{xif_issue_if.issue_req.rs[0][31:5]}, 2'b00};
             end
           end else if (~xif_issue_if.issue_valid & state_next == IDLE) begin
             //TODO: remove this block
@@ -551,9 +568,13 @@ module coproc import coproc_pkg::*;
           end
           if(commit_valid) begin
             if(capture_rbuf63_32_ff) begin
-              shadow_reg    <= shadow_reg_spec | (shift_output & wmask);
+              shadow_reg                <= shadow_reg_spec | (shift_output & wmask);
+              xif_result_if.result.data <= op_load ? (shadow_reg_spec | (shift_output & wmask)) & count_unary : '0;
+              xif_result_if.result.we   <= op_load;
             end else begin
-              shadow_reg    <= shadow_reg_spec;
+              shadow_reg                <= shadow_reg_spec;
+              xif_result_if.result.data <= op_load ? shadow_reg_spec & count_unary : '0;
+              xif_result_if.result.we   <= op_load;
             end
           end
         end
