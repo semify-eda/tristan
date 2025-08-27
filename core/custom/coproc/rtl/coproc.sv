@@ -542,7 +542,7 @@ module coproc import coproc_pkg::*;
         end
         MEM_RD1: begin
           if(capture_cnt_unary_ff) begin
-            wmask           <= op_load & addr_overflow ? count_unary : shift_output;
+            wmask           <= op_load & addr_overflow ? count_unary << shift_amount : shift_output;
           end
         end
         MEM_RD2: begin
