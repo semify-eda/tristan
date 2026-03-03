@@ -58,7 +58,7 @@ core/cv32e40x_yosys.v: core/tech/rtl/cv32e40x_clock_gate.sv preprocessed.v
 	yosys -l $(basename $@)-yosys.log -DSYNTHESIS -p 'read -sv core/tech/rtl/cv32e40x_clock_gate.sv preprocessed.v; hierarchy -top cv32e40x_top; proc; flatten; opt; fsm; opt; write_verilog -noattr core/cv32e40x_yosys.v' 
 
 firmware:
-	cd ../../firmware && $(MAKE) riscv && cp riscv/firmware.mem ../design/tristan
+	cd ../../firmware && $(MAKE) riscv && cp riscv/riscv-no-custom-instructions/firmware.mem ../design/tristan
 
 all: firmware core/cv32e40x_yosys.v
 	echo ""
