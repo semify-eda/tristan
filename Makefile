@@ -1,5 +1,5 @@
 TOOLCHAIN_PREFIX ?= riscv32-unknown-elf-
-PYTHON ?= tabbypy3
+PYTHON ?= python3
 
 GCC_WARNS  = -Wall -Wextra -Wshadow -Wundef -Wpointer-arith -Wcast-qual -Wcast-align -Wwrite-strings
 GCC_WARNS += -Wredundant-decls -Wstrict-prototypes -Wmissing-prototypes -pedantic #-Wconversion -Werror
