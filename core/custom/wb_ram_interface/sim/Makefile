@@ -22,10 +22,10 @@ MODULE = wb_ram_test
 include $(shell cocotb-config --makefiles)/Makefile.sim
 
 iram.hex:
-	tabbypy3 generate_data.py 32 4096 > $@
+	python3 generate_data.py 32 4096 > $@
 
 dram.hex:
-	tabbypy3 generate_data.py 32 4096 > $@
+	python3 generate_data.py 32 4096 > $@
 
 data: iram.hex dram.hex
 
