@@ -17,6 +17,11 @@ To enable all tools, add  `/opt/riscv/riscv32-unknown-elf/bin` and `/opt/riscv/b
 
 
 ## Instructions
+
+## Apply the patch:
+
+core/csr_regfile_patched.sv needs to replace core/cv6/core/csr_regfile.sv
+
 Compile the firmware:
 
 	make firmware
