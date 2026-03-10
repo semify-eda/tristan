@@ -1,36 +1,71 @@
-# TRISTAN
+# Tristan — RISC-V Subsystem
 
-This repository contains the `CV32E40X` core and all additional material for an FPGA implementation.
+This directory contains the CV32E40X RISC-V core and all custom extensions.
 
 ## Setup
 
-To run simulation and perform synthesis you need to have the latest versions of the following open source tools:
+### Simulation tools (Verilator)
 
+Verilator is installed as part of the SmartWave toolchain:
 
-##### RISC-V Compiler Toolchain
-- To compile the firmware you will need the RISC-V toolchain. Head over to [RISC-V GNU Compiler Toolchain](https://github.com/riscv-collab/riscv-gnu-toolchain) and clone the latest release.
-- After cloning the repo you must configure the cross-compiler for the RV32IA architecture. Run:
-    > `sudo ./configure --prefix=/opt/riscv --with-arch=rv32ia`
-- Build the compiler for the newlib target using `make` 
+```bash
+./setup/install.sh    # from repo root — installs Verilator + Python
+```
 
-To enable all tools, add  `/opt/riscv/riscv32-unknown-elf/bin` and `/opt/riscv/bin` and `/usr/src/oss-cad-suite/bin` to your `PATH` variable
+Source the environment to set `$WFG_ROOT` and `$TRISTAN_ROOT`:
 
+```bash
+source sourceme.bash  # from repo root
+```
+
+### RISC-V Compiler Toolchain
+
+To compile firmware you need the RISC-V GNU toolchain configured for `rv32ia`:
+
+```bash
+git clone https://github.com/riscv-collab/riscv-gnu-toolchain
+cd riscv-gnu-toolchain
+sudo ./configure --prefix=/opt/riscv --with-arch=rv32ia
+make
+```
+
+Add `/opt/riscv/bin` and `/opt/riscv/riscv32-unknown-elf/bin` to your `PATH`.
 
 ## Instructions
-Compile the firmware:
 
-	make firmware
+Compile firmware:
 
-Compile the core (sv2v conversion):
+    make firmware
 
- 	make core/cv32e40x_yosys.v
+Run the simulation (Verilator):
 
-Run the simulation:
+    cd design/tristan
+    make
 
-	make
+Run a specific test:
 
----
+    make TESTCASE=<test_function_name>
 
-To cleanup the files:
+Clean simulation artifacts:
 
-	make cleanall
+    make clean
+
+## Simulation
+
+Top-level testbench for tristan is under `core/testbench` and simulation is ran in the root of the tristan module with:
+
+    make
+
+
+Each custom module has its own `sim/` directory:
+
+| Module | Directory |
+|---|---|
+| Co-processor (shifter) | `core/custom/coproc/sim/` |
+| OBI→Wishbone bridge | `core/custom/obi_wb_bridge/sim/` |
+| Wishbone RAM interface | `core/custom/wb_ram_interface/sim/` |
+
+Run any of these the same way:
+
+    cd core/custom/<module>/sim
+    make

@@ -1,35 +1,46 @@
-SRC += ../../../include/soc_pkg.sv
-SRC += $(wildcard ../rtl/*.sv)
-SRC += $(wildcard ../testbench/*.sv)
-SRC += ../../../core_sram.sv
+ifndef TRISTAN_ROOT
+  $(error TRISTAN_ROOT is not set. Source sourceme.bash first: source sourceme.bash)
+endif
 
-#defaults
-SIM ?= icarus
+PYTHON ?= python3
+
+# ── Source files ───────────────────────────────────────────────────────────────
+VERILOG_SOURCES += $(TRISTAN_ROOT)/core/include/soc_pkg.sv
+VERILOG_SOURCES += $(TRISTAN_ROOT)/core/custom/wb_ram_interface/rtl/wb_ram_interface.sv
+VERILOG_SOURCES += $(wildcard $(TRISTAN_ROOT)/core/custom/wb_ram_interface/testbench/*.sv)
+VERILOG_SOURCES += $(TRISTAN_ROOT)/core/core_sram.sv
+
+# ── Include directories ────────────────────────────────────────────────────────
+INCLUDE_DIRS := $(TRISTAN_ROOT)/core/include/
+
+# ── Cocotb configuration ───────────────────────────────────────────────────────
+SIM ?= verilator
 TOPLEVEL_LANG ?= verilog
-COMPILE_ARGS := -I ../rtl/ -I ../testbench/ -I ../../../
-COMPILER_ARGS ?= -g2012
-
-VERILOG_SOURCES += $(SRC)
-
-# TOPLEVEL is the name of the toplevel module in your Verilog or VHDL file
 TOPLEVEL = wb_ram_tb
-
-# MODULE is the basename of the Python test file
-export PYTHONPATH := $(PYTHONPATH):../testbench/
 MODULE = wb_ram_test
+export PYTHONPATH := $(PYTHONPATH):$(TRISTAN_ROOT)/core/custom/wb_ram_interface/testbench/
 
-# include cocotb's make rules to take care of the simulator setup
+ifeq ($(SIM),icarus)
+  COMPILE_ARGS := $(addprefix -I,$(INCLUDE_DIRS))
+  COMPILER_ARGS ?= -g2012
+endif
+
+ifeq ($(SIM),verilator)
+  COMPILE_ARGS  := $(addprefix +incdir+,$(INCLUDE_DIRS))
+  EXTRA_ARGS    += --no-timing --trace --Wno-fatal
+endif
+
 include $(shell cocotb-config --makefiles)/Makefile.sim
 
 iram.hex:
-	python3 generate_data.py 32 4096 > $@
+	$(PYTHON) $(TRISTAN_ROOT)/core/custom/wb_ram_interface/sim/generate_data.py 32 4096 > $@
 
 dram.hex:
-	python3 generate_data.py 32 4096 > $@
+	$(PYTHON) $(TRISTAN_ROOT)/core/custom/wb_ram_interface/sim/generate_data.py 32 4096 > $@
 
 data: iram.hex dram.hex
 
-cleanall:
-	rm -r *.hex
+clean::
+	rm -rf sim_build results.xml *.vcd *.fst *.fst.hier *.log *.hex
 
-.PHONY: cleanall data
+.PHONY: data
