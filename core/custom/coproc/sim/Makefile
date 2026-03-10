@@ -1,22 +1,27 @@
-#source files
-SRC := ../rtl/rshifter32.sv
-SRC += ../testbench/shifter_tb.sv
+ifndef TRISTAN_ROOT
+  $(error TRISTAN_ROOT is not set. Source sourceme.bash first: source sourceme.bash)
+endif
 
+# ── Source files ───────────────────────────────────────────────────────────────
+VERILOG_SOURCES += $(TRISTAN_ROOT)/core/custom/coproc/rtl/rshifter32.sv
+VERILOG_SOURCES += $(TRISTAN_ROOT)/core/custom/coproc/testbench/shifter_tb.sv
 
-
-#defaults
-SIM ?= icarus
+# ── Cocotb configuration ───────────────────────────────────────────────────────
+SIM ?= verilator
 TOPLEVEL_LANG ?= verilog
-COMPILER_ARGS ?= -g2012
-
-VERILOG_SOURCES += $(SRC)
-
-# TOPLEVEL is the name of the toplevel module in your Verilog or VHDL file
 TOPLEVEL = shifter_tb
-
-# MODULE is the basename of the Python test file
-export PYTHONPATH := $(PYTHONPATH):../testbench/
 MODULE = shifter_test
+export PYTHONPATH := $(PYTHONPATH):$(TRISTAN_ROOT)/core/custom/coproc/testbench/
 
-# include cocotb's make rules to take care of the simulator setup
+ifeq ($(SIM),icarus)
+  COMPILER_ARGS ?= -g2012
+endif
+
+ifeq ($(SIM),verilator)
+  EXTRA_ARGS += --no-timing --trace --Wno-fatal
+endif
+
 include $(shell cocotb-config --makefiles)/Makefile.sim
+
+clean::
+	rm -rf sim_build results.xml *.vcd *.fst *.fst.hier *.log

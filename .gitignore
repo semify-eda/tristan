@@ -60,6 +60,7 @@ preprocessed.v
 *.bin
 *.vvp
 *.fst
+*.vcd
 *.fst.hier
 *.gtkw
 results.xml

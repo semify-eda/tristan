@@ -1,71 +1,80 @@
-TOOLCHAIN_PREFIX ?= riscv32-unknown-elf-
+ifndef TRISTAN_ROOT
+  $(error TRISTAN_ROOT is not set. Source sourceme.bash first: source sourceme.bash)
+endif
+ifndef WFG_ROOT
+  $(error WFG_ROOT is not set. Source sourceme.bash first: source sourceme.bash)
+endif
+
 PYTHON ?= python3
+TOOLCHAIN_PREFIX ?= riscv32-unknown-elf-
 
-GCC_WARNS  = -Wall -Wextra -Wshadow -Wundef -Wpointer-arith -Wcast-qual -Wcast-align -Wwrite-strings
-GCC_WARNS += -Wredundant-decls -Wstrict-prototypes -Wmissing-prototypes -pedantic #-Wconversion -Werror
+# ── Source files (packages first, then modules) ───────────────────────────────
 
-# Sources
-INCLUDE = core/cv32e40x/rtl/include/cv32e40x_pkg.sv
+# 1. Packages (must come before any module that imports them)
+VERILOG_SOURCES += $(TRISTAN_ROOT)/core/cv32e40x/rtl/include/cv32e40x_pkg.sv
+VERILOG_SOURCES += $(WFG_ROOT)/design/pkg/wfg_pkg.sv
+VERILOG_SOURCES += $(TRISTAN_ROOT)/core/include/soc_pkg.sv
 
-RTL = 	$(wildcard core/cv32e40x/rtl/*.sv) \
-	core/cv32e40x_top.sv
+# 2. CV32E40X RTL (all 45 modules)
+VERILOG_SOURCES += $(wildcard $(TRISTAN_ROOT)/core/cv32e40x/rtl/*.sv)
 
-RTL_CUSTOM = $(wildcard core/custom/*.sv)
+# 3. Behavioral clock gate (replaces ASIC/FPGA primitive for simulation)
+VERILOG_SOURCES += $(TRISTAN_ROOT)/core/cv32e40x/bhv/cv32e40x_sim_clock_gate.sv
 
-SRC = 	core/cv32e40x_yosys.v \
-	$(wildcard core/custom/*.sv) \
-	core/include/soc_pkg.sv \
-	core/cv32e40x_soc.sv \
-	core/simpleuart.v \
-  core/core_sram.sv \
-  core/custom/ram_arbiter/rtl/ram_arbiter.sv \
-	core/custom/obi_wb_bridge/rtl/obi_wb_bridge.sv \
-	core/custom/wb_ram_interface/rtl/wb_ram_interface.sv \
-	../pkg/wfg_pkg.sv \
-	../wfg/wfg_timer/rtl/wfg_timer_wishbone_reg.sv \
-	../wfg/wfg_timer/rtl/wfg_timer.sv \
-	../wfg/wfg_timer/rtl/wfg_timer_top.sv \
-	core/testbench/top_tb.sv
+# 4. SoC RTL
+VERILOG_SOURCES += $(TRISTAN_ROOT)/core/core_sram.sv
+VERILOG_SOURCES += $(TRISTAN_ROOT)/core/cv32e40x_soc.sv
 
-TB = core/tb_top.sv
+# 5. Custom extensions
+VERILOG_SOURCES += $(TRISTAN_ROOT)/core/custom/coproc/rtl/coproc_pkg.sv
+VERILOG_SOURCES += $(TRISTAN_ROOT)/core/custom/coproc/rtl/coproc.sv
+VERILOG_SOURCES += $(TRISTAN_ROOT)/core/custom/coproc/rtl/rshifter32.sv
+VERILOG_SOURCES += $(TRISTAN_ROOT)/core/custom/obi_wb_bridge/rtl/obi_wb_bridge.sv
+VERILOG_SOURCES += $(TRISTAN_ROOT)/core/custom/ram_arbiter/rtl/ram_arbiter.sv
+VERILOG_SOURCES += $(TRISTAN_ROOT)/core/custom/wb_ram_interface/rtl/wb_ram_interface.sv
 
-# --- Cocotb ---
-SIM ?= icarus
+# 6. WFG Timer (peripheral connected via Wishbone)
+VERILOG_SOURCES += $(WFG_ROOT)/design/wfg/wfg_timer/rtl/wfg_timer_wishbone_reg.sv
+VERILOG_SOURCES += $(WFG_ROOT)/design/wfg/wfg_timer/rtl/wfg_timer.sv
+VERILOG_SOURCES += $(WFG_ROOT)/design/wfg/wfg_timer/rtl/wfg_timer_top.sv
+
+# 7. Testbench
+VERILOG_SOURCES += $(TRISTAN_ROOT)/core/testbench/top_tb.sv
+
+# ── Include directories ────────────────────────────────────────────────────────
+INCLUDE_DIRS := $(TRISTAN_ROOT)/core/cv32e40x/rtl/include/
+INCLUDE_DIRS += $(TRISTAN_ROOT)/core/include/
+INCLUDE_DIRS += $(WFG_ROOT)/design/pkg/
+
+# ── Cocotb configuration ───────────────────────────────────────────────────────
+SIM ?= verilator
 TOPLEVEL_LANG ?= verilog
-COMPILE_ARGS := -I core/
-COMPILER_ARGS ?= -g2012
-
-VERILOG_SOURCES += $(SRC)
-
-# TOPLEVEL is the name of the toplevel module in your Verilog or VHDL file
 TOPLEVEL = top_tb
-
-# MODULE is the basename of the Python test file
-export PYTHONPATH := $(PYTHONPATH):core/testbench/
 MODULE = top_tb
+export PYTHONPATH := $(PYTHONPATH):$(TRISTAN_ROOT)/core/testbench/
 
-# include cocotb's make rules to take care of the simulator setup
+ifeq ($(SIM),icarus)
+  COMPILE_ARGS := $(addprefix -I,$(INCLUDE_DIRS))
+  COMPILER_ARGS ?= -g2012
+endif
+
+ifeq ($(SIM),verilator)
+  COMPILE_ARGS  := $(addprefix +incdir+,$(INCLUDE_DIRS))
+  EXTRA_ARGS    +=  --no-timing\
+									  --Wno-fatal\
+										--trace\
+										--trace-structs\
+										-j 0
+endif
+
 include $(shell cocotb-config --makefiles)/Makefile.sim
-# --- Preprocess ---
 
-preprocessed.v: $(INCLUDE) $(RTL) $(RTL_CUSTOM)
-	sv2v -v $(INCLUDE) $(RTL) $(RTL_CUSTOM) -w $@
-
-# --- sim ---
-
-# For the simulation
-core/cv32e40x_yosys.v: core/tech/rtl/cv32e40x_clock_gate.sv preprocessed.v
-	yosys -l $(basename $@)-yosys.log -DSYNTHESIS -p 'read -sv core/tech/rtl/cv32e40x_clock_gate.sv preprocessed.v; hierarchy -top cv32e40x_top; proc; flatten; opt; fsm; opt; write_verilog -noattr core/cv32e40x_yosys.v' 
-
+# ── Firmware ───────────────────────────────────────────────────────────────────
 firmware:
-	cd ../../firmware && $(MAKE) riscv && cp riscv/riscv-no-custom-instructions/firmware.mem ../design/tristan
+	cd $(WFG_ROOT)/firmware && $(MAKE) riscv && cp riscv/firmware.mem $(TRISTAN_ROOT)/
 
-all: firmware core/cv32e40x_yosys.v
-	echo ""
+# ── Cleanup ────────────────────────────────────────────────────────────────────
+clean::
+	rm -rf sim_build results.xml *.vcd *.fst *.fst.hier *.log firmware.mem
 
-# --- General ---
-
-.PHONY: all firmware
-
-cleanall:
-	rm -r -f *.vvp *.fst *.fst.hier *.vcd *.log *.json *.asc *.bin *.bit preprocessed.v abc.history sim_build results.xml firmware.mem
+.PHONY: firmware

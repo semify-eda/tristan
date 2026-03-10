@@ -329,7 +329,7 @@ module coproc import coproc_pkg::*;
   always_ff @(posedge clk_i, negedge rst_ni) begin : control_state_actions
     if (~rst_ni) begin
       /* eXtension interface outputs */
-      xif_compressed_if.compressed_ready        <= '0;
+      xif_compressed_if.compressed_ready        <= '0; // TODO: move compressed* signals to an assign - they shouldnt be sequential
       xif_compressed_if.compressed_resp.instr   <= '0;
       xif_compressed_if.compressed_resp.accept  <= '0;
       xif_issue_if.issue_ready                  <= '1;
@@ -385,7 +385,7 @@ module coproc import coproc_pkg::*;
 
           // request read from the CPU
           xif_mem_if.mem_valid                <= '1;
-          xif_mem_if.mem_req.id               <= id; 
+          xif_mem_if.mem_req.id               <= id;
           xif_mem_if.mem_req.addr             <= op_load ? ld_addr : st_addr;
           xif_mem_if.mem_req.mode             <= '1;      // set to machine level for now
           xif_mem_if.mem_req.we               <= '0;
