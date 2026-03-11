@@ -33,9 +33,14 @@ Add `/opt/riscv/bin` and `/opt/riscv/riscv32-unknown-elf/bin` to your `PATH`.
 
 ## Instructions
 
-## Apply the patch:
+Apply the patch:
 
-core/csr_regfile_patched.sv needs to replace core/cv6/core/csr_regfile.sv (CVA6)
+/*
+
+TBD, nothing to do yet...
+core/csr_regfile_patched.sv needs to replace core/cv6/core/csr_regfile.sv (CVA6) 
+
+*/
 
 
 Compile firmware:
