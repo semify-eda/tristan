@@ -2,7 +2,7 @@
 `timescale 1ns/1ps
 import soc_pkg::*;
 
-module cv32e40x_soc import cv32e40x_pkg::*;
+module tristan_soc import cv32e40x_pkg::*;
 #(
   parameter SOC_ADDR_WIDTH    = 32,
   parameter SOC_DATA_WIDTH    = 32,
@@ -164,7 +164,7 @@ module cv32e40x_soc import cv32e40x_pkg::*;
   /* ================================================================
   *                         Arbiter
   * ================================================================= */
-  ram_arbiter i_ram_arbiter
+  ram_arbiter i_ram_arbiter // !TODO: remove this arbiter -- its completely unnessary and an artifact
   (
     .clk_i                  (clk_i              ),
     .rst_ni                 (rst_ni             ),
@@ -202,7 +202,7 @@ module cv32e40x_soc import cv32e40x_pkg::*;
   * ================================================================= */
   cv32e40x_core
   #(
-    .NUM_MHPMCOUNTERS       (NUM_MHPMCOUNTERS       ), 
+    .NUM_MHPMCOUNTERS       (NUM_MHPMCOUNTERS       ),
     .A_EXT                  (A                      ),
     .B_EXT                  (B_NONE                 ), //ZBA_ZBB_ZBC_ZBS
     .M_EXT                  (M_NONE                 ),

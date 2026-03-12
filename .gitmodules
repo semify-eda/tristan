@@ -2,3 +2,6 @@
 	path = core/cv32e40x
 	url = git@github.com:semify-eda/cv32e40x.git
 	branch = tristan
+[submodule "core/cva6"]
+	path = core/cva6
+	url = git@github.com:openhwgroup/cva6.git

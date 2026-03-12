@@ -28,24 +28,27 @@ module top_tb;
     logic                    stb_wb;
     logic                    ack_wb;
     logic                    cyc_wb;
+    logic [31: 0]            wb_rdata_o; // dummy
+    logic                    wb_ack_o; // dummy
 
     // ----------------------------------
-    //           CV32E40X Core
+    //           Tristan Core
     // ----------------------------------
-    cv32e40x_soc
+    tristan_soc
     #(
         .SOC_ADDR_WIDTH    (SOC_ADDR_WIDTH),
         .RAM_ADDR_WIDTH    (RAM_ADDR_WIDTH),
         .BOOT_ADDR         (BOOT_ADDR),
         .FIRMWARE_INITFILE ("firmware.mem")
     )
-    cv32e40x_soc
+    i_tristan_soc
     (
         .clk_i          ( core_clk     ),
         .wfg_clk_i      ( wfg_clk      ),
         .rst_ni         ( core_rst_n   ),
         .gbl_rst_ni     ( core_rst_n   ),
         .soc_fetch_enable_i ('1        ),
+        .soc_core_sleep_o (        ),
 
         // WB output interface
         .wb_addr_o      (addr_wb),
@@ -63,7 +66,9 @@ module top_tb;
         .wb_wr_en_i     ('0),
         .wb_byte_en_i   ('0),
         .wb_stb_i       ('0),
-        .wb_cyc_i       ('0)
+        .wb_cyc_i       ('0),
+        .wb_rdata_o     (),
+        .wb_ack_o     ()
     );
 
     logic timer_sel;

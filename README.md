@@ -1,41 +1,75 @@
-# TRISTAN
+# Tristan — RISC-V Subsystem
 
-This repository contains the `CV32E40X` core and all additional material for an FPGA implementation.
+This directory contains the CV32E40X RISC-V core and all custom extensions.
 
 ## Setup
 
-To run simulation and perform synthesis you need to have the latest versions of the following open source tools:
+### Simulation tools (Verilator)
 
-##### OSS CAD Suite
-- Install the latest build of the [oss-cad-suite](https://github.com/YosysHQ/oss-cad-suite-build).
+Verilator is installed as part of the SmartWave toolchain:
 
-##### SV2V
-- You will need [sv2v](https://github.com/zachjs/sv2v). Either build the latest release or download the artifacts. Place the binary inside the `bin/` folder of your oss-cad-suite installation.
+```bash
+./setup/install.sh    # from repo root — installs Verilator + Python
+```
 
-##### RISC-V Compiler Toolchain
-- To compile the firmware you will need the RISC-V toolchain. Head over to [RISC-V GNU Compiler Toolchain](https://github.com/riscv-collab/riscv-gnu-toolchain) and clone the latest release.
-- After cloning the repo you must configure the cross-compiler for the RV32IA architecture. Run:
-    > `sudo ./configure --prefix=/opt/riscv --with-arch=rv32ia`
-- Build the compiler for the newlib target using `make` 
+Source the environment to set `$WFG_ROOT` and `$TRISTAN_ROOT`:
 
-To enable all tools, add  `/opt/riscv/riscv32-unknown-elf/bin` and `/opt/riscv/bin` and `/usr/src/oss-cad-suite/bin` to your `PATH` variable
+```bash
+source sourceme.bash  # from repo root
+```
 
+### RISC-V Compiler Toolchain
+
+To compile firmware you need the RISC-V GNU toolchain configured for `rv32ia`:
+
+```bash
+git clone https://github.com/riscv-collab/riscv-gnu-toolchain
+cd riscv-gnu-toolchain
+sudo ./configure --prefix=/opt/riscv --with-arch=rv32ia
+make
+```
+
+Add `/opt/riscv/bin` and `/opt/riscv/riscv32-unknown-elf/bin` to your `PATH`.
 
 ## Instructions
-Compile the firmware:
 
-	make firmware
+For cv32a60x core, a patch is needed, so vivado can read the file. We cannot push this to the submodule, as we use the official CVA6 repo directly instead of our own fork.
 
-Compile the core (sv2v conversion):
+    cp core/csr_regfile_patched.sv core/cv6/core/csr_regfile.sv
 
- 	make core/cv32e40x_yosys.v
+Compile firmware:
 
-Run the simulation:
+    make firmware
 
-	make
+Run the simulation (Verilator):
 
----
+    cd design/tristan
+    make
 
-To cleanup the files:
+Run a specific test:
 
-	make cleanall
+    make TESTCASE=<test_function_name>
+
+Clean simulation artifacts:
+
+    make clean
+
+## Simulation
+
+Top-level testbench for tristan is under `core/testbench` and simulation is ran in the root of the tristan module with:
+
+    make
+
+
+Each custom module has its own `sim/` directory:
+
+| Module | Directory |
+|---|---|
+| Co-processor (shifter) | `core/custom/coproc/sim/` |
+| OBI→Wishbone bridge | `core/custom/obi_wb_bridge/sim/` |
+| Wishbone RAM interface | `core/custom/wb_ram_interface/sim/` |
+
+Run any of these the same way:
+
+    cd core/custom/<module>/sim
+    make

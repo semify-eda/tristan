@@ -60,10 +60,14 @@ preprocessed.v
 *.bin
 *.vvp
 *.fst
+*.vcd
 *.fst.hier
 *.gtkw
 results.xml
 top_tb.vcd
+
+# Claude: CLAUDE.md should be checked in, not the rest
+.claude/*
 
 __pycache__
 sim_build

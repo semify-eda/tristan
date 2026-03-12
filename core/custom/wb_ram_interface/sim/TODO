@@ -1,0 +1,1 @@
+fix the cocotb test, seems the iram.hex and dram.hex files were removed somehow
