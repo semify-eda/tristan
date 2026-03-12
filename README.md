@@ -33,15 +33,9 @@ Add `/opt/riscv/bin` and `/opt/riscv/riscv32-unknown-elf/bin` to your `PATH`.
 
 ## Instructions
 
-Apply the patch:
+For cv32a60x core, a patch is needed, so vivado can read the file. We cannot push this to the submodule, as we use the official CVA6 repo directly instead of our own fork.
 
-/*
-
-TBD, nothing to do yet...
-core/csr_regfile_patched.sv needs to replace core/cv6/core/csr_regfile.sv (CVA6) 
-
-*/
-
+    cp core/csr_regfile_patched.sv core/cv6/core/csr_regfile.sv
 
 Compile firmware:
 
