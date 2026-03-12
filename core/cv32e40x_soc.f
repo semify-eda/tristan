@@ -37,7 +37,7 @@ $(TRISTAN_ROOT)/core/cv32e40x/rtl/cv32e40x_i_decoder.sv
 $(TRISTAN_ROOT)/core/cv32e40x/rtl/cv32e40x_load_store_unit.sv
 $(TRISTAN_ROOT)/core/cv32e40x/rtl/cv32e40x_lsu_response_filter.sv
 $(TRISTAN_ROOT)/core/cv32e40x/rtl/cv32e40x_mpu.sv
-$(TRISTAN_ROOT)/core/cv32e40x/rtl/cv32e40x_mpu2.sv
+// $(TRISTAN_ROOT)/core/cv32e40x/rtl/cv32e40x_mpu2.sv
 $(TRISTAN_ROOT)/core/cv32e40x/rtl/cv32e40x_mult.sv
 $(TRISTAN_ROOT)/core/cv32e40x/rtl/cv32e40x_m_decoder.sv
 $(TRISTAN_ROOT)/core/cv32e40x/rtl/cv32e40x_pc_target.sv
@@ -71,6 +71,6 @@ $(TRISTAN_ROOT)/core/core_sram.sv
 $(TRISTAN_ROOT)/core/cv32e40x_soc.sv
 
 // 7. Include directories
-+incdir+$(TRISTAN_ROOT)/core/cv32e40x/rtl/include/
-+incdir+$(TRISTAN_ROOT)/core/include/
-+incdir+$(WFG_ROOT)/design/pkg/
+// +incdir+$(TRISTAN_ROOT)/core/cv32e40x/rtl/include/
+// +incdir+$(TRISTAN_ROOT)/core/include/
+// +incdir+$(WFG_ROOT)/design/pkg/

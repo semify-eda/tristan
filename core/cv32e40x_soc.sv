@@ -2,7 +2,7 @@
 `timescale 1ns/1ps
 import soc_pkg::*;
 
-module cv32e40x_soc import cv32e40x_pkg::*;
+module tristan_soc import cv32e40x_pkg::*;
 #(
   parameter SOC_ADDR_WIDTH    = 32,
   parameter SOC_DATA_WIDTH    = 32,

@@ -7,10 +7,12 @@ endif
 
 PYTHON ?= python3
 TOOLCHAIN_PREFIX ?= riscv32-unknown-elf-
-CORE ?= cv32e40x
+CORE ?= cv32a40x
 
 # ── Source files ───────────────────────────────────────────────────────────────
 CV32E40X_SRC_FILES += $(TRISTAN_ROOT)/core/cv32e40x_soc.f
+CVA6_SRC_FILES += $(TRISTAN_ROOT)/core/cva6_soc.f
+_ := $(info Running with Core: $(CORE))
 
 # ── Testbench ──────────────────────────────────────────────────────────────────
 TESTBENCH += $(TRISTAN_ROOT)/core/testbench/top_tb.sv
@@ -27,6 +29,9 @@ export PYTHONPATH := $(PYTHONPATH):$(TRISTAN_ROOT)/core/testbench/
 # ── Select Core to Use ─────────────────────────────────────────────────────────
 ifeq ($(CORE),cv32e40x)
 	SRC_FILES := $(CV32E40X_SRC_FILES)
+endif
+ifeq ($(CORE),cv32a60x)
+	SRC_FILES := $(CVA6_SRC_FILES)
 endif
 
 ifeq ($(SIM),verilator)
@@ -46,6 +51,6 @@ firmware:
 
 # ── Cleanup ────────────────────────────────────────────────────────────────────
 clean::
-	rm -rf sim_build results.xml *.vcd *.fst *.fst.hier *.log firmware.mem
+	rm -rf sim_build results.xml *.vcd *.fst *.fst.hier *.log
 
 .PHONY: firmware
