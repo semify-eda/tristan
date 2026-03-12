@@ -7,7 +7,7 @@ endif
 
 PYTHON ?= python3
 TOOLCHAIN_PREFIX ?= riscv32-unknown-elf-
-CORE ?= cv32a40x
+CORE ?= cv32e40x
 
 # ── Source files ───────────────────────────────────────────────────────────────
 CV32E40X_SRC_FILES += $(TRISTAN_ROOT)/core/cv32e40x_soc.f

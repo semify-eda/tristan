@@ -71,6 +71,12 @@ $(TRISTAN_ROOT)/core/core_sram.sv
 $(TRISTAN_ROOT)/core/cv32e40x_soc.sv
 
 // 7. Include directories
+<<<<<<< HEAD
 // +incdir+$(TRISTAN_ROOT)/core/cv32e40x/rtl/include/
 // +incdir+$(TRISTAN_ROOT)/core/include/
 // +incdir+$(WFG_ROOT)/design/pkg/
+=======
++incdir+$(TRISTAN_ROOT)/core/cv32e40x/rtl/include/
++incdir+$(TRISTAN_ROOT)/core/include/
++incdir+$(WFG_ROOT)/design/pkg/
+>>>>>>> f946147 (fixing compile issue)
