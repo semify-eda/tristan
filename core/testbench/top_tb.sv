@@ -76,12 +76,10 @@ module top_tb;
     logic timer_sel;
     assign timer_sel = addr_wb[19:8] == WFG_TIMER_ADDR_MSB;
 
+    // Default wishbone responder for non-timer addresses.
+    // Driven by the cocotb WishboneSlave in top_tb.py (immediate ACK, zero read-data).
     logic default_ack;
     logic [31:0] default_dat;
-    // Default wishbone responder: immediate ACK, zero read-data.
-    // Covers all peripheral addresses not explicitly decoded above.
-    assign default_ack = 1'b1;
-    assign default_dat = 32'h0;
     logic timer_ack;
     logic [31:0] timer_dat;
 
