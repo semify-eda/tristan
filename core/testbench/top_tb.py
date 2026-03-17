@@ -40,5 +40,5 @@ async def obi_wb_bridge_test(dut):
     await Timer(400, units='us')
 
     wbs.log.info("received %d transactions" % len(wbs._recvQ))
-    for transaction in wbs._recvQ:
-        wbs.log.info(f"{[f'@{hex(v.adr)}r{hex(v.datrd)}w{hex(0 if v.datwr is None else v.datwr)}' for v in transaction]}")
+    # for transaction in wbs._recvQ:
+        # wbs.log.info(f"{[f'@{hex(v.adr)}r{hex(v.datrd)}w{hex(0 if v.datwr is None else v.datwr)}' for v in transaction]}")

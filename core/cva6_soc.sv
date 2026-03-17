@@ -18,15 +18,16 @@ module tristan_soc
   import ariane_pkg::*;
 #(
   parameter SOC_ADDR_WIDTH    = 32,
-  parameter SOC_DATA_WIDTH    = 32,
   parameter RAM_ADDR_WIDTH    = 12,
   parameter RAM_DATA_WIDTH    = 32,
   parameter BOOT_ADDR         = 32'h00020000,
-  parameter DATA_START_ADDR   = 32'h00000000,
   parameter FIRMWARE_INITFILE = "../firmware.mem",
-  parameter DM_HALTADDRESS    = 32'h1A11_0800,
-  parameter NUM_MHPMCOUNTERS  = 1,
   parameter HART_ID           = 32'h0000_0000
+  // Removed CV32E40X-era parameters not used in CVA6 SoC:
+  //   SOC_DATA_WIDTH    — no data-width parameterisation needed (fixed 32-bit)
+  //   DATA_START_ADDR   — data SRAM start is fixed in soc_pkg address map
+  //   DM_HALTADDRESS    — debug transport module not instantiated
+  //   NUM_MHPMCOUNTERS  — hardware performance counters not instantiated
 )
 (
   // Clock and reset
@@ -218,15 +219,23 @@ module tristan_soc
   assign obi_zcmt_rsp    = '0;
   assign obi_amo_rsp     = '0;
 
-  // CVXIF: no coprocessor — hold handshakes ready, reject all offloads.
-  // issue_resp.accept defaults to 0 → rejected instructions become
-  // illegal-instruction exceptions in the pipeline.
-  always_comb begin
-    cvxif_resp                  = '0;
-    cvxif_resp.compressed_ready = 1'b1;
-    cvxif_resp.issue_ready      = 1'b1;
-    cvxif_resp.register_ready   = 1'b1;
-  end
+  // CVXIF: co-processor
+  coproc_cv32a60x #(
+    .cvxif_req_t  (cvxif_req_t ),
+    .cvxif_resp_t (cvxif_resp_t)
+  ) i_coproc (
+    .clk_i        (clk_i      ),
+    .rst_ni       (rst_ni     ),
+    .cvxif_req_i  (cvxif_req  ),
+    .cvxif_resp_o (cvxif_resp ),
+    .obi_coproc_req       (obi_coproc_req     ),
+    .obi_coproc_gnt       (obi_coproc_gnt     ),
+    .obi_coproc_we        (obi_coproc_we      ),
+    .obi_coproc_addr      (obi_coproc_addr    ),
+    .obi_coproc_wdata     (obi_coproc_wdata   ),
+    .obi_coproc_rvalid    (obi_coproc_rvalid  ),
+    .obi_coproc_rdata     (obi_coproc_rdata   )
+  );
 
   /* =====================================================================
   *                  cva6_pipeline Instantiation
@@ -335,162 +344,108 @@ module tristan_soc
   end
 
   /* =====================================================================
-  *                  (OBI) Data Bus Arbiter + OBI-Wishbone Bridge
+  *                  (OBI) Data Bus Arbiter
   *
-  *  Arbitrates obi_store_req (priority) and obi_load_req onto a single
-  *  flat data bus. Address decode on addr[20]:
-  *    INTERNAL (addr[20]=0, block_sel=DRAM) → DRAM port A (1-cycle BRAM)
-  *    EXTERNAL (addr[20]=1)                 → obi_wb_bridge
+  *  Arbitrates 3 OBI masters (CPU store, CPU load, co-processor) onto
+  *  2 OBI slaves (DRAM port A, OBI-WB bridge).
+  *  Address decode on addr[20]:
+  *    INTERNAL (addr[20]=0, block_sel=DRAM) -> DRAM port A (1-cycle BRAM)
+  *    EXTERNAL (addr[20]=1)                 -> obi_wb_bridge
   * ====================================================================== */
 
-  // Flat data bus (one in-flight transaction at a time)
-  logic [31:0]  data_addr;
-  logic         data_req;
-  logic         data_gnt;
-  logic         data_rvalid;
-  logic [3:0]   data_be;
-  logic         data_we;
-  logic [31:0]  data_wdata;
-  logic [31:0]  data_rdata;
+  // Co-processor sideband OBI port signals
+  logic        obi_coproc_req;
+  logic        obi_coproc_gnt;
+  logic        obi_coproc_we;
+  logic [31:0] obi_coproc_addr;
+  logic [31:0] obi_coproc_wdata;
+  logic        obi_coproc_rvalid;
+  logic [31:0] obi_coproc_rdata;
 
-  // Address decode (combinatorial; address stable until gnt per OBI spec)
-  e_chip_sel    data_chip_sel;
-  e_block_sel   data_block_sel;
-  logic         data_select_dram;
-  logic         data_select_wb;
+  // Arbiter <-> OBI-WB bridge interconnect (OBI side)
+  logic        arb2wb_obi_req;
+  logic        arb2wb_obi_gnt;
+  logic [31:0] arb2wb_obi_addr;
+  logic        arb2wb_obi_we;
+  logic [3:0]  arb2wb_obi_be;
+  logic [31:0] arb2wb_obi_wdata;
+  logic        arb2wb_obi_rvalid;
+  logic [31:0] arb2wb_obi_rdata;
 
-  assign data_chip_sel    = e_chip_sel'(data_addr[20]);
-  assign data_block_sel   = e_block_sel'(data_addr[19:17]);
-  assign data_select_dram = (data_chip_sel == INTERNAL) && (data_block_sel == DRAM);
-  assign data_select_wb   = (data_chip_sel == EXTERNAL);
+  obi_data_bus_arbiter #(
+    .obi_store_req_t (obi_store_req_t),
+    .obi_store_rsp_t (obi_store_rsp_t),
+    .obi_load_req_t  (obi_load_req_t ),
+    .obi_load_rsp_t  (obi_load_rsp_t ),
+    .RAM_ADDR_WIDTH  (RAM_ADDR_WIDTH ),
+    .RAM_DATA_WIDTH  (RAM_DATA_WIDTH ),
+    .ALIGNMENT_OFFSET(ALIGNMENT_OFFSET)
+  ) i_data_bus_arbiter (
+    .clk_i                    (clk_i            ),
+    .rst_ni                   (rst_ni           ),
 
-  // OBI-WB bridge response wires
-  logic        obi_wb_gnt;
-  logic        obi_wb_rvalid;
-  logic [31:0] obi_wb_rdata;
+    // CPU store/load OBI channels
+    .obi_cpudata_store_req_i  (obi_store_req    ),
+    .obi_cpudata_store_rsp_o  (obi_store_rsp    ),
+    .obi_cpudata_load_req_i   (obi_load_req     ),
+    .obi_cpudata_load_rsp_o   (obi_load_rsp     ),
 
-  // Arbiter state
-  logic arb_busy;    // a transaction is in-flight; blocks new requests
-  logic arb_sel_q;   // 1 = store owns in-flight, 0 = load
-  logic arb_wb_q;    // 1 = in-flight transaction targets WB bridge
-  logic sel_store;   // combinatorial: store takes priority when both pending
+    // Co-processor sideband
+    .obi_coproc_req_i         (obi_coproc_req   ),
+    .obi_coproc_gnt_o         (obi_coproc_gnt   ),
+    .obi_coproc_we_i          (obi_coproc_we    ),
+    .obi_coproc_addr_i        (obi_coproc_addr  ),
+    .obi_coproc_wdata_i       (obi_coproc_wdata ),
+    .obi_coproc_rvalid_o      (obi_coproc_rvalid),
+    .obi_coproc_rdata_o       (obi_coproc_rdata ),
 
-  assign sel_store = obi_store_req.req;
+    // DRAM port A
+    .obi_dram_addr_o          (dram_addr_a      ),
+    .obi_dram_we_o            (dram_we_a        ),
+    .obi_dram_be_o            (dram_be_a        ),
+    .obi_dram_wdata_o         (dram_wdata_a     ),
+    .obi_dram_rdata_i         (dram_rdata_a     ),
 
-  // Mux selected OBI channel onto flat bus; suppress while busy
-  assign data_req   = (obi_store_req.req | obi_load_req.req) & ~arb_busy;
-  assign data_we    = sel_store ? obi_store_req.a.we         : obi_load_req.a.we;
-  assign data_addr  = sel_store ? obi_store_req.a.addr[31:0] : obi_load_req.a.addr[31:0];
-  assign data_be    = sel_store ? obi_store_req.a.be         : obi_load_req.a.be;
-  assign data_wdata = sel_store ? obi_store_req.a.wdata      : obi_load_req.a.wdata;
-
-  // DRAM port A driven from flat data bus
-  assign dram_addr_a  = data_addr[RAM_ADDR_WIDTH + ALIGNMENT_OFFSET - 1 : ALIGNMENT_OFFSET];
-  assign dram_we_a    = data_gnt & data_select_dram & data_we;
-  assign dram_be_a    = data_be;
-  assign dram_wdata_a = data_wdata;
-
-  // Grant + arbitration state machine
-  always_ff @(posedge clk_i, negedge rst_ni) begin
-    if (!rst_ni) begin
-      data_gnt  <= 1'b0;
-      arb_busy  <= 1'b0;
-      arb_sel_q <= 1'b0;
-      arb_wb_q  <= 1'b0;
-    end else begin
-      data_gnt <= 1'b0;  // pulse for one cycle only (default: deassert)
-      if (!arb_busy) begin
-        if (data_req & data_select_wb) begin
-          // External path: gnt comes from WB bridge (multi-cycle)
-          data_gnt <= obi_wb_gnt;
-          if (obi_wb_gnt) begin
-            arb_busy  <= 1'b1;
-            arb_sel_q <= sel_store;
-            arb_wb_q  <= 1'b1;
-          end
-        end else if (data_req) begin
-          // Internal BRAM path: single-cycle grant
-          data_gnt  <= 1'b1;
-          arb_busy  <= 1'b1;
-          arb_sel_q <= sel_store;
-          arb_wb_q  <= 1'b0;
-        end
-      end
-      if (data_rvalid) begin
-        arb_busy <= 1'b0;
-        arb_wb_q <= 1'b0;
-      end
-    end
-  end
-
-  // rvalid: one cycle after gnt for BRAM; forwarded from bridge for WB
-  always_ff @(posedge clk_i, negedge rst_ni) begin
-    if (!rst_ni) data_rvalid <= 1'b0;
-    else         data_rvalid <= arb_wb_q ? obi_wb_rvalid : data_gnt;
-  end
-
-  // rdata mux: WB bridge or DRAM port A
-  always_comb begin
-    data_rdata = '0;
-    if (arb_wb_q) data_rdata = obi_wb_rdata;
-    else          data_rdata = dram_rdata_a;
-  end
-
-  // Route gnt/rvalid/rdata back to the active OBI channel.
-  // arb_sel_q is stable once busy=1; on the gnt cycle (busy still 0,
-  // arb_sel_q not yet updated) use sel_store to override routing.
-  always_comb begin
-    obi_store_rsp = '0;
-    obi_load_rsp  = '0;
-    if (arb_sel_q) begin
-      obi_store_rsp.gnt       = data_gnt;
-      obi_store_rsp.rvalid    = data_rvalid;
-      obi_store_rsp.r.rdata   = data_rdata;
-    end else begin
-      obi_load_rsp.gnt        = data_gnt;
-      obi_load_rsp.rvalid     = data_rvalid;
-      obi_load_rsp.r.rdata    = data_rdata;
-    end
-    // On gnt cycle: arb_sel_q is stale → override gnt routing via sel_store
-    if (!arb_busy) begin
-      if (sel_store) begin
-        obi_store_rsp.gnt = data_gnt;
-        obi_load_rsp.gnt  = 1'b0;
-      end else begin
-        obi_load_rsp.gnt  = data_gnt;
-        obi_store_rsp.gnt = 1'b0;
-      end
-    end
-  end
+    // OBI-WB bridge (OBI side)
+    .obi_wb_req_o             (arb2wb_obi_req   ),
+    .obi_wb_gnt_i             (arb2wb_obi_gnt   ),
+    .obi_wb_addr_o            (arb2wb_obi_addr  ),
+    .obi_wb_we_o              (arb2wb_obi_we    ),
+    .obi_wb_be_o              (arb2wb_obi_be    ),
+    .obi_wb_wdata_o           (arb2wb_obi_wdata ),
+    .obi_wb_rvalid_i          (arb2wb_obi_rvalid),
+    .obi_wb_rdata_i           (arb2wb_obi_rdata )
+  );
 
   /* ================================================================
   *                   OBI-Wishbone Bridge
-  *   External data path: addr[20]=1 → WB master interface
+  *   External data path: addr[20]=1 -> WB master interface
   * ================================================================= */
   obi_wb_bridge i_obi_wb_bridge (
-    .obi_clk_i     (clk_i                    ),
-    .wb_clk_i      (wfg_clk_i                ),
-    .soc_rst_ni    (rst_ni                   ),
-    .gbl_rst_ni    (gbl_rst_ni               ),
+    .obi_clk_i     (clk_i              ),
+    .wb_clk_i      (wfg_clk_i          ),
+    .soc_rst_ni    (rst_ni             ),
+    .gbl_rst_ni    (gbl_rst_ni         ),
 
-    .obi_req_i     (data_req & data_select_wb),
-    .obi_gnt_o     (obi_wb_gnt              ),
-    .obi_addr_i    (data_addr               ),
-    .obi_wr_en_i   (data_we                 ),
-    .obi_byte_en_i (data_be                 ),
-    .obi_wdata_i   (data_wdata              ),
-    .obi_rvalid_o  (obi_wb_rvalid           ),
-    .obi_rdata_o   (obi_wb_rdata            ),
+    .obi_req_i     (arb2wb_obi_req     ),
+    .obi_gnt_o     (arb2wb_obi_gnt     ),
+    .obi_addr_i    (arb2wb_obi_addr    ),
+    .obi_wr_en_i   (arb2wb_obi_we      ),
+    .obi_byte_en_i (arb2wb_obi_be      ),
+    .obi_wdata_i   (arb2wb_obi_wdata   ),
+    .obi_rvalid_o  (arb2wb_obi_rvalid  ),
+    .obi_rdata_o   (arb2wb_obi_rdata   ),
 
-    .wb_addr_o     (wb_addr_o               ),
-    .wb_rdata_i    (wb_rdata_i              ),
-    .wb_wdata_o    (wb_wdata_o              ),
-    .wb_wr_en_o    (wb_wr_en_o              ),
-    .wb_byte_en_o  (wb_byte_en_o            ),
-    .wb_stb_o      (wb_stb_o               ),
-    .wb_ack_i      (wb_ack_i               ),
-    .wb_cyc_o      (wb_cyc_o               )
+    .wb_addr_o     (wb_addr_o          ),
+    .wb_rdata_i    (wb_rdata_i         ),
+    .wb_wdata_o    (wb_wdata_o         ),
+    .wb_wr_en_o    (wb_wr_en_o         ),
+    .wb_byte_en_o  (wb_byte_en_o       ),
+    .wb_stb_o      (wb_stb_o           ),
+    .wb_ack_i      (wb_ack_i           ),
+    .wb_cyc_o      (wb_cyc_o           )
   );
+
 
   /* =====================================================================
   *                  Dual-Port BRAM + WB-RAM Interface
@@ -523,7 +478,7 @@ module tristan_soc
   assign iram_we_a    = 1'b0;   // instruction fetch is always read
   assign iram_be_a    = '0;     // don't care (read-only port)
   assign iram_wdata_a = '0;     // don't care (read-only port)
-  // DRAM port A driven by data bus arbiter
+  // DRAM port A — driven by obi_data_bus_arbiter (instantiated above)
 
   /* ================================================================
   *                   Wishbone — RAM Interface

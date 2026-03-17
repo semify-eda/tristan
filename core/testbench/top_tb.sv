@@ -4,14 +4,14 @@ module top_tb;
     localparam SOC_ADDR_WIDTH    = 32;
     localparam RAM_ADDR_WIDTH    = 14;
     localparam INSTR_RDATA_WIDTH = 32;
-    localparam BOOT_ADDR         = 32'h02000000;
+    localparam BOOT_ADDR         = 32'h00020000;
     parameter int CLK_FREQ       = 25_000_000;
 
     logic core_clk;
     logic core_rst_n;
     logic wfg_clk;
 
-    // allow fst dump
+    // VCD waveform dump (open with gtkwave top_tb.vcd)
     initial begin
         $dumpfile("top_tb.vcd");
         $dumpvars();
@@ -28,8 +28,6 @@ module top_tb;
     logic                    stb_wb;
     logic                    ack_wb;
     logic                    cyc_wb;
-    logic [31: 0]            wb_rdata_o; // dummy
-    logic                    wb_ack_o; // dummy
 
     // ----------------------------------
     //           Tristan Core
@@ -60,21 +58,26 @@ module top_tb;
         .wb_ack_i       (ack_wb),
         .wb_cyc_o       (cyc_wb),
 
-        // WB input interface to access RAM
+        // WB input interface: allows external Wishbone master to access SRAM directly.
+        // Tied to '0 in this testbench — not exercised by the obi_wb_bridge_test.
         .wb_addr_i      ('0),
         .wb_wdata_i     ('0),
         .wb_wr_en_i     ('0),
         .wb_byte_en_i   ('0),
         .wb_stb_i       ('0),
         .wb_cyc_i       ('0),
-        .wb_rdata_o     (),
-        .wb_ack_o     ()
+        .wb_rdata_o     (   ),  // WB-to-RAM port unused in this testbench
+        .wb_ack_o       (   )   // WB-to-RAM port unused in this testbench
     );
 
+    // WFG timer wishbone base: bits [19:8] == 0xE00 (from wfg_pkg address map)
+    localparam logic [11:0] WFG_TIMER_ADDR_MSB = 12'b111000000000;
+
     logic timer_sel;
-    assign timer_sel = addr_wb[19:8] == 12'b111000000000;
+    assign timer_sel = addr_wb[19:8] == WFG_TIMER_ADDR_MSB;
 
-
+    // Default wishbone responder for non-timer addresses.
+    // Driven by the cocotb WishboneSlave in top_tb.py (immediate ACK, zero read-data).
     logic default_ack;
     logic [31:0] default_dat;
     logic timer_ack;
@@ -89,7 +92,7 @@ module top_tb;
         .wbs_cyc_i   (cyc_wb & timer_sel),
         .wbs_we_i    (wr_en_wb),
         .wbs_dat_i   (data_o_wb),
-        .wbs_adr_i   (addr_wb),
+        .wbs_adr_i   (addr_wb[19:0]),
         .wbs_ack_o   (timer_ack),
         .wbs_dat_o   (timer_dat),
 

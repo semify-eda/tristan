@@ -25,23 +25,6 @@ module coproc import coproc_pkg::*;
   cv32e40x_if_xif.coproc_result            xif_result_if
 );
 
-  // ! TODO: custom data stores -- rotations
-
-  // onehot encoding of states
-  typedef enum {
-    IDLE,
-    CFG,
-    MEM_RD1,
-    MEM_RD2,
-    UPDATE,
-    MEM_WR1,
-    MEM_WR2,
-    STALL,
-    RETIRE,
-    INVALID,
-    KILL
-  } coproc_state_e;
-
   /* ====================== Control API Registers ====================== */
   logic [31:0]  bld_addr;           // base address of start of read (load) stream
   logic [31:0]  bst_addr;           // address of start of write (store) stream

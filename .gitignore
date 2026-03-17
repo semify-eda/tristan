@@ -65,6 +65,7 @@ preprocessed.v
 *.gtkw
 results.xml
 top_tb.vcd
+trace_hart_0.dasm
 
 # Claude: CLAUDE.md should be checked in, not the rest
 .claude/*
