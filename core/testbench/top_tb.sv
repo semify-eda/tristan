@@ -4,7 +4,7 @@ module top_tb;
     localparam SOC_ADDR_WIDTH    = 32;
     localparam RAM_ADDR_WIDTH    = 14;
     localparam INSTR_RDATA_WIDTH = 32;
-    localparam BOOT_ADDR         = 32'h02000000;
+    localparam BOOT_ADDR         = 32'h00020000;
     parameter int CLK_FREQ       = 25_000_000;
 
     logic core_clk;
@@ -89,7 +89,7 @@ module top_tb;
         .wbs_cyc_i   (cyc_wb & timer_sel),
         .wbs_we_i    (wr_en_wb),
         .wbs_dat_i   (data_o_wb),
-        .wbs_adr_i   (addr_wb),
+        .wbs_adr_i   (addr_wb[19:0]),
         .wbs_ack_o   (timer_ack),
         .wbs_dat_o   (timer_dat),
 

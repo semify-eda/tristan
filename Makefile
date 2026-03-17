@@ -7,12 +7,16 @@ endif
 
 PYTHON ?= python3
 TOOLCHAIN_PREFIX ?= riscv32-unknown-elf-
-CORE ?= cv32a40x
+CORE ?= cv32e40x
 
 # ── Source files ───────────────────────────────────────────────────────────────
 CV32E40X_SRC_FILES += $(TRISTAN_ROOT)/core/cv32e40x_soc.f
 CVA6_SRC_FILES += $(TRISTAN_ROOT)/core/cva6_soc.f
-_ := $(info Running with Core: $(CORE))
+# Print only when actually running a simulation target, not for clean/firmware.
+# $(MAKECMDGOALS) is empty when the default target is invoked.
+ifeq ($(filter clean firmware,$(MAKECMDGOALS)),)
+  _ := $(info Running with Core: $(CORE))
+endif
 
 # ── Testbench ──────────────────────────────────────────────────────────────────
 TESTBENCH += $(TRISTAN_ROOT)/core/testbench/top_tb.sv
