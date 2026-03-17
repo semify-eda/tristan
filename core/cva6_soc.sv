@@ -20,7 +20,7 @@ module tristan_soc
   parameter SOC_ADDR_WIDTH    = 32,
   parameter RAM_ADDR_WIDTH    = 12,
   parameter RAM_DATA_WIDTH    = 32,
-  parameter BOOT_ADDR         = 32'h00020000, // Keep in mind: if this changes, the e_block_sel arbiter needs to be changed as well
+  parameter BOOT_ADDR         = 32'h00020000,
   parameter FIRMWARE_INITFILE = "../firmware.mem",
   parameter HART_ID           = 32'h0000_0000
   // Removed CV32E40X-era parameters not used in CVA6 SoC:
