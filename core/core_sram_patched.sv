@@ -32,6 +32,8 @@ module soc_sram_dualport #(
   output wire  [DATAWIDTH-1:0]    q_b
 );
 
+  initial begin $display("Read firmware file: %s", INITFILE); end
+
   localparam NB_COL    = DATAWIDTH / 8;
   localparam COL_WIDTH = 8;
   localparam MEMSIZE   = 1 << ADDRWIDTH;

@@ -1,3 +1,6 @@
+// 0. Verilator waiver file (suppresses warnings from upstream CVA6 IP)
+$(TRISTAN_ROOT)/core/cva6_upstream_waivers.vlt
+
 // 1. Packages (must come before any module that imports them)
 $(TRISTAN_ROOT)/core/include/soc_pkg.sv
 $(TRISTAN_ROOT)/core/cva6/core/include/cv32a60x_config_pkg.sv
@@ -150,10 +153,10 @@ $(TRISTAN_ROOT)/core/cva6/core/pmp/src/pmp_data_if.sv
 // $(TRISTAN_ROOT)/core/cva6/core/cva6_mmu/cva6_shared_tlb.sv
 
 
-// 4. Co-processor TBD as a next step
-// $(TRISTAN_ROOT)/core/custom/coproc/rtl/coproc_pkg.sv
-// $(TRISTAN_ROOT)/core/custom/coproc/rtl/coproc.sv
-// $(TRISTAN_ROOT)/core/custom/coproc/rtl/rshifter32.sv
+// 4. Co-processor
+$(TRISTAN_ROOT)/core/custom/coproc/rtl/coproc_pkg.sv
+$(TRISTAN_ROOT)/core/custom/coproc/rtl/coproc_cv32a60x.sv
+$(TRISTAN_ROOT)/core/custom/coproc/rtl/rshifter32.sv
 
 // 5. WFG Peripherals (connected via Wishbone)
 $(WFG_ROOT)/design/wfg/wfg_timer/rtl/wfg_timer_wishbone_reg.sv
@@ -161,6 +164,7 @@ $(WFG_ROOT)/design/wfg/wfg_timer/rtl/wfg_timer.sv
 $(WFG_ROOT)/design/wfg/wfg_timer/rtl/wfg_timer_top.sv
 
 // 6. SoC Modules
+$(TRISTAN_ROOT)/core/custom/data_bus_arbiter/rtl/obi_data_bus_arbiter.sv
 $(TRISTAN_ROOT)/core/custom/obi_wb_bridge/rtl/obi_wb_bridge.sv
 // $(TRISTAN_ROOT)/core/custom/ram_arbiter/rtl/ram_arbiter.sv
 $(TRISTAN_ROOT)/core/custom/wb_ram_interface/rtl/wb_ram_interface.sv

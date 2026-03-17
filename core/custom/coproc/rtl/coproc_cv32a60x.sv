@@ -1,6 +1,10 @@
 `default_nettype none
-module coproc import coproc_pkg::*;
+module coproc_cv32a60x import coproc_pkg::*;
 #(
+  // CVXIF struct types — passed as type parameters from the SoC wrapper
+  parameter type cvxif_req_t             = logic,
+  parameter type cvxif_resp_t            = logic,
+  // XIF capability parameters
   parameter int unsigned X_NUM_RS        =  2,  // Number of register file read ports that can be used by the eXtension interface
   parameter int unsigned X_ID_WIDTH      =  4,  // Width of ID field.
   parameter int unsigned X_MEM_WIDTH     =  32, // Memory access width for loads/stores via the eXtension interface
@@ -15,14 +19,54 @@ module coproc import coproc_pkg::*;
   input wire clk_i,
   input wire rst_ni,
 
+  /* ====================== CVXIF ====================== */
+  input  cvxif_req_t    cvxif_req_i,
+  output cvxif_resp_t   cvxif_resp_o,
 
-  /* ====================== eXtension Interface ====================== */
-  cv32e40x_if_xif.coproc_compressed        xif_compressed_if,
-  cv32e40x_if_xif.coproc_issue             xif_issue_if,
-  cv32e40x_if_xif.coproc_commit            xif_commit_if,
-  cv32e40x_if_xif.coproc_mem               xif_mem_if,
-  cv32e40x_if_xif.coproc_mem_result        xif_mem_result_if,
-  cv32e40x_if_xif.coproc_result            xif_result_if
+  /* ========== Sideband OBI to DRAM port B ============ */
+  output logic          obi_coproc_req,
+  input  logic          obi_coproc_gnt,
+  output logic          obi_coproc_we,
+  output logic [31:0]   obi_coproc_addr,
+  output logic [31:0]   obi_coproc_wdata,
+  input  logic          obi_coproc_rvalid,
+  input  logic [31:0]   obi_coproc_rdata
+
+// For reference, here is the translation from the old cv32e40x CVXIF:
+// cv32e40x_if_xif.coproc_compressed   xif_compressed_if,
+// cv32e40x_if_xif.coproc_issue        xif_issue_if,
+// cv32e40x_if_xif.coproc_commit       xif_commit_if,
+// cv32e40x_if_xif.coproc_mem          // NO equivalent in CVA6 CVXIF, moved to OBI sideband
+// cv32e40x_if_xif.coproc_mem_result   // NO equivalent in CVA6 CVXIF, moved to OBI sideband
+// cv32e40x_if_xif.coproc_result       xif_result_if
+//
+// xif_compressed_if.compressed_ready         -> cvxif_resp_o.compressed_ready
+// xif_compressed_if.compressed_resp.instr    -> cvxif_resp_o.compressed_resp.instr
+// xif_compressed_if.compressed_resp.accept   -> cvxif_resp_o.compressed_resp.accept
+// xif_issue_if.issue_valid                   -> cvxif_req_i.issue_valid
+// xif_issue_if.issue_req.instr               -> cvxif_req_i.issue_req.instr
+// xif_issue_if.issue_req.id                  -> cvxif_req_i.issue_req.id
+// xif_issue_if.issue_req.rs[0]               -> cvxif_req_i.register.rs[0]   // NOTE: register channel, NOT issue_req
+// xif_issue_if.issue_req.rs_valid            -> cvxif_req_i.register.rs_valid // NOTE: register channel, NOT issue_req
+// xif_issue_if.issue_ready                   -> cvxif_resp_o.issue_ready
+// xif_issue_if.issue_resp.accept             -> cvxif_resp_o.issue_resp.accept
+// xif_issue_if.issue_resp.writeback          -> cvxif_resp_o.issue_resp.writeback
+// xif_issue_if.issue_resp.loadstore          -> REMOVED (no memory channel in CVA6 CVXIF)
+// xif_issue_if.issue_resp.dualwrite          -> REMOVED (not in x_issue_resp_t)
+// xif_issue_if.issue_resp.dualread           -> REMOVED (replaced by issue_resp.register_read)
+// xif_issue_if.issue_resp.ecswrite           -> REMOVED (not in x_issue_resp_t)
+// xif_issue_if.issue_resp.exc                -> REMOVED (not in x_issue_resp_t)
+// xif_commit_if.commit_valid                 -> cvxif_req_i.commit_valid
+// xif_commit_if.commit.commit_kill           -> cvxif_req_i.commit.commit_kill
+// xif_result_if.result_valid                 -> cvxif_resp_o.result_valid
+// xif_result_if.result_ready                 -> cvxif_req_i.result_ready
+// xif_result_if.result.id                    -> cvxif_resp_o.result.id
+// xif_result_if.result.rd                    -> cvxif_resp_o.result.rd
+// xif_result_if.result.data                  -> cvxif_resp_o.result.data
+// xif_result_if.result.we                    -> cvxif_resp_o.result.we
+// xif_result_if.result.exc/exccode/err/dbg   -> REMOVED (not in x_result_t)
+// xif_result_if.result.ecsdata/ecswe         -> REMOVED (not in x_result_t)
+// xif_mem_if.* / xif_mem_result_if.*         -> obi_coproc_req/gnt/we/be/addr/wdata/rvalid/rdata (OBI sideband)
 );
 
   /* ====================== Control API Registers ====================== */
@@ -84,16 +128,16 @@ module coproc import coproc_pkg::*;
 
   /* ====================== Memory Signals ====================== */
   logic [31:0]    mem_rdata;
-  logic           mem_err, mem_dbg;
 
+
+  /* ============== Submodule & Type Instatiations =============== */
   coproc_opcode_e opcode;
   rmst_funct3_e   funct3;
   // FSM
-  coproc_state_e state_ff, state_next;
+  coproc_state_e state_ff, next_state_ff;
 
-  assign opcode = coproc_opcode_e'(xif_issue_if.issue_valid ? xif_issue_if.issue_req.instr[6: 0] : instr[6: 0]);
-  assign funct3 =  rmst_funct3_e'(xif_issue_if.issue_valid ? xif_issue_if.issue_req.instr[14:12] : instr[14:12]);
-
+  assign opcode = coproc_opcode_e'(cvxif_req_i.issue_valid ? cvxif_req_i.issue_req.instr[6: 0] : instr[6: 0]);
+  assign funct3 =  rmst_funct3_e'(cvxif_req_i.issue_valid ? cvxif_req_i.issue_req.instr[14:12] : instr[14:12]);
 
   assign bit_idx      = rs1[4:0];
   assign count        = (rs2[4:0] + 1);
@@ -108,28 +152,35 @@ module coproc import coproc_pkg::*;
 
 
   /* ====================== Sticky Signals ====================== */
-  assign commit_valid     = commit_valid_ff     | xif_commit_if.commit_valid;
+  assign commit_valid     = commit_valid_ff     | cvxif_req_i.commit_valid;
   always_ff @(posedge clk_i, negedge rst_ni) begin : commit_monitor
     if(~rst_ni) begin
       commit_valid_ff     <= '0;
       issue_valid_ff      <= '0;
     end else begin
-      if(xif_commit_if.commit_valid) begin
+      if(cvxif_req_i.commit_valid) begin
         commit_valid_ff     <= '1;
-      end else if(xif_result_if.result_valid) begin
+      end else if(cvxif_resp_o.result_valid) begin
         commit_valid_ff     <= '0;
       end
-      if(xif_issue_if.issue_valid) begin
+      if(cvxif_req_i.issue_valid) begin
         issue_valid_ff      <= '1;
-      end else if(xif_result_if.result_valid) begin
+      end else if(cvxif_resp_o.result_valid) begin
         issue_valid_ff      <= '0;
       end
     end
   end : commit_monitor
 
   /* ================== Combinational Handshake Signals ====================== */
-  assign xif_issue_if.issue_resp.accept     = op_valid;
-  assign xif_issue_if.issue_resp.writeback  = op_store;
+  // Compressed channel: always ready, never accept (not used)
+  assign cvxif_resp_o.compressed_ready       = 1'b1;
+  assign cvxif_resp_o.compressed_resp.instr  = '0;
+  assign cvxif_resp_o.compressed_resp.accept = 1'b0;
+
+  assign cvxif_resp_o.issue_resp.accept        = op_valid;
+  assign cvxif_resp_o.issue_resp.writeback     = op_load;  // only RMLD (R-type) writes to rd
+  assign cvxif_resp_o.issue_resp.register_read = '1;   // always request both source registers
+  assign cvxif_resp_o.register_ready           = '1;   // always ready to accept register values
 
 
   /* ================== Write Masks ====================== */
@@ -224,16 +275,16 @@ module coproc import coproc_pkg::*;
   end
 
   // capture the shifted write mask only on the first cycle of MEM_RD1
-  assign capture_cnt_unary  = state_ff != MEM_RD1 & state_next == MEM_RD1;
+  assign capture_cnt_unary  = state_ff != MEM_RD1 & next_state_ff == MEM_RD1;
 
   // capture the shifted rbuf[31:0] value only on the first cycle of MEM_RD2 on a load
-  assign capture_rbuf31_0   = state_ff != MEM_RD2 & state_next == MEM_RD2 & op_load;
+  assign capture_rbuf31_0   = state_ff != MEM_RD2 & next_state_ff == MEM_RD2 & op_load;
 
   // capture the shifted rbuf[63:32] value only on the first cycle of UPDATE on a load
-  assign capture_rbuf63_32  = state_ff != UPDATE & state_next == UPDATE & op_load;
+  assign capture_rbuf63_32  = state_ff != UPDATE & next_state_ff == UPDATE & op_load;
 
   // capture the shifted shadow register only on the first cycle of MEM_RD2 on a store
-  assign capture_shadow_reg = state_ff != MEM_RD2 & state_next == MEM_RD2 & op_store;
+  assign capture_shadow_reg = state_ff != MEM_RD2 & next_state_ff == MEM_RD2 & op_store;
 
   always_ff @(posedge clk_i, negedge rst_ni) begin
     if(~rst_ni) begin
@@ -250,178 +301,128 @@ module coproc import coproc_pkg::*;
   end
 
   /* ================== State Machine ====================== */
-  always_ff @(posedge clk_i, negedge rst_ni) begin : next_state_assign
-    if (~rst_ni) begin
+  // Clocked State Logic
+  always_ff @(posedge clk_i or negedge rst_ni) begin : clocked_state_logic
+    if (!rst_ni) begin
       state_ff <= IDLE;
     end else begin
-      state_ff <= state_next;
+      state_ff <= next_state_ff;
     end
-  end : next_state_assign
+  end : clocked_state_logic
 
+  // Combinatorial State Logic
   always_comb begin : next_state_logic
-    state_next = state_ff;
-    if(xif_commit_if.commit.commit_kill) begin
-      state_next = KILL;
+    next_state_ff = state_ff;
+    if(cvxif_req_i.commit.commit_kill) begin
+      next_state_ff = KILL;
     end else begin
       unique case(state_ff)
         IDLE:
           if(issue_valid_ff) begin
             if(op_valid) begin
-              state_next = cfg ? CFG : MEM_RD1;
+              next_state_ff = cfg ? CFG : MEM_RD1;
             end else begin
-              state_next = INVALID;
+              next_state_ff = INVALID;
             end
           end
         CFG:
           if(commit_valid) begin
-            state_next = RETIRE;
+            next_state_ff = RETIRE;
           end
         MEM_RD1:
-          if(xif_mem_result_if.mem_result_valid) begin
-            state_next = MEM_RD2;
+          if(obi_coproc_gnt) begin            // moved to OBI
+            next_state_ff = MEM_RD2;
           end
         MEM_RD2:
-          if(xif_mem_result_if.mem_result_valid) begin
-            state_next = UPDATE;
+          if(obi_coproc_gnt) begin
+            next_state_ff = UPDATE;
           end
         UPDATE:
           if(commit_valid) begin
-            state_next = op_load ? RETIRE : MEM_WR1;
+            next_state_ff = op_load ? RETIRE : MEM_WR1;
           end
         MEM_WR1:
-          if(xif_mem_result_if.mem_result_valid) begin
-            state_next = MEM_WR2;
+          if(obi_coproc_gnt) begin
+            next_state_ff = MEM_WR2;
           end
         MEM_WR2:
-          if(xif_mem_result_if.mem_result_valid) begin
-            state_next = STALL;
+          if(obi_coproc_gnt) begin
+            next_state_ff = STALL;
           end
         STALL:
-          state_next = RETIRE;
+          next_state_ff = RETIRE;
         RETIRE:
-          if(xif_result_if.result_ready) begin
-            state_next = IDLE;
+          if(cvxif_req_i.result_ready) begin
+            next_state_ff = IDLE;
           end
         default:
-          state_next = IDLE;
+          next_state_ff = IDLE;
       endcase
     end
   end : next_state_logic
 
-
+  // Clocked output Logic
   always_ff @(posedge clk_i, negedge rst_ni) begin : control_state_actions
     if (~rst_ni) begin
-      /* eXtension interface outputs */
-      xif_compressed_if.compressed_ready        <= '0; // TODO: move compressed* signals to an assign - they shouldnt be sequential
-      xif_compressed_if.compressed_resp.instr   <= '0;
-      xif_compressed_if.compressed_resp.accept  <= '0;
-      xif_issue_if.issue_ready                  <= '1;
-      xif_issue_if.issue_resp.dualwrite         <= '0;
-      xif_issue_if.issue_resp.dualread          <= '0;
-      xif_issue_if.issue_resp.loadstore         <= '0;
-      xif_issue_if.issue_resp.ecswrite          <= '0;
-      xif_issue_if.issue_resp.exc               <= '0;
-      xif_mem_if.mem_valid                      <= '0;
-      xif_mem_if.mem_req.id                     <= '0;
-      xif_mem_if.mem_req.addr                   <= '0;
-      xif_mem_if.mem_req.mode                   <= '0;
-      xif_mem_if.mem_req.we                     <= '0;
-      xif_mem_if.mem_req.size                   <= '0;
-      xif_mem_if.mem_req.be                     <= '0;
-      xif_mem_if.mem_req.attr                   <= '0;
-      xif_mem_if.mem_req.last                   <= '0;
-      xif_mem_if.mem_req.spec                   <= '0;
-      xif_result_if.result_valid                <= '0;
-      xif_result_if.result.id                   <= '0;
-      xif_result_if.result.rd                   <= '0;
-      xif_result_if.result.we                   <= '0;
-      xif_result_if.result.ecsdata              <= '0;
-      xif_result_if.result.ecswe                <= '0;
-      xif_result_if.result.exc                  <= '0;
-      xif_result_if.result.exccode              <= '0;
-      xif_result_if.result.err                  <= '0;
-      xif_result_if.result.dbg                  <= '0;
+      /* issue channel */
+      cvxif_resp_o.issue_ready             <= '1;
+      /* result channel */
+      cvxif_resp_o.result_valid            <= '0;
+      cvxif_resp_o.result.id               <= '0;
+      cvxif_resp_o.result.rd               <= '0;
+      // cvxif_resp_o.result.we and cvxif_resp_o.result.data driven in data_state_actions
+      /* OBI sideband */
+      obi_coproc_req                               <= '0;
+      obi_coproc_we                                <= '0;
+      obi_coproc_addr                              <= '0;
     end else begin
-      case(state_next)
+      case(next_state_ff)
         IDLE: begin
-          xif_issue_if.issue_ready            <= '1;
-          xif_mem_if.mem_valid                <= '0;
-          xif_result_if.result_valid          <= '0;
+          cvxif_resp_o.issue_ready         <= '1;
+          obi_coproc_req                   <= '0;
+          cvxif_resp_o.result_valid        <= '0;
         end
         CFG: begin
-          // set issue ready low
-          xif_issue_if.issue_ready            <= '0;
-          xif_issue_if.issue_resp.dualwrite   <= '0;
-          xif_issue_if.issue_resp.dualread    <= '0;
-          xif_issue_if.issue_resp.loadstore   <= '0;
-          xif_issue_if.issue_resp.ecswrite    <= '0;
-          xif_issue_if.issue_resp.exc         <= '0;
+          cvxif_resp_o.issue_ready         <= '0;
         end
         MEM_RD1: begin
-          // set issue ready low
-          xif_issue_if.issue_ready            <= '0;
-          xif_issue_if.issue_resp.dualwrite   <= '0;
-          xif_issue_if.issue_resp.dualread    <= '0;
-          xif_issue_if.issue_resp.loadstore   <= '1;
-          xif_issue_if.issue_resp.ecswrite    <= '0;
-          xif_issue_if.issue_resp.exc         <= '1;
-
-          // request read from the CPU
-          xif_mem_if.mem_valid                <= '1;
-          xif_mem_if.mem_req.id               <= id;
-          xif_mem_if.mem_req.addr             <= op_load ? ld_addr : st_addr;
-          xif_mem_if.mem_req.mode             <= '1;      // set to machine level for now
-          xif_mem_if.mem_req.we               <= '0;
-          xif_mem_if.mem_req.size             <= 3'h2;    // set to a word (32b)
-          xif_mem_if.mem_req.be               <= '1;      // enable all bytes
-          xif_mem_if.mem_req.attr[1]          <= '1;      // set as modifiable
-          xif_mem_if.mem_req.attr[0]          <= '0;      // set as aligned
-          xif_mem_if.mem_req.last             <= '0;
-          xif_mem_if.mem_req.spec             <= '0;      // memory transaction is not speculative
-
-          xif_issue_if.issue_resp.loadstore   <= '1;
-          xif_issue_if.issue_resp.exc         <= '1;      //! can cause an exception for an incorrect mem address
+          cvxif_resp_o.issue_ready         <= '0;
+          // initiate first OBI read (word 0)
+          obi_coproc_req                           <= '1;
+          obi_coproc_we                            <= '0;
+          obi_coproc_addr                          <= op_load ? ld_addr : st_addr;
+          // no byte enable needed on the OBI sideband anymore
         end
         MEM_RD2: begin
-          if(xif_mem_result_if.mem_result_valid) begin
-            xif_mem_if.mem_req.last           <= op_load; // declare the memory transaction to be last if its a read instruction
-            xif_mem_if.mem_req.addr           <= (op_load ? ld_addr : st_addr) + 3'b100;
+          // first read granted — issue second read (word 1, addr+4)
+          if(obi_coproc_gnt) begin
+            obi_coproc_addr                        <= (op_load ? ld_addr : st_addr) + 32'd4;
           end
         end
         UPDATE: begin
-          xif_mem_if.mem_valid                <= '0;
+          obi_coproc_req                           <= '0;          // both reads issued; stop OBI
         end
         MEM_WR1: begin
-          xif_mem_if.mem_valid                <= '1;
-          xif_mem_if.mem_req.addr             <= st_addr;
-          xif_mem_if.mem_req.we               <= '1;
-          xif_mem_if.mem_req.size             <= 3'h2;    // set to a word (32b)
-          xif_mem_if.mem_req.attr[0]          <= '0;      // set as aligned
-          xif_mem_if.mem_req.last             <= '0;      // declare the memory transaction to not be the last
-          xif_mem_if.mem_req.spec             <= '0;      // memory trasnaction is not speculative
+          // initiate first OBI write (word 0)
+          obi_coproc_req                           <= '1;
+          obi_coproc_we                            <= '1;
+          obi_coproc_addr                          <= st_addr;
         end
         MEM_WR2: begin
-          if(xif_mem_result_if.mem_result_valid) begin
-            xif_mem_if.mem_req.addr           <= st_addr + 3'b100;
-            xif_mem_if.mem_req.last           <= '1;      // declare the memory transaction to be the last
+          // first write granted — issue second write (word 1, addr+4)
+          if(obi_coproc_gnt) begin
+            obi_coproc_addr                        <= st_addr + 32'd4;
           end
         end
         STALL: begin
-          xif_mem_if.mem_valid                <= '0;
+          obi_coproc_req                           <= '0;          // both writes issued; stop OBI
         end
         RETIRE: begin
-          xif_issue_if.issue_ready            <= '1;
-          xif_result_if.result_valid          <= '1;
-          xif_result_if.result.id             <= id;
-
-          xif_result_if.result.rd             <= rd;
-          xif_result_if.result.we             <= '0;
-          xif_result_if.result.ecsdata        <= '0;
-          xif_result_if.result.ecswe          <= '0;
-          xif_result_if.result.exc            <= '0;
-          xif_result_if.result.exccode        <= '0;
-          xif_result_if.result.err            <= '0;
-          xif_result_if.result.dbg            <= '0;
+          cvxif_resp_o.issue_ready         <= '1;
+          cvxif_resp_o.result_valid        <= '1;
+          cvxif_resp_o.result.id           <= id;
+          cvxif_resp_o.result.rd           <= rd;
+          // result.we is owned by data_state_actions (set in UPDATE; cleared in IDLE)
         end
       endcase
     end
@@ -445,13 +446,11 @@ module coproc import coproc_pkg::*;
       rs2                       <= '0;
       rd                        <= '0;
       id                        <= '0;
-      mem_rdata                 <= '0;
-      mem_dbg                   <= '0;
-      mem_err                   <= '0;
-      xif_mem_if.mem_req.wdata  <= '0;
-      xif_result_if.result.data <= '0;
+      obi_coproc_wdata          <= '0;
+      cvxif_resp_o.result.data  <= '0;
+      cvxif_resp_o.result.we    <= '0;
     end else begin
-      case(state_next)
+      case(next_state_ff)
         CFG: begin
           if(commit_valid) begin
             case(funct3)
@@ -475,29 +474,33 @@ module coproc import coproc_pkg::*;
 
         end
         MEM_RD2: begin
-          if(xif_mem_result_if.mem_result_valid) begin
-            rbuf[31:0]              <= xif_mem_result_if.mem_result.rdata;
+          // first read data arrives one cycle after MEM_RD1 granted (registered RAM)
+          if(obi_coproc_rvalid) begin
+            rbuf[31:0]              <= obi_coproc_rdata;
           end
         end
         UPDATE: begin
-          if(xif_mem_result_if.mem_result_valid) begin
-            rbuf[63:32]             <= xif_mem_result_if.mem_result.rdata;
+          // second read data arrives one cycle after MEM_RD2 granted
+          if(obi_coproc_rvalid) begin
+            rbuf[63:32]             <= obi_coproc_rdata;
           end
         end
         MEM_WR1: begin
-          xif_mem_if.mem_req.wdata  <= wbuf[31:0];
+          obi_coproc_wdata                  <= wbuf[31:0];
         end
         MEM_WR2: begin
-          xif_mem_if.mem_req.wdata  <= wbuf[63:32];
+          // first write granted — load second word for transmission
+          if(obi_coproc_gnt) begin
+            obi_coproc_wdata                <= wbuf[63:32];
+          end
         end
         STALL: begin
         end
         RETIRE: begin
+          // latch last OBI read-back diagnostics (store path only, not used)
           case(opcode)
             OPCODE_RMST: begin
-              mem_rdata   <= xif_mem_result_if.mem_result.rdata;
-              mem_dbg     <= xif_mem_result_if.mem_result.dbg;
-              mem_err     <= xif_mem_result_if.mem_result.err;
+              mem_rdata   <= obi_coproc_rdata;
             end
           endcase
         end
@@ -508,18 +511,24 @@ module coproc import coproc_pkg::*;
       endcase
       case(state_ff)
         IDLE: begin
-          xif_result_if.result.we    <= '0;
-          if(xif_issue_if.issue_valid) begin
-            id                <= xif_issue_if.issue_req.id;
-            instr             <= xif_issue_if.issue_req.instr;
-            if(xif_issue_if.issue_req.rs_valid) begin
-              rs1               <= xif_issue_if.issue_req.rs[0];
-              rs2               <= xif_issue_if.issue_req.rs[1];
-              rd                <= xif_issue_if.issue_req.instr[11:7];
+          cvxif_resp_o.result.we    <= '0;
+          // NOTE: In CVA6 CVXIF, register values (rs1/rs2) arrive via the register channel
+          //       (cvxif_req_i.register), NOT via issue_req. The register channel fires
+          //       after issue_channel with register_valid asserted. id/instr captured on issue_valid;
+          //       rs1/rs2 captured when register_valid fires.
+          if(cvxif_req_i.issue_valid) begin
+            id                <= cvxif_req_i.issue_req.id;
+            instr             <= cvxif_req_i.issue_req.instr;
+            rd                <= cvxif_req_i.issue_req.instr[11:7];
+          end
+          if(cvxif_req_i.register_valid) begin
+            if(cvxif_req_i.register.rs_valid) begin
+              rs1               <= cvxif_req_i.register.rs[0];
+              rs2               <= cvxif_req_i.register.rs[1];
 
               // dynamically calculate the load and store addresses from the base and bit offset
-              ld_addr           <= bld_addr + {{xif_issue_if.issue_req.rs[0][31:5]}, 2'b00};
-              st_addr           <= bst_addr + {{xif_issue_if.issue_req.rs[0][31:5]}, 2'b00};
+              ld_addr           <= bld_addr + {{cvxif_req_i.register.rs[0][31:5]}, 2'b00};
+              st_addr           <= bst_addr + {{cvxif_req_i.register.rs[0][31:5]}, 2'b00};
             end
           end
         end
@@ -543,13 +552,13 @@ module coproc import coproc_pkg::*;
           end
           if(commit_valid) begin
             if(capture_rbuf63_32_ff) begin
-              shadow_reg                <= shadow_reg_spec | (shift_output & wmask);
-              xif_result_if.result.data <= op_load ? (shadow_reg_spec | (shift_output & wmask)) : '0;
-              xif_result_if.result.we   <= op_load;
+              shadow_reg                   <= shadow_reg_spec | (shift_output & wmask);
+              cvxif_resp_o.result.data     <= op_load ? (shadow_reg_spec | (shift_output & wmask)) : '0;
+              cvxif_resp_o.result.we       <= op_load;
             end else begin
-              shadow_reg                <= shadow_reg_spec;
-              xif_result_if.result.data <= op_load ? shadow_reg_spec & wmask : '0;
-              xif_result_if.result.we   <= op_load;
+              shadow_reg                   <= shadow_reg_spec;
+              cvxif_resp_o.result.data     <= op_load ? shadow_reg_spec & wmask : '0;
+              cvxif_resp_o.result.we       <= op_load;
             end
           end
         end

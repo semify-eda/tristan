@@ -3,8 +3,8 @@
 package soc_pkg;
 
     typedef enum logic{
-        INTERNAL = 1'b0,
-        EXTERNAL = 1'b1
+        INTERNAL = 1'b0, // inside SOC (i.e. D-MEM, I-MEM,...)
+        EXTERNAL = 1'b1 // external to SOC (i.e. over the OBI-WB bridge to SmartWave)
     } e_chip_sel;
 
     typedef enum logic[2:0] {
