@@ -11,7 +11,7 @@ module top_tb;
     logic core_rst_n;
     logic wfg_clk;
 
-    // allow fst dump
+    // VCD waveform dump (open with gtkwave top_tb.vcd)
     initial begin
         $dumpfile("top_tb.vcd");
         $dumpvars();
@@ -28,8 +28,6 @@ module top_tb;
     logic                    stb_wb;
     logic                    ack_wb;
     logic                    cyc_wb;
-    logic [31: 0]            wb_rdata_o; // dummy
-    logic                    wb_ack_o; // dummy
 
     // ----------------------------------
     //           Tristan Core
@@ -39,7 +37,7 @@ module top_tb;
         .SOC_ADDR_WIDTH    (SOC_ADDR_WIDTH),
         .RAM_ADDR_WIDTH    (RAM_ADDR_WIDTH),
         .BOOT_ADDR         (BOOT_ADDR),
-        .FIRMWARE_INITFILE ("firmware.mem")
+        .FIRMWARE_INITFILE ("firmwareXIF.mem")
     )
     i_tristan_soc
     (
@@ -60,23 +58,30 @@ module top_tb;
         .wb_ack_i       (ack_wb),
         .wb_cyc_o       (cyc_wb),
 
-        // WB input interface to access RAM
+        // WB input interface: allows external Wishbone master to access SRAM directly.
+        // Tied to '0 in this testbench — not exercised by the obi_wb_bridge_test.
         .wb_addr_i      ('0),
         .wb_wdata_i     ('0),
         .wb_wr_en_i     ('0),
         .wb_byte_en_i   ('0),
         .wb_stb_i       ('0),
         .wb_cyc_i       ('0),
-        .wb_rdata_o     (),
-        .wb_ack_o     ()
+        .wb_rdata_o     (   ),  // WB-to-RAM port unused in this testbench
+        .wb_ack_o       (   )   // WB-to-RAM port unused in this testbench
     );
 
-    logic timer_sel;
-    assign timer_sel = addr_wb[19:8] == 12'b111000000000;
+    // WFG timer wishbone base: bits [19:8] == 0xE00 (from wfg_pkg address map)
+    localparam logic [11:0] WFG_TIMER_ADDR_MSB = 12'b111000000000;
 
+    logic timer_sel;
+    assign timer_sel = addr_wb[19:8] == WFG_TIMER_ADDR_MSB;
 
     logic default_ack;
     logic [31:0] default_dat;
+    // Default wishbone responder: immediate ACK, zero read-data.
+    // Covers all peripheral addresses not explicitly decoded above.
+    assign default_ack = 1'b1;
+    assign default_dat = 32'h0;
     logic timer_ack;
     logic [31:0] timer_dat;
 

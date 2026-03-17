@@ -18,15 +18,16 @@ module tristan_soc
   import ariane_pkg::*;
 #(
   parameter SOC_ADDR_WIDTH    = 32,
-  parameter SOC_DATA_WIDTH    = 32,
   parameter RAM_ADDR_WIDTH    = 12,
   parameter RAM_DATA_WIDTH    = 32,
   parameter BOOT_ADDR         = 32'h00020000, // Keep in mind: if this changes, the e_block_sel arbiter needs to be changed as well
-  parameter DATA_START_ADDR   = 32'h00000000,
   parameter FIRMWARE_INITFILE = "../firmware.mem",
-  parameter DM_HALTADDRESS    = 32'h1A11_0800,
-  parameter NUM_MHPMCOUNTERS  = 1,
   parameter HART_ID           = 32'h0000_0000
+  // Removed CV32E40X-era parameters not used in CVA6 SoC:
+  //   SOC_DATA_WIDTH    — no data-width parameterisation needed (fixed 32-bit)
+  //   DATA_START_ADDR   — data SRAM start is fixed in soc_pkg address map
+  //   DM_HALTADDRESS    — debug transport module not instantiated
+  //   NUM_MHPMCOUNTERS  — hardware performance counters not instantiated
 )
 (
   // Clock and reset
@@ -221,8 +222,7 @@ module tristan_soc
   // CVXIF: co-processor
   coproc_cv32a60x #(
     .cvxif_req_t  (cvxif_req_t ),
-    .cvxif_resp_t (cvxif_resp_t),
-    .XLEN         (32          )
+    .cvxif_resp_t (cvxif_resp_t)
   ) i_coproc (
     .clk_i        (clk_i      ),
     .rst_ni       (rst_ni     ),

@@ -7,6 +7,12 @@ module rshifter32
 );
 
   assign q = (rotate_en == 1'b1) ?
-              ((d >> shift_amount) | (d << (5'd32 - shift_amount))) :
+              ({d, d} >> shift_amount)[31:0] :
               (d >> shift_amount);
+
+  // Old: Verilator issued a warning as 5'32 actually truncates to 5'b00000
+  // The above solution is the 'idiomatic double-concatenation trick', the standard textbook rotate-right
+  // assign q = (rotate_en == 1'b1) ?
+  //           ((d >> shift_amount) | (d << (5'd32 - shift_amount))) :
+  //           (d >> shift_amount);
 endmodule

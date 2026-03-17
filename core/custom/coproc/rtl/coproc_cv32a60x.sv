@@ -1,19 +1,11 @@
 `default_nettype none
 module coproc_cv32a60x import coproc_pkg::*;
 #(
-  // CVXIF struct types — passed as type parameters from the SoC wrapper
-  parameter type cvxif_req_t             = logic,
-  parameter type cvxif_resp_t            = logic,
-  // XIF capability parameters
-  parameter int unsigned X_NUM_RS        =  2,  // Number of register file read ports that can be used by the eXtension interface
-  parameter int unsigned X_ID_WIDTH      =  4,  // Width of ID field.
-  parameter int unsigned X_MEM_WIDTH     =  32, // Memory access width for loads/stores via the eXtension interface
-  parameter int unsigned X_RFR_WIDTH     =  32, // Register file read access width for the eXtension interface
-  parameter int unsigned X_RFW_WIDTH     =  32, // Register file write access width for the eXtension interface
-  parameter logic [31:0] X_MISA          =  '0, // MISA extensions implemented on the eXtension interface
-  parameter logic [ 1:0] X_ECS_XS        =  '0, // Default value for mstatus.XS
-  parameter int XLEN                     =  32,
-  parameter int FLEN                     =  32
+  // CVXIF struct types — passed as type parameters from the SoC wrapper.
+  // All XIF capability parameters (X_NUM_RS, X_ID_WIDTH, X_MEM_WIDTH, XLEN, etc.) that
+  // existed in the CV32E40X version are removed: their widths are now encoded in these structs.
+  parameter type cvxif_req_t  = logic,
+  parameter type cvxif_resp_t = logic
 )
 (
   input wire clk_i,
@@ -227,8 +219,8 @@ module coproc_cv32a60x import coproc_pkg::*;
         reg_rot = {{shadow_reg}, {shadow_reg}};
       end
       RMCC: begin
-        //!TODO rotate data_load_reg
-        //! this has not been tested yet
+        // NOT YET IMPLEMENTED: rotation of data_load_reg is unfinished.
+        // Treat as identity (no rotation) until the rotate logic is completed and tested.
         reg_rot = {{data_load_reg}, {data_load_reg}};
       end
       default: begin
@@ -471,7 +463,8 @@ module coproc_cv32a60x import coproc_pkg::*;
           end
         end
         MEM_RD1: begin
-
+          // No transition-action needed here:
+          // the OBI request is already driven in the next_state_ff clocked block above.
         end
         MEM_RD2: begin
           // first read data arrives one cycle after MEM_RD1 granted (registered RAM)
@@ -522,7 +515,7 @@ module coproc_cv32a60x import coproc_pkg::*;
             rd                <= cvxif_req_i.issue_req.instr[11:7];
           end
           if(cvxif_req_i.register_valid) begin
-            if(cvxif_req_i.register.rs_valid) begin
+            if(&cvxif_req_i.register.rs_valid) begin // all [1:0] bits must be 1 (reduction AND Operator)
               rs1               <= cvxif_req_i.register.rs[0];
               rs2               <= cvxif_req_i.register.rs[1];
 
