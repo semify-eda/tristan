@@ -37,7 +37,7 @@ module top_tb;
         .SOC_ADDR_WIDTH    (SOC_ADDR_WIDTH),
         .RAM_ADDR_WIDTH    (RAM_ADDR_WIDTH),
         .BOOT_ADDR         (BOOT_ADDR),
-        .FIRMWARE_INITFILE ("firmwareXIF.mem")
+        .FIRMWARE_INITFILE ("firmware.mem")
     )
     i_tristan_soc
     (
