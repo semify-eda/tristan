@@ -33,9 +33,11 @@ export PYTHONPATH := $(PYTHONPATH):$(TRISTAN_ROOT)/core/testbench/
 # ── Select Core to Use ─────────────────────────────────────────────────────────
 ifeq ($(CORE),cv32e40x)
 	SRC_FILES := $(CV32E40X_SRC_FILES)
+    EXTRA_ARGS    +=  -DCV32E40X
 endif
 ifeq ($(CORE),cv32a60x)
 	SRC_FILES := $(CVA6_SRC_FILES)
+	EXTRA_ARGS    +=  -DCV32A60X
 endif
 
 ifeq ($(SIM),verilator)
