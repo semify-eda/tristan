@@ -17,12 +17,12 @@ module coproc_cv32a60x import coproc_pkg::*;
 
   /* ========== Sideband OBI to DRAM port B ============ */
   output logic          obi_coproc_req,
-  input  logic          obi_coproc_gnt,
+  input  wire           obi_coproc_gnt,
   output logic          obi_coproc_we,
   output logic [31:0]   obi_coproc_addr,
   output logic [31:0]   obi_coproc_wdata,
-  input  logic          obi_coproc_rvalid,
-  input  logic [31:0]   obi_coproc_rdata
+  input  wire           obi_coproc_rvalid,
+  input  wire  [31:0]   obi_coproc_rdata
 
 // For reference, here is the translation from the old cv32e40x CVXIF:
 // cv32e40x_if_xif.coproc_compressed   xif_compressed_if,
@@ -560,3 +560,4 @@ module coproc_cv32a60x import coproc_pkg::*;
   end : data_state_actions
 
 endmodule
+`default_nettype wire

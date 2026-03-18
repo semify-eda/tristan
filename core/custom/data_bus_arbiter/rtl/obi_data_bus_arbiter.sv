@@ -33,11 +33,11 @@ module obi_data_bus_arbiter
   output obi_load_rsp_t   obi_cpudata_load_rsp_o,
 
   // -- OBI Master: Co-processor sideband --
-  input  logic        obi_coproc_req_i,
+  input  wire         obi_coproc_req_i,
   output logic        obi_coproc_gnt_o,
-  input  logic        obi_coproc_we_i,
-  input  logic [31:0] obi_coproc_addr_i,
-  input  logic [31:0] obi_coproc_wdata_i,
+  input  wire         obi_coproc_we_i,
+  input  wire  [31:0] obi_coproc_addr_i,
+  input  wire  [31:0] obi_coproc_wdata_i,
   output logic        obi_coproc_rvalid_o,
   output logic [31:0] obi_coproc_rdata_o,
 
@@ -46,17 +46,17 @@ module obi_data_bus_arbiter
   output logic                          obi_dram_we_o,
   output logic [RAM_DATA_WIDTH/8-1:0]   obi_dram_be_o,
   output logic [RAM_DATA_WIDTH-1:0]     obi_dram_wdata_o,
-  input  logic [RAM_DATA_WIDTH-1:0]     obi_dram_rdata_i,
+  input  wire  [RAM_DATA_WIDTH-1:0]     obi_dram_rdata_i,
 
   // -- OBI Slave: OBI-WB bridge (OBI side -- bridge instantiated in SoC) --
   output logic        obi_wb_req_o,
-  input  logic        obi_wb_gnt_i,
+  input  wire         obi_wb_gnt_i,
   output logic [31:0] obi_wb_addr_o,
   output logic        obi_wb_we_o,
   output logic [3:0]  obi_wb_be_o,
   output logic [31:0] obi_wb_wdata_o,
-  input  logic        obi_wb_rvalid_i,
-  input  logic [31:0] obi_wb_rdata_i
+  input  wire         obi_wb_rvalid_i,
+  input  wire  [31:0] obi_wb_rdata_i
 );
 
   /* =====================================================================
