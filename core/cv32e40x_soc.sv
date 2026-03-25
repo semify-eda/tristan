@@ -464,4 +464,28 @@ module tristan_soc import cv32e40x_pkg::*;
     .q_b      (dram2wb_data               )
   );
 
+    /* ===================================================================
+  *  Debug: monitor all DRAM port-A writes with co-proc state annotation.
+  *  Covers the full local-variable / stack region 0x3B00..0x3F00.
+  *  state 0=IDLE (CPU store), 5=MEM_WR1, 6=MEM_WR2 (co-proc).
+  *  Remove this block once the CVA6 corruption issue is resolved.
+  * ==================================================================== */
+  // synthesis translate_off
+  logic dram_we_a;
+  logic [31:0] dram_addr_a;
+  logic [31:0] dram_wdata_a;
+  logic [3:0] dram_be_a;
+  assign dram_we_a = gnt && select_dram && we ;
+  assign dram_addr_a = addr[RAM_ADDR_WIDTH + ALIGNMENT_OFFSET - 1 : ALIGNMENT_OFFSET];
+  assign dram_wdata_a = wdata;
+  assign dram_be_a = be;
+  always @(posedge clk_i) begin
+    if (dram_we_a && {dram_addr_a, 2'b00} >= 14'h3B00 && {dram_addr_a, 2'b00} <= 14'h3F00) begin
+      $display("[%0t ns] DRAM WRITE addr=0x%04h data=0x%08h be=0b%b  (coproc_state=%0d)",
+               $time, {dram_addr_a, 2'b00}, dram_wdata_a, dram_be_a,
+               coproc_inst.state_ff);
+    end
+  end
+  // synthesis translate_on
+
 endmodule

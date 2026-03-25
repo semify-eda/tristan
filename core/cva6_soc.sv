@@ -400,11 +400,11 @@ module tristan_soc
     .obi_coproc_rdata_o       (obi_coproc_rdata ),
 
     // DRAM port A
-    .obi_dram_addr_o          (dram_addr_a      ),
-    .obi_dram_we_o            (dram_we_a        ),
-    .obi_dram_be_o            (dram_be_a        ),
-    .obi_dram_wdata_o         (dram_wdata_a     ),
-    .obi_dram_rdata_i         (dram_rdata_a     ),
+    .obi_dmem_addr_o          (dram_addr_a      ),
+    .obi_dmem_we_o            (dram_we_a        ),
+    .obi_dmem_be_o            (dram_be_a        ),
+    .obi_dmem_wdata_o         (dram_wdata_a     ),
+    .obi_dmem_rdata_i         (dram_rdata_a     ),
 
     // OBI-WB bridge (OBI side)
     .obi_wb_req_o             (arb2wb_obi_req   ),
@@ -558,6 +558,22 @@ module tristan_soc
     .d_b    (wb2ram_data ),
     .q_b    (dram2wb_data)
   );
+
+  /* ===================================================================
+  *  Debug: monitor all DRAM port-A writes with co-proc state annotation.
+  *  Covers the full local-variable / stack region 0x3B00..0x3F00.
+  *  state 0=IDLE (CPU store), 5=MEM_WR1, 6=MEM_WR2 (co-proc).
+  *  Remove this block once the CVA6 corruption issue is resolved.
+  * ==================================================================== */
+  // synthesis translate_off
+  always @(posedge clk_i) begin
+    if (dram_we_a && {dram_addr_a, 2'b00} >= 14'h3B00 && {dram_addr_a, 2'b00} <= 14'h3F00) begin
+      $display("[%0t ns] DRAM WRITE addr=0x%04h data=0x%08h be=0b%b  (coproc_state=%0d)",
+               $time, {dram_addr_a, 2'b00}, dram_wdata_a, dram_be_a,
+               i_coproc.state_ff);
+    end
+  end
+  // synthesis translate_on
 
 endmodule
 `default_nettype wire

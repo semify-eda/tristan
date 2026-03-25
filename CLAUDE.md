@@ -183,6 +183,66 @@ The CVA6+XIF Vivado project lives under `vivado/wfg_cv32a60x/cva6_with_xif/` (re
 
 ## Known Issues
 
+### CVA6 `obi_data_bus_arbiter`: Flat bus corruption on concurrent requests (DRAM + WB)
+
+**File:** `core/custom/data_bus_arbiter/rtl/obi_data_bus_arbiter.sv`
+
+**Symptom:** When running with `CORE=cv32a60x`, the firmware's DATA decode produces mostly-zero decoded bits, and wfg memory writes are corrupted or incorrect. CVA6 can produce more decode iterations than cv32e40x (due to fix), but most samples are zero or wrong-valued.
+
+**Root cause (comprehensive):** The flat bus (addr, be, we, wdata) is driven by a priority mux that changes **on both DRAM and WB paths** when a higher-priority request arrives while `arb_busy=1`:
+
+1. **DRAM path:** A LOAD is in flight (arb_busy=1). A STORE arrives, forcing `sel_store=1`. The mux immediately redirects `data_addr` to the STORE address. The BRAM (1-cycle registered read) samples this wrong address at edge N+1, corrupting the LOAD's read data. Firmware reads wrong DRAM pointers/data → wrong output.
+
+2. **WB path (wfg memory writes):** A STORE to Wishbone (wfg memory write) is in flight (arb_busy=1, WB transaction in progress). A LOAD or COPROC request arrives, forcing the mux to switch to the new address/data. The WB bridge sees the new address mid-transaction and **corrupts the write to the wrong memory location**. This is the critical issue for wfg memory writes.
+
+CVA6 has separate OBI load/store buses with store having highest priority. After CLK decode writes ~4 stack STOREs to DRAM, these drain concurrently with DATA struct LOADs and WB writes, triggering the race on both paths.
+
+**Fix applied:** Latch the **ENTIRE flat bus atomically** (addr, be, we, wdata, select_dram, select_wb) when a transaction is accepted. While `arb_busy=1`, use the latched values; while idle, use the live mux:
+
+```sv
+// Latch entire transaction when accepted (granted)
+always_ff @(posedge clk_i, negedge rst_ni) begin
+  if (!rst_ni) begin
+    flat_addr_latch        <= '0;
+    flat_be_latch          <= '0;
+    flat_we_latch          <= '0;
+    flat_wdata_latch       <= '0;
+    flat_select_dram_latch <= '0;
+    flat_select_wb_latch   <= '0;
+  end else if (!arb_busy && flat_req && (!flat_select_wb || obi_wb_gnt_i)) begin
+    // BRAM: grant fires immediately when !flat_select_wb
+    // WB:   grant fires only when obi_wb_gnt_i=1
+    flat_addr_latch        <= flat_addr;
+    flat_be_latch          <= flat_be;
+    flat_we_latch          <= flat_we;
+    flat_wdata_latch       <= flat_wdata;
+    flat_select_dram_latch <= flat_select_dram;
+    flat_select_wb_latch   <= flat_select_wb;
+  end
+end
+
+// Mux between latched (busy) and live (idle)
+assign flat_addr_active        = arb_busy ? flat_addr_latch        : flat_addr;
+assign flat_be_active          = arb_busy ? flat_be_latch          : flat_be;
+assign flat_we_active          = arb_busy ? flat_we_latch          : flat_we;
+assign flat_wdata_active       = arb_busy ? flat_wdata_latch       : flat_wdata;
+assign flat_select_dram_active = arb_busy ? flat_select_dram_latch : flat_select_dram;
+assign flat_select_wb_active   = arb_busy ? flat_select_wb_latch   : flat_select_wb;
+
+// Both DRAM and WB outputs use *_active
+assign obi_dram_addr_o  = flat_addr_active[...];
+assign obi_wb_addr_o    = flat_addr_active;
+assign obi_wb_wdata_o   = flat_wdata_active;
+```
+
+This ensures both paths stay consistent: DRAM reads correct data, WB writes to the correct address even if a competing request arrives mid-transaction.
+
+**Naming change:** All signals renamed from `data_` to `flat_` for clarity (flat_addr, flat_req, flat_gnt, flat_rvalid, etc.) since they represent the muxed flat bus serving both DRAM and WB.
+
+**Priority order:** Store (highest) > Load > Co-processor (lowest). Load has higher priority than co-processor since both CPU load and store should take precedence over the co-processor sideband.
+
+**Note:** This only affects CVA6. CV32E40X uses `ram_arbiter` (single data bus, no separate store/load) and `core_sram.sv` (flat `ram[]`), so this race does not occur.
+
 ### Verilator 5.046 `--timing` bug
 
 **Never use `--timing`.** Use `--no-timing --Wno-fatal` instead.

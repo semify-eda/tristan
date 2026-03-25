@@ -1,6 +1,11 @@
 // 0. Verilator waiver file (suppresses warnings from upstream CVA6 IP)
 $(TRISTAN_ROOT)/core/cva6_upstream_waivers.vlt
 
+// 0. Include directories
++incdir+$(TRISTAN_ROOT)/core/cva6/vendor/pulp-platform/obi/include
++incdir+$(TRISTAN_ROOT)/core/cva6/core/include
++incdir+$(TRISTAN_ROOT)/core/cva6/vendor/pulp-platform/common_cells/include/
+
 // 1. Packages (must come before any module that imports them)
 $(TRISTAN_ROOT)/core/include/soc_pkg.sv
 $(TRISTAN_ROOT)/core/cva6/core/include/cv32a60x_config_pkg.sv
@@ -9,13 +14,8 @@ $(TRISTAN_ROOT)/core/cva6/core/include/config_pkg.sv
 $(TRISTAN_ROOT)/core/cva6/core/include/riscv_pkg.sv
 $(TRISTAN_ROOT)/core/cva6/vendor/pulp-platform/common_cells/src/cf_math_pkg.sv
 $(TRISTAN_ROOT)/core/cva6/vendor/pulp-platform/obi/src/obi_pkg.sv
-// $(TRISTAN_ROOT)/core/cva6/core/cvfpu/src/fpnew_pkg.sv
 $(TRISTAN_ROOT)/core/cva6/core/include/ariane_pkg.sv
-// $(TRISTAN_ROOT)/core/cva6/core/include/wt_cache_pkg.sv
-// $(TRISTAN_ROOT)/core/cva6/core/include/std_cache_pkg.sv
-// $(TRISTAN_ROOT)/core/cva6/core/include/instr_tracer_pkg.sv
 $(TRISTAN_ROOT)/core/cva6/core/include/build_config_pkg.sv
-// $(TRISTAN_ROOT)/core/cva6/vendor/pulp-platform/axi/src/axi_pkg.sv
 
 // 2. Behavioral Clock Gate (primitive for simulation)
 // $(TRISTAN_ROOT)/core/cv32e40x/bhv/cv32e40x_sim_clock_gate.sv
@@ -173,12 +173,4 @@ $(TRISTAN_ROOT)/core/core_sram_patched.sv
 // $(TRISTAN_ROOT)/core/core_sram_xpm.sv
 $(TRISTAN_ROOT)/core/cva6_soc.sv
 
-// 7. Include directories
-// +incdir+$(TRISTAN_ROOT)/core/include/
-// +incdir+$(WFG_ROOT)/design/pkg/
-+incdir+$(TRISTAN_ROOT)/core/cva6/vendor/pulp-platform/obi/include
-+incdir+$(TRISTAN_ROOT)/core/cva6/core/include
-+incdir+$(TRISTAN_ROOT)/core/cva6/vendor/pulp-platform/common_cells/include/
-// +incdir+$(TRISTAN_ROOT)/core/cva6/vendor/pulp-platform/common_cells/src/
-// +incdir+$(TRISTAN_ROOT)/core/cva6/vendor/pulp-platform/axi/include/
-// +incdir+$(TRISTAN_ROOT)/core/cva6/common/local/util/
+

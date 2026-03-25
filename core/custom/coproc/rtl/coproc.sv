@@ -225,13 +225,10 @@ module coproc import coproc_pkg::*;
 
   // capture the shifted write mask only on the first cycle of MEM_RD1
   assign capture_cnt_unary  = state_ff != MEM_RD1 & state_next == MEM_RD1;
-
   // capture the shifted rbuf[31:0] value only on the first cycle of MEM_RD2 on a load
   assign capture_rbuf31_0   = state_ff != MEM_RD2 & state_next == MEM_RD2 & op_load;
-
   // capture the shifted rbuf[63:32] value only on the first cycle of UPDATE on a load
   assign capture_rbuf63_32  = state_ff != UPDATE & state_next == UPDATE & op_load;
-
   // capture the shifted shadow register only on the first cycle of MEM_RD2 on a store
   assign capture_shadow_reg = state_ff != MEM_RD2 & state_next == MEM_RD2 & op_store;
 

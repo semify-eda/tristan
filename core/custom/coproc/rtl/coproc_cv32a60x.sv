@@ -116,10 +116,40 @@ module coproc_cv32a60x import coproc_pkg::*;
   logic [4:0]     rd; //! this doesnt work on the xif, problem with CV32E40X
   logic [ 3:0]    id;
   logic           issue_valid_ff;
+  logic           register_valid_ff;  // sticky: register values have been captured
   logic           commit_valid,     commit_valid_ff;
 
   /* ====================== Memory Signals ====================== */
   logic [31:0]    mem_rdata;
+
+  /* ====================== OBI Safety Guard ====================== */
+  // OBI protocol: rvalid must always follow a prior gnt.  In this design
+  // the arbiter's arb_busy flag prevents a second transaction from being
+  // accepted between gnt and rvalid, so a spurious rvalid without a
+  // preceding gnt cannot occur in practice.  gnt_received_ff makes that
+  // invariant explicit and prevents the state machine from advancing on a
+  // rvalid that was never preceded by a gnt (e.g. during reset glitches or
+  // future arbiter changes).
+  //
+  // obi_coproc_rvalid_guarded is used everywhere in the state machine
+  // instead of the raw obi_coproc_rvalid.  The extra term (|| obi_coproc_gnt)
+  // handles zero-wait-state targets where gnt and rvalid can arrive on the
+  // same cycle, before gnt_received_ff has a chance to register.
+  logic           gnt_received_ff;
+
+  always_ff @(posedge clk_i, negedge rst_ni) begin : obi_gnt_tracker
+    if (~rst_ni) begin
+      gnt_received_ff <= '0;
+    end else begin
+      if (obi_coproc_gnt) begin
+        gnt_received_ff <= '1;
+      end else if (obi_coproc_rvalid) begin
+        gnt_received_ff <= '0;
+      end
+    end
+  end : obi_gnt_tracker
+
+  wire obi_coproc_rvalid_guarded = obi_coproc_rvalid && (gnt_received_ff || obi_coproc_gnt);
 
 
   /* ============== Submodule & Type Instatiations =============== */
@@ -149,16 +179,32 @@ module coproc_cv32a60x import coproc_pkg::*;
     if(~rst_ni) begin
       commit_valid_ff     <= '0;
       issue_valid_ff      <= '0;
+      register_valid_ff   <= '0;
     end else begin
       if(cvxif_req_i.commit_valid) begin
         commit_valid_ff     <= '1;
       end else if(cvxif_resp_o.result_valid) begin
         commit_valid_ff     <= '0;
       end
-      if(cvxif_req_i.issue_valid) begin
+      // Only latch when the instruction is accepted (op_valid=accept=1).
+      // A non-accepted dispatch (spurious or non-custom opcode) must not
+      // leave issue_valid_ff stuck high — result_valid is never asserted
+      // for rejected instructions, so the sticky bit would never clear.
+      if(cvxif_req_i.issue_valid && op_valid) begin
         issue_valid_ff      <= '1;
-      end else if(cvxif_resp_o.result_valid) begin
+      end else if(cvxif_resp_o.result_valid ||
+                  (cvxif_req_i.issue_valid && !op_valid)) begin
         issue_valid_ff      <= '0;
+      end
+      // Sticky flag: register values have been received on the register channel.
+      // CVA6 CVXIF sends register_valid potentially one or more cycles after
+      // issue_valid (unlike CV32E40X where rs arrive with issue_req).
+      // We must not enter MEM_RD1 before ld_addr/st_addr are updated.
+      if(cvxif_req_i.register_valid && &cvxif_req_i.register.rs_valid) begin
+        register_valid_ff   <= '1;
+      end else if(cvxif_resp_o.result_valid ||
+                  (cvxif_req_i.issue_valid && !op_valid)) begin
+        register_valid_ff   <= '0;
       end
     end
   end : commit_monitor
@@ -268,13 +314,10 @@ module coproc_cv32a60x import coproc_pkg::*;
 
   // capture the shifted write mask only on the first cycle of MEM_RD1
   assign capture_cnt_unary  = state_ff != MEM_RD1 & next_state_ff == MEM_RD1;
-
   // capture the shifted rbuf[31:0] value only on the first cycle of MEM_RD2 on a load
   assign capture_rbuf31_0   = state_ff != MEM_RD2 & next_state_ff == MEM_RD2 & op_load;
-
   // capture the shifted rbuf[63:32] value only on the first cycle of UPDATE on a load
   assign capture_rbuf63_32  = state_ff != UPDATE & next_state_ff == UPDATE & op_load;
-
   // capture the shifted shadow register only on the first cycle of MEM_RD2 on a store
   assign capture_shadow_reg = state_ff != MEM_RD2 & next_state_ff == MEM_RD2 & op_store;
 
@@ -310,7 +353,7 @@ module coproc_cv32a60x import coproc_pkg::*;
     end else begin
       unique case(state_ff)
         IDLE:
-          if(issue_valid_ff) begin
+          if(issue_valid_ff && register_valid_ff) begin
             if(op_valid) begin
               next_state_ff = cfg ? CFG : MEM_RD1;
             end else begin
@@ -322,11 +365,11 @@ module coproc_cv32a60x import coproc_pkg::*;
             next_state_ff = RETIRE;
           end
         MEM_RD1:
-          if(obi_coproc_gnt) begin            // moved to OBI
+          if(obi_coproc_rvalid_guarded) begin    // advance only when read response is valid (rvalid), not at gnt
             next_state_ff = MEM_RD2;
           end
         MEM_RD2:
-          if(obi_coproc_gnt) begin
+          if(obi_coproc_rvalid_guarded) begin    // advance only when second read response is valid
             next_state_ff = UPDATE;
           end
         UPDATE:
@@ -334,11 +377,11 @@ module coproc_cv32a60x import coproc_pkg::*;
             next_state_ff = op_load ? RETIRE : MEM_WR1;
           end
         MEM_WR1:
-          if(obi_coproc_gnt) begin
+          if(obi_coproc_rvalid_guarded) begin    // advance only when first write response is valid (rvalid), not at gnt
             next_state_ff = MEM_WR2;
           end
         MEM_WR2:
-          if(obi_coproc_gnt) begin
+          if(obi_coproc_rvalid_guarded) begin    // advance only when second write response is valid
             next_state_ff = STALL;
           end
         STALL:
@@ -386,8 +429,8 @@ module coproc_cv32a60x import coproc_pkg::*;
           // no byte enable needed on the OBI sideband anymore
         end
         MEM_RD2: begin
-          // first read granted — issue second read (word 1, addr+4)
-          if(obi_coproc_gnt) begin
+          // first read complete (rvalid) — issue second read (word 1, addr+4)
+          if(obi_coproc_rvalid_guarded) begin
             obi_coproc_addr                        <= (op_load ? ld_addr : st_addr) + 32'd4;
           end
         end
@@ -401,8 +444,8 @@ module coproc_cv32a60x import coproc_pkg::*;
           obi_coproc_addr                          <= st_addr;
         end
         MEM_WR2: begin
-          // first write granted — issue second write (word 1, addr+4)
-          if(obi_coproc_gnt) begin
+          // first write complete (rvalid) — set up second write address (word 1, addr+4)
+          if(obi_coproc_rvalid_guarded) begin
             obi_coproc_addr                        <= st_addr + 32'd4;
           end
         end
@@ -410,7 +453,11 @@ module coproc_cv32a60x import coproc_pkg::*;
           obi_coproc_req                           <= '0;          // both writes issued; stop OBI
         end
         RETIRE: begin
-          cvxif_resp_o.issue_ready         <= '1;
+          // Do NOT set issue_ready here. CVA6 pipelines aggressively: asserting
+          // issue_ready in RETIRE causes it to issue the next instruction while
+          // state_ff is still RETIRE, which means the data_state_actions IDLE
+          // captures (rs1/rs2/ld_addr/st_addr/id/instr) never fire for that
+          // instruction. issue_ready is set in the IDLE case below.
           cvxif_resp_o.result_valid        <= '1;
           cvxif_resp_o.result.id           <= id;
           cvxif_resp_o.result.rd           <= rd;
@@ -467,14 +514,14 @@ module coproc_cv32a60x import coproc_pkg::*;
           // the OBI request is already driven in the next_state_ff clocked block above.
         end
         MEM_RD2: begin
-          // first read data arrives one cycle after MEM_RD1 granted (registered RAM)
-          if(obi_coproc_rvalid) begin
+          // first read response valid (rvalid) — capture word 0 read data
+          if(obi_coproc_rvalid_guarded) begin
             rbuf[31:0]              <= obi_coproc_rdata;
           end
         end
         UPDATE: begin
-          // second read data arrives one cycle after MEM_RD2 granted
-          if(obi_coproc_rvalid) begin
+          // second read response valid (rvalid) — capture word 1 read data
+          if(obi_coproc_rvalid_guarded) begin
             rbuf[63:32]             <= obi_coproc_rdata;
           end
         end
@@ -482,8 +529,8 @@ module coproc_cv32a60x import coproc_pkg::*;
           obi_coproc_wdata                  <= wbuf[31:0];
         end
         MEM_WR2: begin
-          // first write granted — load second word for transmission
-          if(obi_coproc_gnt) begin
+          // first write complete (rvalid) — load second word into wdata register
+          if(obi_coproc_rvalid_guarded) begin
             obi_coproc_wdata                <= wbuf[63:32];
           end
         end
