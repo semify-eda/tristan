@@ -1,5 +1,5 @@
 // 0. Verilator waiver file (suppresses warnings from upstream CVA6 IP)
-$(TRISTAN_ROOT)/core/cva6_upstream_waivers.vlt
+// $(TRISTAN_ROOT)/core/cva6_upstream_waivers.vlt
 
 // 0. Include directories
 +incdir+$(TRISTAN_ROOT)/core/cva6/vendor/pulp-platform/obi/include

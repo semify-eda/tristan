@@ -36,12 +36,15 @@ module tristan_soc import cv32e40x_pkg::*;
   input  wire                         wb_ack_i,
   output logic                        wb_cyc_o,
 
-  // WB input interface to access SoC RAM
+  // WB input interface to access SoC RAM (firmware and data pre-loading only)
+  // All writes are full 32-bit words; wb_byte_en_i is declared for port
+  // compatibility but intentionally not connected — wb_ram_interface and
+  // core_sram do not support sub-word byte enables on the WB port.
   input  wire  [SOC_ADDR_WIDTH-1:0]   wb_addr_i,
   output logic [31: 0]                wb_rdata_o,
   input  wire  [31: 0]                wb_wdata_i,
   input  wire                         wb_wr_en_i,
-  input  wire  [ 3: 0]                wb_byte_en_i,
+  input  wire  [ 3: 0]                wb_byte_en_i, /* unused — see comment above */
   input  wire                         wb_stb_i,
   output logic                        wb_ack_o,
   input  wire                         wb_cyc_i
@@ -463,29 +466,5 @@ module tristan_soc import cv32e40x_pkg::*;
     .d_b      (wb2ram_data                ),
     .q_b      (dram2wb_data               )
   );
-
-    /* ===================================================================
-  *  Debug: monitor all DRAM port-A writes with co-proc state annotation.
-  *  Covers the full local-variable / stack region 0x3B00..0x3F00.
-  *  state 0=IDLE (CPU store), 5=MEM_WR1, 6=MEM_WR2 (co-proc).
-  *  Remove this block once the CVA6 corruption issue is resolved.
-  * ==================================================================== */
-  // synthesis translate_off
-  logic dram_we_a;
-  logic [31:0] dram_addr_a;
-  logic [31:0] dram_wdata_a;
-  logic [3:0] dram_be_a;
-  assign dram_we_a = gnt && select_dram && we ;
-  assign dram_addr_a = addr[RAM_ADDR_WIDTH + ALIGNMENT_OFFSET - 1 : ALIGNMENT_OFFSET];
-  assign dram_wdata_a = wdata;
-  assign dram_be_a = be;
-  always @(posedge clk_i) begin
-    if (dram_we_a && {dram_addr_a, 2'b00} >= 14'h3B00 && {dram_addr_a, 2'b00} <= 14'h3F00) begin
-      $display("[%0t ns] DRAM WRITE addr=0x%04h data=0x%08h be=0b%b  (coproc_state=%0d)",
-               $time, {dram_addr_a, 2'b00}, dram_wdata_a, dram_be_a,
-               coproc_inst.state_ff);
-    end
-  end
-  // synthesis translate_on
 
 endmodule

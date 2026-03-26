@@ -50,19 +50,19 @@ module tristan_soc
   input  wire                         wb_ack_i,
   output logic                        wb_cyc_o,
 
-  // WB input interface to access SoC RAM
+  // WB input interface to access SoC RAM (firmware and data pre-loading only)
+  // All writes are full 32-bit words; wb_byte_en_i is declared for port
+  // compatibility but intentionally not connected — wb_ram_interface and
+  // soc_sram_dualport port B do not support sub-word byte enables.
   input  wire  [SOC_ADDR_WIDTH-1:0]   wb_addr_i,
   output logic [31: 0]                wb_rdata_o,
   input  wire  [31: 0]                wb_wdata_i,
   input  wire                         wb_wr_en_i,
-  input  wire  [ 3: 0]                wb_byte_en_i,
+  input  wire  [ 3: 0]                wb_byte_en_i, /* unused — see comment above */
   input  wire                         wb_stb_i,
   output logic                        wb_ack_o,
   input  wire                         wb_cyc_i
 );
-
-  // cv32a60x has no core_sleep output - PS: We keep it for now to not change ports
-  assign soc_core_sleep_o = 1'b0;
 
   /* =====================================================================
   *                  CVA6 Configuration
@@ -129,10 +129,11 @@ module tristan_soc
 
   /* =====================================================================
   *                  OBI Bus Types
+  *
+  *  CVA6 cv32a60x exposes four separate OBI buses (fetch, store, load, amo)
+  *  each with their own parameterised type generated from the core config.
+  *  The macro OBI_LOCALPARAM_TYPE_ALL produces _req_t / _rsp_t pairs.
   * ====================================================================== */
-// General Remark: The OBI Bus changed from two buses using scalars to 4 buses using structs
-// CLAUDE did this change and we just verify that it is correct, without thinking too much about the new Bus.
-
   `OBI_LOCALPARAM_TYPE_ALL(obi_fetch, CVA6Cfg.ObiFetchbusCfg);
   `OBI_LOCALPARAM_TYPE_ALL(obi_store, CVA6Cfg.ObiStorebusCfg);
   `OBI_LOCALPARAM_TYPE_ALL(obi_amo,   CVA6Cfg.ObiAmobusCfg);
@@ -205,7 +206,14 @@ module tristan_soc
 
   /* =====================================================================
   *                  Tie-offs for Inactive / Cache Ports
+  *
+  *  cv32a60x is configured with PipelineOnly=1 (no cache subsystem),
+  *  MmuPresent=0, RVZCMT=0, and RVA=0.  The ports for these features
+  *  still exist on cva6_pipeline but are permanently tied off here.
   * ====================================================================== */
+
+  // cv32a60x has no core_sleep output; keep the port for drop-in compatibility
+  assign soc_core_sleep_o = 1'b0;
 
   // Old-style fetch channel: always ready (no cache subsystem, PipelineOnly=1)
   assign fetch_rsp.ready        = 1'b1;
@@ -558,22 +566,6 @@ module tristan_soc
     .d_b    (wb2ram_data ),
     .q_b    (dram2wb_data)
   );
-
-  /* ===================================================================
-  *  Debug: monitor all DRAM port-A writes with co-proc state annotation.
-  *  Covers the full local-variable / stack region 0x3B00..0x3F00.
-  *  state 0=IDLE (CPU store), 5=MEM_WR1, 6=MEM_WR2 (co-proc).
-  *  Remove this block once the CVA6 corruption issue is resolved.
-  * ==================================================================== */
-  // synthesis translate_off
-  always @(posedge clk_i) begin
-    if (dram_we_a && {dram_addr_a, 2'b00} >= 14'h3B00 && {dram_addr_a, 2'b00} <= 14'h3F00) begin
-      $display("[%0t ns] DRAM WRITE addr=0x%04h data=0x%08h be=0b%b  (coproc_state=%0d)",
-               $time, {dram_addr_a, 2'b00}, dram_wdata_a, dram_be_a,
-               i_coproc.state_ff);
-    end
-  end
-  // synthesis translate_on
 
 endmodule
 `default_nettype wire

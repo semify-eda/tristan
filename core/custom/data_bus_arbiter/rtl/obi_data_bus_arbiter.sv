@@ -3,11 +3,22 @@
 // Arbitrates 3 OBI masters (CPU store, CPU load, co-processor) onto 2 OBI
 // slaves (D-MEM port A, OBI-WB bridge).
 //
-// Priority: store (highest) > co-processor > load (lowest)
+// Priority: store (highest) > load > co-processor (lowest)
+//   CPU load takes priority over the co-processor so that neither CPU path
+//   is ever blocked by a co-processor sideband transaction.
 //
-// Address decode on addr[20]:
-//   INTERNAL (addr[20]=0, block_sel=D-MEM) -> SRAM port A (1-cycle SRAM)
-//   EXTERNAL (addr[20]=1)                 -> OBI-WB bridge (multi-cycle)
+// Address decode on flat_addr[20] / flat_addr[19:17]:
+//   INTERNAL (chip_sel=0, block_sel=DRAM) -> SRAM port A (1-cycle registered read)
+//   EXTERNAL (chip_sel=1)                 -> OBI-WB bridge (multi-cycle)
+//
+// Transaction timing (D-MEM path):
+//   Cycle N   : master asserts req, arbiter accepts (arb_busy, arb_sel_*_q set).
+//   Cycle N+1 : flat_gnt=1; SRAM write enable asserted (we_o); rvalid registered.
+//   Cycle N+2 : flat_rvalid=1; SRAM read data valid on rdata; arb_busy cleared.
+//
+// wdata note: The co-processor may present valid wdata one cycle after asserting
+// req (OBI-compliant: data must be stable at gnt, not at req).  flat_wdata_active
+// therefore reads the live master signal rather than the latched req-cycle value.
 
 `default_nettype none
 import soc_pkg::*;
@@ -127,14 +138,21 @@ module obi_data_bus_arbiter
   /* =====================================================================
   *                  Flat Bus Latch
   *
-  *  The flat bus signals are latched when a transaction
-  *  is accepted to prevent mid-transaction corruption if a higher-priority
-  *  request arrives while one is already in flight (arb_busy=1).
+  *  addr, be, we, and select signals are latched atomically when a
+  *  transaction is accepted.  While arb_busy=1, the *_active signals use
+  *  these latched values so that a higher-priority request arriving after
+  *  acceptance cannot corrupt the in-flight address or control signals.
+  *
+  *  wdata is NOT latched for the active path — see flat_wdata_active below.
+  *
+  *  Capture condition:
+  *    D-MEM: !arb_busy && flat_req  (grant is always accepted immediately)
+  *    WB:    !arb_busy && flat_req && obi_wb_gnt_i  (grant comes from bridge)
   * ====================================================================== */
   logic [31:0]  flat_addr_latch;
   logic [3:0]   flat_be_latch;
   logic         flat_we_latch;
-  logic [31:0]  flat_wdata_latch;
+  logic [31:0]  flat_wdata_latch;       // captured but unused in active mux; kept for reset symmetry
   logic         flat_select_dmem_latch;
   logic         flat_select_wb_latch;
 
@@ -147,19 +165,16 @@ module obi_data_bus_arbiter
       flat_select_dmem_latch  <= '0;
       flat_select_wb_latch    <= '0;
     end else if (!arb_busy && flat_req && (!flat_select_wb || obi_wb_gnt_i)) begin
-      // Capture entire transaction atomically when it's accepted (granted).
-      // D-MEM: grant fires immediately when !arb_busy && flat_req && !flat_select_wb
-      // WB:   grant fires only when obi_wb_gnt_i=1 && !arb_busy && flat_req && flat_select_wb
       flat_addr_latch         <= flat_addr;
       flat_be_latch           <= flat_be;
       flat_we_latch           <= flat_we;
-      flat_wdata_latch        <= flat_wdata;
+      flat_wdata_latch        <= flat_wdata;   // kept in sync; not used by flat_wdata_active
       flat_select_dmem_latch  <= flat_select_dmem;
       flat_select_wb_latch    <= flat_select_wb;
     end
   end
 
-  // Use latch while busy; mux while idle
+  // Active signals: latch while busy (addr/be/we/select), live while idle.
   logic [31:0]  flat_addr_active;
   logic [3:0]   flat_be_active;
   logic         flat_we_active;
@@ -170,9 +185,24 @@ module obi_data_bus_arbiter
   assign flat_addr_active         = arb_busy ? flat_addr_latch         : flat_addr;
   assign flat_be_active           = arb_busy ? flat_be_latch           : flat_be;
   assign flat_we_active           = arb_busy ? flat_we_latch           : flat_we;
-  assign flat_wdata_active        = arb_busy ? flat_wdata_latch        : flat_wdata;
   assign flat_select_dmem_active  = arb_busy ? flat_select_dmem_latch  : flat_select_dmem;
   assign flat_select_wb_active    = arb_busy ? flat_select_wb_latch    : flat_select_wb;
+
+  // wdata: use live signal from the owning master while busy.
+  //
+  // OBI protocol requires wdata to be stable at gnt, not necessarily at req.
+  // The CVA6 co-processor presents valid wdata one cycle after asserting req
+  // (the cycle flat_gnt fires).  Latching wdata at the req/accept cycle (like
+  // addr) would freeze the stale pre-gnt value and write wrong data to SRAM.
+  //
+  // Using the live signal of the owning master (identified by arb_sel_*_q) is
+  // safe: no competing master can change the mux while arb_busy=1, because
+  // flat_req is suppressed (line above) and only the owner holds req=1.
+  assign flat_wdata_active        = arb_busy ?
+      (arb_sel_store_q  ? obi_cpudata_store_req_i.a.wdata :
+       arb_sel_coproc_q ? obi_coproc_wdata_i              :
+                          obi_cpudata_load_req_i.a.wdata)  :
+      flat_wdata;
 
   /* =====================================================================
   *                  D-MEM Port A
@@ -194,8 +224,16 @@ module obi_data_bus_arbiter
   /* =====================================================================
   *                  Grant + Arbitration FSM
   *
-  *  D-MEM path: single-cycle grant (flat_gnt = 1 immediately)
-  *  WB path:   multi-cycle grant (flat_gnt follows obi_wb_gnt_i)
+  *  All outputs are registered — flat_gnt fires one cycle after acceptance.
+  *
+  *  D-MEM path:
+  *    Cycle N   : flat_req=1 & !arb_busy → arb_busy, arb_sel_*_q, flat_gnt set.
+  *    Cycle N+1 : flat_gnt=1, arb_busy=1; SRAM write enable asserted.
+  *    Cycle N+2 : flat_rvalid=1; SRAM read data valid; arb_busy cleared.
+  *
+  *  WB path:
+  *    flat_gnt follows obi_wb_gnt_i (multi-cycle handshake with bridge).
+  *    flat_rvalid follows obi_wb_rvalid_i.
   * ====================================================================== */
   always_ff @(posedge clk_i, negedge rst_ni) begin
     if (!rst_ni) begin
@@ -253,8 +291,16 @@ module obi_data_bus_arbiter
   /* =====================================================================
   *                  Response Routing (flat bus -> correct OBI master)
   *
-  *  arb_sel_*_q are stable once busy=1; on the gnt cycle (busy still 0,
-  *  sel_*_q not yet updated) use sel_store/sel_coproc to override routing.
+  *  arb_sel_*_q and arb_busy are set together at the accept edge, so they
+  *  are always consistent: when busy=1 the sel_*_q fields correctly identify
+  *  the owner of the in-flight transaction.
+  *
+  *  The !arb_busy override block handles the idle state: arb_sel_*_q may
+  *  still reflect the previous transaction after busy clears, so all gnt
+  *  outputs are re-zeroed and rerouted via the current combinatorial sel_*
+  *  signals.  Because flat_gnt=0 when idle, this has no functional effect
+  *  on gnt; it prevents stale arb_sel_*_q from spuriously asserting gnt on
+  *  the first cycle after a transaction completes.
   * ====================================================================== */
   always_comb begin
     obi_cpudata_store_rsp_o = '0;

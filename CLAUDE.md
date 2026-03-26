@@ -183,65 +183,49 @@ The CVA6+XIF Vivado project lives under `vivado/wfg_cv32a60x/cva6_with_xif/` (re
 
 ## Known Issues
 
-### CVA6 `obi_data_bus_arbiter`: Flat bus corruption on concurrent requests (DRAM + WB)
+### CVA6 `obi_data_bus_arbiter`: Flat bus corruption — **FIXED**
 
 **File:** `core/custom/data_bus_arbiter/rtl/obi_data_bus_arbiter.sv`
 
-**Symptom:** When running with `CORE=cv32a60x`, the firmware's DATA decode produces mostly-zero decoded bits, and wfg memory writes are corrupted or incorrect. CVA6 can produce more decode iterations than cv32e40x (due to fix), but most samples are zero or wrong-valued.
+**Symptom (resolved):** When running with `CORE=cv32a60x`, the co-processor's RMST instruction wrote 0 to DRAM instead of the computed value. This caused the wfg stimuli SRAM to receive wrong sample data, producing incorrect DAC output (`d_a=5` instead of `d_a=4`). CV32E40X was unaffected.
 
-**Root cause (comprehensive):** The flat bus (addr, be, we, wdata) is driven by a priority mux that changes **on both DRAM and WB paths** when a higher-priority request arrives while `arb_busy=1`:
+#### Root cause
 
-1. **DRAM path:** A LOAD is in flight (arb_busy=1). A STORE arrives, forcing `sel_store=1`. The mux immediately redirects `data_addr` to the STORE address. The BRAM (1-cycle registered read) samples this wrong address at edge N+1, corrupting the LOAD's read data. Firmware reads wrong DRAM pointers/data → wrong output.
+CVA6 exposes separate OBI store and load buses. The arbiter's `flat_wdata` mux is combinatorial and priority-driven: `store > load > co-processor`. When the co-processor entered state MEM_WR1 and asserted `obi_coproc_req_i=1`, it presented `obi_coproc_wdata_i=0` on the first cycle — this is **OBI-compliant**: the protocol only requires wdata to be stable at the grant cycle, not at the request cycle.
 
-2. **WB path (wfg memory writes):** A STORE to Wishbone (wfg memory write) is in flight (arb_busy=1, WB transaction in progress). A LOAD or COPROC request arrives, forcing the mux to switch to the new address/data. The WB bridge sees the new address mid-transaction and **corrupts the write to the wrong memory location**. This is the critical issue for wfg memory writes.
+The arbiter latched the entire flat bus (including wdata) at the **request-acceptance cycle** (cycle N), capturing `wdata=0`. One cycle later (cycle N+1, when `flat_gnt=1`), the co-processor had updated `obi_coproc_wdata_i` to the correct value (`0x0ebe0000`), but the SRAM write used the already-frozen latch value of 0.
 
-CVA6 has separate OBI load/store buses with store having highest priority. After CLK decode writes ~4 stack STOREs to DRAM, these drain concurrently with DATA struct LOADs and WB writes, triggering the race on both paths.
+On CV32E40X there is no latch — its `ram_arbiter` drives SRAM signals combinatorially — so the SRAM always sees the live wdata at the write edge, which happens to be the cycle when the co-processor's data is ready.
 
-**Fix applied:** Latch the **ENTIRE flat bus atomically** (addr, be, we, wdata, select_dram, select_wb) when a transaction is accepted. While `arb_busy=1`, use the latched values; while idle, use the live mux:
+#### Simulation evidence
+
+Both cores write `0x000000000ebe0000` to `wbuf` at an earlier RMLD. Wbuf resets to 0 one to two clocks before the critical MEM_WR1. At MEM_WR1: CV32E40X's `d_a` (SRAM write data) = `0x0ebe0000`; CVA6's `d_a` = 0 — confirming the write used the stale latch value. The subsequent MEM_RD1 of the same address then reads back 0, and `rbuf`/`wbuf` stay 0 for all later iterations, producing wrong sample data.
+
+#### Fix applied
+
+`flat_wdata_active` now reads the **live signal from the owning master** while `arb_busy=1`, identified by `arb_sel_*_q`, instead of the latched value. This is safe because `flat_req` is suppressed while busy (no competing master can change the mux), and the owning master is guaranteed to hold wdata stable from req until gnt per OBI protocol.
+
+`addr`, `be`, `we`, and `select` signals continue to use the latch — they are correct from the request cycle and must be frozen to prevent address/control corruption if a higher-priority request arrives while busy.
 
 ```sv
-// Latch entire transaction when accepted (granted)
-always_ff @(posedge clk_i, negedge rst_ni) begin
-  if (!rst_ni) begin
-    flat_addr_latch        <= '0;
-    flat_be_latch          <= '0;
-    flat_we_latch          <= '0;
-    flat_wdata_latch       <= '0;
-    flat_select_dram_latch <= '0;
-    flat_select_wb_latch   <= '0;
-  end else if (!arb_busy && flat_req && (!flat_select_wb || obi_wb_gnt_i)) begin
-    // BRAM: grant fires immediately when !flat_select_wb
-    // WB:   grant fires only when obi_wb_gnt_i=1
-    flat_addr_latch        <= flat_addr;
-    flat_be_latch          <= flat_be;
-    flat_we_latch          <= flat_we;
-    flat_wdata_latch       <= flat_wdata;
-    flat_select_dram_latch <= flat_select_dram;
-    flat_select_wb_latch   <= flat_select_wb;
-  end
-end
-
-// Mux between latched (busy) and live (idle)
+// addr/be/we/select: latched at accept cycle — frozen against concurrent requests
 assign flat_addr_active        = arb_busy ? flat_addr_latch        : flat_addr;
 assign flat_be_active          = arb_busy ? flat_be_latch          : flat_be;
 assign flat_we_active          = arb_busy ? flat_we_latch          : flat_we;
-assign flat_wdata_active       = arb_busy ? flat_wdata_latch       : flat_wdata;
-assign flat_select_dram_active = arb_busy ? flat_select_dram_latch : flat_select_dram;
+assign flat_select_dmem_active = arb_busy ? flat_select_dmem_latch : flat_select_dmem;
 assign flat_select_wb_active   = arb_busy ? flat_select_wb_latch   : flat_select_wb;
 
-// Both DRAM and WB outputs use *_active
-assign obi_dram_addr_o  = flat_addr_active[...];
-assign obi_wb_addr_o    = flat_addr_active;
-assign obi_wb_wdata_o   = flat_wdata_active;
+// wdata: live signal from owning master — valid at gnt cycle (one cycle after req)
+assign flat_wdata_active = arb_busy ?
+    (arb_sel_store_q  ? obi_cpudata_store_req_i.a.wdata :
+     arb_sel_coproc_q ? obi_coproc_wdata_i              :
+                        obi_cpudata_load_req_i.a.wdata)  :
+    flat_wdata;
 ```
 
-This ensures both paths stay consistent: DRAM reads correct data, WB writes to the correct address even if a competing request arrives mid-transaction.
+**Priority order:** Store (highest) > Load > Co-processor (lowest).
 
-**Naming change:** All signals renamed from `data_` to `flat_` for clarity (flat_addr, flat_req, flat_gnt, flat_rvalid, etc.) since they represent the muxed flat bus serving both DRAM and WB.
-
-**Priority order:** Store (highest) > Load > Co-processor (lowest). Load has higher priority than co-processor since both CPU load and store should take precedence over the co-processor sideband.
-
-**Note:** This only affects CVA6. CV32E40X uses `ram_arbiter` (single data bus, no separate store/load) and `core_sram.sv` (flat `ram[]`), so this race does not occur.
+**Note:** This only affects CVA6. CV32E40X uses `ram_arbiter` (single data bus) and `core_sram.sv`, so this race cannot occur.
 
 ### Verilator 5.046 `--timing` bug
 
