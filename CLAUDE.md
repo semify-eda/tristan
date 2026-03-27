@@ -11,7 +11,7 @@ Tristan is a RISC-V SoC that supports two core variants selectable via `CORE=`:
 | `CORE=` | Core | ISA | Source list |
 |---|---|---|---|
 | `cv32e40x` (default) | CV32E40X | RV32IA | `core/cv32e40x_soc.f` |
-| `cv32a60x` | CVA6 cv32a60x | RV32IMA | `core/cva6_soc.f` |
+| `cv32a60x` | CVA6 cv32a60x | RV32IMA | `core/cv32a60x_soc.f` |
 
 It is integrated into SmartWave to run firmware that drives the WFG peripheral bus. The SoC connects to WFG peripherals (e.g. `wfg_timer`) via a Wishbone bus.
 
@@ -19,8 +19,8 @@ It is integrated into SmartWave to run firmware that drives the WFG peripheral b
 
 | Component | Path | Description |
 |---|---|---|
-| Co-processor package | `core/custom/coproc/rtl/coproc_pkg.sv` | Types and enums for XIF co-processor |
-| Rotate-shift unit | `core/custom/coproc/rtl/rshifter32.sv` | 32-bit right-shift / rotate-right primitive |
+| ISE package | `core/custom/ise/rtl/ise_pkg.sv` | Types and enums for XIF Instruction Set Extension |
+| Rotate-shift unit | `core/custom/ise/rtl/rshifter32.sv` | 32-bit right-shift / rotate-right primitive |
 | OBI→WB bridge | `core/custom/obi_wb_bridge/rtl/` | Connects core data bus to Wishbone peripherals |
 | WB RAM interface | `core/custom/wb_ram_interface/rtl/` | Wishbone slave for SRAM access |
 | SoC package | `core/include/soc_pkg.sv` | Address map, type definitions |
@@ -31,9 +31,9 @@ It is integrated into SmartWave to run firmware that drives the WFG peripheral b
 | Component | Path | Description |
 |---|---|---|
 | CV32E40X core | `core/cv32e40x/rtl/` | 45-file RISC-V CPU RTL |
-| SoC top | `core/cv32e40x_soc.sv` | Integrates core + SRAM + co-processor + bridge |
+| SoC top | `core/cv32e40x_soc.sv` | Integrates core + SRAM + ISE + bridge |
 | SRAM | `core/core_sram.sv` | Shared instruction/data memory |
-| Co-processor | `core/custom/coproc/rtl/coproc.sv` | XIF co-processor (CV32E40X port) |
+| ISE | `core/custom/ise/rtl/coproc.sv` | XIF Instruction Set Extension (CV32E40X port) |
 | RAM arbiter | `core/custom/ram_arbiter/rtl/` | Arbitrates CPU vs. Wishbone access to SRAM |
 | Core package | `core/cv32e40x/rtl/include/cv32e40x_pkg.sv` | Core parameters, enums |
 
@@ -42,9 +42,9 @@ It is integrated into SmartWave to run firmware that drives the WFG peripheral b
 | Component | Path | Description |
 |---|---|---|
 | CVA6 core | `core/cva6/` | CVA6 cv32a60x RISC-V CPU RTL (submodule) |
-| SoC top | `core/cva6_soc.sv` | Integrates CVA6 + SRAM + co-processor + bridge |
+| SoC top | `core/cv32a60x_soc.sv` | Integrates CVA6 + SRAM + ISE + bridge |
 | SRAM | `core/core_sram_patched.sv` | Per-byte-lane dual-port BRAM (Vivado-friendly) |
-| Co-processor | `core/custom/coproc/rtl/coproc_cv32a60x.sv` | XIF co-processor (CVA6/CVXIF port) |
+| ISE | `core/custom/ise/rtl/ise_cv32a60x.sv` | XIF Instruction Set Extension (CVA6/CVXIF port) |
 | Data bus arbiter | `core/custom/data_bus_arbiter/rtl/` | Arbitrates instruction vs. data OBI access |
 
 ## Environment Setup
@@ -61,22 +61,23 @@ Both variables are required by all Makefiles. If they are unset, make will abort
 
 ```bash
 cd design/tristan
-make                      # CV32E40X core, Verilator (default)
-make CORE=cv32a60x        # CVA6 core
-make SIM=icarus           # Icarus Verilog (CV32E40X only)
-make TESTCASE=<fn>        # single test
+make                        # CVA6 core, Verilator (default)
+make CORE=cv32e40x          # CV32E40X core
+make SIM=icarus             # Icarus Verilog (CV32E40X only)
+make TESTCASE=<fn>          # single test
+make FIRMWARE=ise_test      # override firmware variant (default: custom_ext)
 make clean
 ```
 
 The Python testbench module is `top_tb` in `core/testbench/`.
 
-The same `top_tb.sv` / `top_tb.py` testbench is shared by both cores. It instantiates `tristan_soc` (the SoC top module name in both `cv32e40x_soc.sv` and `cva6_soc.sv`).
+The same `top_tb.sv` / `top_tb.py` testbench is shared by both cores. It instantiates `tristan_soc` (the SoC top module name in both `cv32e40x_soc.sv` and `cv32a60x_soc.sv`).
 
 ### Module-level simulations
 
 ```bash
-# Co-processor shifter
-cd design/tristan/core/custom/coproc/sim
+# ISE shifter
+cd design/tristan/core/custom/ise/sim
 make
 
 # OBI → Wishbone bridge (full SoC context)
@@ -92,10 +93,11 @@ make
 
 ```bash
 cd design/tristan
-make firmware   # builds RISC-V firmware and copies firmware.mem here
+make firmware                       # build custom_ext (default) → firmware.mem
+make firmware FIRMWARE=ise_test     # build ise_test variant instead
 ```
 
-This invokes `$(WFG_ROOT)/firmware/Makefile` (`make riscv`). The RISC-V GNU toolchain must be on `PATH` (see README.md).
+Runs `make $(FIRMWARE)` in `$(WFG_ROOT)/firmware/` and copies the result to `$(TRISTAN_ROOT)/firmware.mem`. The RISC-V GNU toolchain must be on `PATH` (see README.md).
 
 ## Architecture
 
@@ -108,13 +110,13 @@ The SoC boot address is `0x0200_0000`. Wishbone peripherals (including WFG) are 
 - `core_clk` — CV32E40X and SRAM (25 MHz in testbench)
 - `wfg_clk` — WFG Wishbone peripherals (same clock in testbench)
 
-### XIF Co-processor Interface
+### XIF Instruction Set Extension Interface
 
-Both cores connect to the co-processor via the **eXtension Interface (XIF)**:
+Both cores connect to the ISE via the **eXtension Interface (XIF)**:
 - CV32E40X uses `coproc.sv` (XIF 0.9 subset)
-- CVA6 uses `coproc_cv32a60x.sv` (CVXIF protocol)
+- CVA6 uses `ise_cv32a60x.sv` (CVXIF protocol)
 
-The co-processor implements a right-shift / rotate-right accelerator (`rshifter32.sv`) used for RLE compression in firmware. Custom instructions reduce code size by ~33% and improve throughput by ~50%.
+The ISE implements a right-shift / rotate-right accelerator (`rshifter32.sv`) used for RLE compression in firmware. Custom instructions reduce code size by ~33% and improve throughput by ~50%.
 
 ## Coding Conventions
 
@@ -130,7 +132,7 @@ endmodule
 `default_nettype wire     // ← mandatory footer, always present
 ```
 
-Files in this project that use this pattern: `coproc_cv32a60x.sv`, `cva6_soc.sv`, `obi_wb_bridge.sv`, `obi_data_bus_arbiter.sv`.
+Files in this project that use this pattern: `ise_cv32a60x.sv`, `cv32a60x_soc.sv`, `obi_wb_bridge.sv`, `obi_data_bus_arbiter.sv`.
 
 ### Testbench: cocotb WishboneSlave is an active driver
 
@@ -147,17 +149,16 @@ All Makefiles follow the same pattern as `design/wfg/*/sim/Makefile`:
 
 ### Source file ordering
 
-Packages must be listed before any module that imports them:
+Packages must be listed before any module that imports them. The `.f` filelists (`cv32e40x_soc.f`, `cv32a60x_soc.f`) define the canonical order. For CV32E40X:
 
-1. `cv32e40x_pkg.sv` (from `rtl/include/`)
-2. `wfg_pkg.sv` (from `WFG_ROOT/design/pkg/`)
-3. `soc_pkg.sv` (from `core/include/`)
-4. `cv32e40x/rtl/*.sv` (all core modules, via wildcard)
-5. `cv32e40x/bhv/cv32e40x_sim_clock_gate.sv` (behavioral clock gate — simulation only)
-6. SoC files: `core_sram.sv`, `cv32e40x_soc.sv`, `simpleuart.v`
-7. Custom extensions: `coproc_pkg.sv`, `coproc.sv`, `rshifter32.sv`, `obi_wb_bridge.sv`, `ram_arbiter.sv`, `wb_ram_interface.sv`
-8. WFG peripherals: `wfg_timer_*.sv`
-9. Testbench last
+1. Packages: `soc_pkg.sv`, `cv32e40x_pkg.sv`, `wfg_pkg.sv`
+2. `cv32e40x/bhv/cv32e40x_sim_clock_gate.sv` (behavioral clock gate — simulation only)
+3. `cv32e40x/rtl/*.sv` (all core modules, explicitly listed)
+4. ISE: `ise_pkg.sv`, `coproc.sv`, `rshifter32.sv`
+5. WFG peripherals: `wfg_timer_wishbone_reg.sv`, `wfg_timer.sv`, `wfg_timer_top.sv`
+6. SoC modules: `obi_wb_bridge.sv`, `ram_arbiter.sv`, `wb_ram_interface.sv`, `core_sram.sv`, `cv32e40x_soc.sv`
+7. `+incdir+` entries last
+8. Testbench last (not in `.f` — added by Makefile)
 
 ### Files intentionally excluded from simulation
 
@@ -187,15 +188,15 @@ The CVA6+XIF Vivado project lives under `vivado/wfg_cv32a60x/cva6_with_xif/` (re
 
 **File:** `core/custom/data_bus_arbiter/rtl/obi_data_bus_arbiter.sv`
 
-**Symptom (resolved):** When running with `CORE=cv32a60x`, the co-processor's RMST instruction wrote 0 to DRAM instead of the computed value. This caused the wfg stimuli SRAM to receive wrong sample data, producing incorrect DAC output (`d_a=5` instead of `d_a=4`). CV32E40X was unaffected.
+**Symptom (resolved):** When running with `CORE=cv32a60x`, the ISE's RMST instruction wrote 0 to DRAM instead of the computed value. This caused the wfg stimuli SRAM to receive wrong sample data, producing incorrect DAC output (`d_a=5` instead of `d_a=4`). CV32E40X was unaffected.
 
 #### Root cause
 
-CVA6 exposes separate OBI store and load buses. The arbiter's `flat_wdata` mux is combinatorial and priority-driven: `store > load > co-processor`. When the co-processor entered state MEM_WR1 and asserted `obi_coproc_req_i=1`, it presented `obi_coproc_wdata_i=0` on the first cycle — this is **OBI-compliant**: the protocol only requires wdata to be stable at the grant cycle, not at the request cycle.
+CVA6 exposes separate OBI store and load buses. The arbiter's `flat_wdata` mux is combinatorial and priority-driven: `store > load > ISE`. When the ISE entered state MEM_WR1 and asserted `obi_ise_req_i=1`, it presented `obi_ise_wdata_i=0` on the first cycle — this is **OBI-compliant**: the protocol only requires wdata to be stable at the grant cycle, not at the request cycle.
 
-The arbiter latched the entire flat bus (including wdata) at the **request-acceptance cycle** (cycle N), capturing `wdata=0`. One cycle later (cycle N+1, when `flat_gnt=1`), the co-processor had updated `obi_coproc_wdata_i` to the correct value (`0x0ebe0000`), but the SRAM write used the already-frozen latch value of 0.
+The arbiter latched the entire flat bus (including wdata) at the **request-acceptance cycle** (cycle N), capturing `wdata=0`. One cycle later (cycle N+1, when `flat_gnt=1`), the ISE had updated `obi_ise_wdata_i` to the correct value (`0x0ebe0000`), but the SRAM write used the already-frozen latch value of 0.
 
-On CV32E40X there is no latch — its `ram_arbiter` drives SRAM signals combinatorially — so the SRAM always sees the live wdata at the write edge, which happens to be the cycle when the co-processor's data is ready.
+On CV32E40X there is no latch — its `ram_arbiter` drives SRAM signals combinatorially — so the SRAM always sees the live wdata at the write edge, which happens to be the cycle when the ISE's data is ready.
 
 #### Simulation evidence
 
@@ -218,12 +219,12 @@ assign flat_select_wb_active   = arb_busy ? flat_select_wb_latch   : flat_select
 // wdata: live signal from owning master — valid at gnt cycle (one cycle after req)
 assign flat_wdata_active = arb_busy ?
     (arb_sel_store_q  ? obi_cpudata_store_req_i.a.wdata :
-     arb_sel_coproc_q ? obi_coproc_wdata_i              :
+     arb_sel_ise_q    ? obi_ise_wdata_i                  :
                         obi_cpudata_load_req_i.a.wdata)  :
     flat_wdata;
 ```
 
-**Priority order:** Store (highest) > Load > Co-processor (lowest).
+**Priority order:** Store (highest) > Load > ISE (lowest).
 
 **Note:** This only affects CVA6. CV32E40X uses `ram_arbiter` (single data bus) and `core_sram.sv`, so this race cannot occur.
 

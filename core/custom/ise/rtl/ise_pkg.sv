@@ -1,15 +1,15 @@
-package coproc_pkg;
+package ise_pkg;
 
 /**
 *   Reference table:
 *   https://five-embeddev.com/riscv-user-isa-manual/Priv-v1.12/opcode-map.html#opcodemap
 */
 
-// Coprocessor OPCODES
+// Instruction Set Extension OPCODES
 typedef enum logic [6:0] {
   OPCODE_RMLD   = 7'h0b,
   OPCODE_RMST   = 7'h2b
-} coproc_opcode_e;
+} ise_opcode_e;
 
 
 // funct3 field of RMST opcode (0x2b).
@@ -39,6 +39,6 @@ typedef enum logic [2:0] {
     RETIRE,
     INVALID,
     KILL
-  } coproc_state_e;
+  } ise_state_e;
 
 endpackage

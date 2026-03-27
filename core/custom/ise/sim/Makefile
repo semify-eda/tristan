@@ -3,15 +3,15 @@ ifndef TRISTAN_ROOT
 endif
 
 # ── Source files ───────────────────────────────────────────────────────────────
-VERILOG_SOURCES += $(TRISTAN_ROOT)/core/custom/coproc/rtl/rshifter32.sv
-VERILOG_SOURCES += $(TRISTAN_ROOT)/core/custom/coproc/testbench/shifter_tb.sv
+VERILOG_SOURCES += $(TRISTAN_ROOT)/core/custom/ise/rtl/rshifter32.sv
+VERILOG_SOURCES += $(TRISTAN_ROOT)/core/custom/ise/testbench/shifter_tb.sv
 
 # ── Cocotb configuration ───────────────────────────────────────────────────────
 SIM ?= verilator
 TOPLEVEL_LANG ?= verilog
 TOPLEVEL = shifter_tb
 MODULE = shifter_test
-export PYTHONPATH := $(PYTHONPATH):$(TRISTAN_ROOT)/core/custom/coproc/testbench/
+export PYTHONPATH := $(PYTHONPATH):$(TRISTAN_ROOT)/core/custom/ise/testbench/
 
 ifeq ($(SIM),icarus)
   COMPILER_ARGS ?= -g2012

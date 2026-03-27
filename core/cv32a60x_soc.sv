@@ -65,12 +65,12 @@ module tristan_soc
 );
 
   /* =====================================================================
-  *                  CVA6 Configuration
+  *                  cv32a60x Configuration
   * ====================================================================== */
 
 // Note PS: cva6_config_pkg is declared in cv32a60x_config_pkg.sv -> So cv32a60x_config_pkg.sv must be compiled before. (and NO other config_pkg.sv)
 
-  localparam config_pkg::cva6_cfg_t CVA6Cfg = build_config_pkg::build_config(
+  localparam config_pkg::cva6_cfg_t Cv32a60xCfg = build_config_pkg::build_config(
       cva6_config_pkg::cva6_cfg
   );
 
@@ -87,7 +87,7 @@ module tristan_soc
   localparam type fetch_req_t = struct packed {
     logic                    req;
     logic                    kill_req;
-    logic [CVA6Cfg.VLEN-1:0] vaddr;
+    logic [Cv32a60xCfg.VLEN-1:0] vaddr;
   };
   localparam type fetch_rsp_t = struct packed {
     logic ready;
@@ -97,32 +97,32 @@ module tristan_soc
   // FIXME: temp type used by obi_mmu_ptw and obi_zcmt ports in cva6_pipeline 
   // (CVA6 imperfection: Still use old style dbus_req_t struct, not the new OBI Bus types below)
   localparam type dbus_req_t = struct packed {
-    logic [CVA6Cfg.DCACHE_INDEX_WIDTH-1:0] address_index;
-    logic [CVA6Cfg.DCACHE_TAG_WIDTH-1:0]   address_tag;
-    logic [CVA6Cfg.XLEN-1:0]               data_wdata;
-    logic [CVA6Cfg.DCACHE_USER_WIDTH-1:0]  data_wuser;
+    logic [Cv32a60xCfg.DCACHE_INDEX_WIDTH-1:0] address_index;
+    logic [Cv32a60xCfg.DCACHE_TAG_WIDTH-1:0]   address_tag;
+    logic [Cv32a60xCfg.XLEN-1:0]               data_wdata;
+    logic [Cv32a60xCfg.DCACHE_USER_WIDTH-1:0]  data_wuser;
     logic                                  data_req;
     logic                                  data_we;
-    logic [(CVA6Cfg.XLEN/8)-1:0]           data_be;
+    logic [(Cv32a60xCfg.XLEN/8)-1:0]           data_be;
     logic [1:0]                            data_size;
-    logic [CVA6Cfg.DcacheIdWidth-1:0]      data_id;
+    logic [Cv32a60xCfg.DcacheIdWidth-1:0]      data_id;
     logic                                  kill_req;
     logic                                  tag_valid;
   };
   localparam type dbus_rsp_t = struct packed {
     logic                                 data_gnt;
     logic                                 data_rvalid;
-    logic [CVA6Cfg.DcacheIdWidth-1:0]     data_rid;
-    logic [CVA6Cfg.XLEN-1:0]             data_rdata;
-    logic [CVA6Cfg.DCACHE_USER_WIDTH-1:0] data_ruser;
+    logic [Cv32a60xCfg.DcacheIdWidth-1:0]     data_rid;
+    logic [Cv32a60xCfg.XLEN-1:0]             data_rdata;
+    logic [Cv32a60xCfg.DCACHE_USER_WIDTH-1:0] data_ruser;
   };
 
   // Old-style load bus (not used in PipelineOnly path)
   localparam type load_req_t = struct packed {
-    logic [CVA6Cfg.DCACHE_INDEX_WIDTH-1:0] address_index;
+    logic [Cv32a60xCfg.DCACHE_INDEX_WIDTH-1:0] address_index;
     logic                                  req;
-    logic [(CVA6Cfg.XLEN/8)-1:0]           be;
-    logic [CVA6Cfg.IdWidth-1:0]            aid;
+    logic [(Cv32a60xCfg.XLEN/8)-1:0]           be;
+    logic [Cv32a60xCfg.IdWidth-1:0]            aid;
     logic                                  kill_req;
   };
   localparam type load_rsp_t = struct packed { logic gnt; };
@@ -134,10 +134,10 @@ module tristan_soc
   *  each with their own parameterised type generated from the core config.
   *  The macro OBI_LOCALPARAM_TYPE_ALL produces _req_t / _rsp_t pairs.
   * ====================================================================== */
-  `OBI_LOCALPARAM_TYPE_ALL(obi_fetch, CVA6Cfg.ObiFetchbusCfg);
-  `OBI_LOCALPARAM_TYPE_ALL(obi_store, CVA6Cfg.ObiStorebusCfg);
-  `OBI_LOCALPARAM_TYPE_ALL(obi_amo,   CVA6Cfg.ObiAmobusCfg);
-  `OBI_LOCALPARAM_TYPE_ALL(obi_load,  CVA6Cfg.ObiLoadbusCfg);
+  `OBI_LOCALPARAM_TYPE_ALL(obi_fetch, Cv32a60xCfg.ObiFetchbusCfg);
+  `OBI_LOCALPARAM_TYPE_ALL(obi_store, Cv32a60xCfg.ObiStorebusCfg);
+  `OBI_LOCALPARAM_TYPE_ALL(obi_amo,   Cv32a60xCfg.ObiAmobusCfg);
+  `OBI_LOCALPARAM_TYPE_ALL(obi_load,  Cv32a60xCfg.ObiLoadbusCfg);
 
   // Inactive buses keep the dbus_req_t alias (FIXME: temp in CVA6 upstream)
   localparam type obi_mmu_ptw_req_t = dbus_req_t;
@@ -148,27 +148,27 @@ module tristan_soc
   /* =====================================================================
   *                  CVXIF Types
   * ====================================================================== */
-  localparam type readregflags_t      = `READREGFLAGS_T(CVA6Cfg);
-  localparam type writeregflags_t     = `WRITEREGFLAGS_T(CVA6Cfg);
-  localparam type id_t                = `ID_T(CVA6Cfg);
-  localparam type hartid_t            = `HARTID_T(CVA6Cfg);
-  localparam type x_compressed_req_t  = `X_COMPRESSED_REQ_T(CVA6Cfg, hartid_t);
-  localparam type x_compressed_resp_t = `X_COMPRESSED_RESP_T(CVA6Cfg);
-  localparam type x_issue_req_t       = `X_ISSUE_REQ_T(CVA6Cfg, hartid_t, id_t);
-  localparam type x_issue_resp_t      = `X_ISSUE_RESP_T(CVA6Cfg, writeregflags_t, readregflags_t);
-  localparam type x_register_t        = `X_REGISTER_T(CVA6Cfg, hartid_t, id_t, readregflags_t);
-  localparam type x_commit_t          = `X_COMMIT_T(CVA6Cfg, hartid_t, id_t);
-  localparam type x_result_t          = `X_RESULT_T(CVA6Cfg, hartid_t, id_t, writeregflags_t);
+  localparam type readregflags_t      = `READREGFLAGS_T(Cv32a60xCfg);
+  localparam type writeregflags_t     = `WRITEREGFLAGS_T(Cv32a60xCfg);
+  localparam type id_t                = `ID_T(Cv32a60xCfg);
+  localparam type hartid_t            = `HARTID_T(Cv32a60xCfg);
+  localparam type x_compressed_req_t  = `X_COMPRESSED_REQ_T(Cv32a60xCfg, hartid_t);
+  localparam type x_compressed_resp_t = `X_COMPRESSED_RESP_T(Cv32a60xCfg);
+  localparam type x_issue_req_t       = `X_ISSUE_REQ_T(Cv32a60xCfg, hartid_t, id_t);
+  localparam type x_issue_resp_t      = `X_ISSUE_RESP_T(Cv32a60xCfg, writeregflags_t, readregflags_t);
+  localparam type x_register_t        = `X_REGISTER_T(Cv32a60xCfg, hartid_t, id_t, readregflags_t);
+  localparam type x_commit_t          = `X_COMMIT_T(Cv32a60xCfg, hartid_t, id_t);
+  localparam type x_result_t          = `X_RESULT_T(Cv32a60xCfg, hartid_t, id_t, writeregflags_t);
   localparam type cvxif_req_t         =
-      `CVXIF_REQ_T(CVA6Cfg, x_compressed_req_t, x_issue_req_t, x_register_t, x_commit_t);
+      `CVXIF_REQ_T(Cv32a60xCfg, x_compressed_req_t, x_issue_req_t, x_register_t, x_commit_t);
   localparam type cvxif_resp_t        =
-      `CVXIF_RESP_T(CVA6Cfg, x_compressed_resp_t, x_issue_resp_t, x_result_t);
+      `CVXIF_RESP_T(Cv32a60xCfg, x_compressed_resp_t, x_issue_resp_t, x_result_t);
 
   /* =====================================================================
   *                  RVFI Types
   * ====================================================================== */
-  localparam type rvfi_probes_instr_t = `RVFI_PROBES_INSTR_T(CVA6Cfg);
-  localparam type rvfi_probes_csr_t   = `RVFI_PROBES_CSR_T(CVA6Cfg);
+  localparam type rvfi_probes_instr_t = `RVFI_PROBES_INSTR_T(Cv32a60xCfg);
+  localparam type rvfi_probes_csr_t   = `RVFI_PROBES_CSR_T(Cv32a60xCfg);
   localparam type rvfi_probes_t       = struct packed {
     rvfi_probes_csr_t   csr;
     rvfi_probes_instr_t instr;
@@ -227,31 +227,31 @@ module tristan_soc
   assign obi_zcmt_rsp    = '0;
   assign obi_amo_rsp     = '0;
 
-  // CVXIF: co-processor
-  coproc_cv32a60x #(
+  // CVXIF: Instruction Set Extension
+  ise_cv32a60x #(
     .cvxif_req_t  (cvxif_req_t ),
     .cvxif_resp_t (cvxif_resp_t)
-  ) i_coproc (
+  ) i_ise (
     .clk_i        (clk_i      ),
     .rst_ni       (rst_ni     ),
     .cvxif_req_i  (cvxif_req  ),
     .cvxif_resp_o (cvxif_resp ),
-    .obi_coproc_req       (obi_coproc_req     ),
-    .obi_coproc_gnt       (obi_coproc_gnt     ),
-    .obi_coproc_we        (obi_coproc_we      ),
-    .obi_coproc_addr      (obi_coproc_addr    ),
-    .obi_coproc_wdata     (obi_coproc_wdata   ),
-    .obi_coproc_rvalid    (obi_coproc_rvalid  ),
-    .obi_coproc_rdata     (obi_coproc_rdata   )
+    .obi_ise_req       (obi_ise_req     ),
+    .obi_ise_gnt       (obi_ise_gnt     ),
+    .obi_ise_we        (obi_ise_we      ),
+    .obi_ise_addr      (obi_ise_addr    ),
+    .obi_ise_wdata     (obi_ise_wdata   ),
+    .obi_ise_rvalid    (obi_ise_rvalid  ),
+    .obi_ise_rdata     (obi_ise_rdata   )
   );
 
   /* =====================================================================
   *                  cva6_pipeline Instantiation
   * ====================================================================== */
   cva6_pipeline #(
-      .CVA6Cfg      (CVA6Cfg      ),
+      .CVA6Cfg          (Cv32a60xCfg      ),
       .rvfi_probes_t(rvfi_probes_t)
-  ) i_cva6_pipeline (
+  ) i_cv32a60x_pipeline (
       .clk_i                   (clk_i          ),
       .rst_ni                  (rst_ni         ),
       .boot_addr_i             (BOOT_ADDR      ),  // VLEN=32 = BOOT_ADDR width
@@ -354,21 +354,21 @@ module tristan_soc
   /* =====================================================================
   *                  (OBI) Data Bus Arbiter
   *
-  *  Arbitrates 3 OBI masters (CPU store, CPU load, co-processor) onto
+  *  Arbitrates 3 OBI masters (CPU store, CPU load, Instruction Set Extension) onto
   *  2 OBI slaves (DRAM port A, OBI-WB bridge).
   *  Address decode on addr[20]:
   *    INTERNAL (addr[20]=0, block_sel=DRAM) -> DRAM port A (1-cycle BRAM)
   *    EXTERNAL (addr[20]=1)                 -> obi_wb_bridge
   * ====================================================================== */
 
-  // Co-processor sideband OBI port signals
-  logic        obi_coproc_req;
-  logic        obi_coproc_gnt;
-  logic        obi_coproc_we;
-  logic [31:0] obi_coproc_addr;
-  logic [31:0] obi_coproc_wdata;
-  logic        obi_coproc_rvalid;
-  logic [31:0] obi_coproc_rdata;
+  // ISE sideband OBI port signals
+  logic        obi_ise_req;
+  logic        obi_ise_gnt;
+  logic        obi_ise_we;
+  logic [31:0] obi_ise_addr;
+  logic [31:0] obi_ise_wdata;
+  logic        obi_ise_rvalid;
+  logic [31:0] obi_ise_rdata;
 
   // Arbiter <-> OBI-WB bridge interconnect (OBI side)
   logic        arb2wb_obi_req;
@@ -399,13 +399,13 @@ module tristan_soc
     .obi_cpudata_load_rsp_o   (obi_load_rsp     ),
 
     // Co-processor sideband
-    .obi_coproc_req_i         (obi_coproc_req   ),
-    .obi_coproc_gnt_o         (obi_coproc_gnt   ),
-    .obi_coproc_we_i          (obi_coproc_we    ),
-    .obi_coproc_addr_i        (obi_coproc_addr  ),
-    .obi_coproc_wdata_i       (obi_coproc_wdata ),
-    .obi_coproc_rvalid_o      (obi_coproc_rvalid),
-    .obi_coproc_rdata_o       (obi_coproc_rdata ),
+    .obi_ise_req_i         (obi_ise_req   ),
+    .obi_ise_gnt_o         (obi_ise_gnt   ),
+    .obi_ise_we_i          (obi_ise_we    ),
+    .obi_ise_addr_i        (obi_ise_addr  ),
+    .obi_ise_wdata_i       (obi_ise_wdata ),
+    .obi_ise_rvalid_o      (obi_ise_rvalid),
+    .obi_ise_rdata_o       (obi_ise_rdata ),
 
     // DRAM port A
     .obi_dmem_addr_o          (dram_addr_a      ),

@@ -23,9 +23,9 @@ VERILOG_SOURCES += $(TRISTAN_ROOT)/core/core_sram.sv
 VERILOG_SOURCES += $(TRISTAN_ROOT)/core/cv32e40x_soc.sv
 
 # Custom extensions
-VERILOG_SOURCES += $(TRISTAN_ROOT)/core/custom/coproc/rtl/coproc_pkg.sv
-VERILOG_SOURCES += $(TRISTAN_ROOT)/core/custom/coproc/rtl/coproc.sv
-VERILOG_SOURCES += $(TRISTAN_ROOT)/core/custom/coproc/rtl/rshifter32.sv
+VERILOG_SOURCES += $(TRISTAN_ROOT)/core/custom/ise/rtl/ise_pkg.sv
+VERILOG_SOURCES += $(TRISTAN_ROOT)/core/custom/ise/rtl/coproc.sv
+VERILOG_SOURCES += $(TRISTAN_ROOT)/core/custom/ise/rtl/rshifter32.sv
 VERILOG_SOURCES += $(TRISTAN_ROOT)/core/custom/obi_wb_bridge/rtl/obi_wb_bridge.sv
 VERILOG_SOURCES += $(TRISTAN_ROOT)/core/custom/ram_arbiter/rtl/ram_arbiter.sv
 VERILOG_SOURCES += $(TRISTAN_ROOT)/core/custom/wb_ram_interface/rtl/wb_ram_interface.sv

@@ -65,7 +65,7 @@ Each custom module has its own `sim/` directory:
 
 | Module | Directory |
 |---|---|
-| Co-processor (shifter) | `core/custom/coproc/sim/` |
+| ISE (shifter) | `core/custom/ise/sim/` |
 | OBI→Wishbone bridge | `core/custom/obi_wb_bridge/sim/` |
 | Wishbone RAM interface | `core/custom/wb_ram_interface/sim/` |
 

@@ -1,5 +1,7 @@
 `default_nettype none
-module coproc import coproc_pkg::*;
+// This is the OLD Insturction set Extension (formerly named coprocessor) of the cv32e40x core!
+
+module coproc import ise_pkg::*;
 #(
   parameter int unsigned X_NUM_RS        =  2,  // Number of register file read ports that can be used by the eXtension interface
   parameter int unsigned X_ID_WIDTH      =  4,  // Width of ID field.
@@ -72,7 +74,7 @@ module coproc import coproc_pkg::*;
 
   /**
   *   NOTES:
-  *     - for now, do not pipeline the coprocessor. This means the input id, rs1, rs2, rd
+  *     - for now, do not pipeline the Instruction Set Extension. This means the input id, rs1, rs2, rd
   *       will always be the output id, rs1, rs2, rd
   */
   logic [31:0]    instr;
@@ -86,12 +88,12 @@ module coproc import coproc_pkg::*;
   logic [31:0]    mem_rdata;
   logic           mem_err, mem_dbg;
 
-  coproc_opcode_e opcode;
+  ise_opcode_e opcode;
   rmst_funct3_e   funct3;
   // FSM
-  coproc_state_e state_ff, state_next;
+  ise_state_e state_ff, state_next;
 
-  assign opcode = coproc_opcode_e'(xif_issue_if.issue_valid ? xif_issue_if.issue_req.instr[6: 0] : instr[6: 0]);
+  assign opcode = ise_opcode_e'(xif_issue_if.issue_valid ? xif_issue_if.issue_req.instr[6: 0] : instr[6: 0]);
   assign funct3 =  rmst_funct3_e'(xif_issue_if.issue_valid ? xif_issue_if.issue_req.instr[14:12] : instr[14:12]);
 
 

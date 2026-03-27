@@ -153,10 +153,10 @@ $(TRISTAN_ROOT)/core/cva6/core/pmp/src/pmp_data_if.sv
 // $(TRISTAN_ROOT)/core/cva6/core/cva6_mmu/cva6_shared_tlb.sv
 
 
-// 4. Co-processor
-$(TRISTAN_ROOT)/core/custom/coproc/rtl/coproc_pkg.sv
-$(TRISTAN_ROOT)/core/custom/coproc/rtl/coproc_cv32a60x.sv
-$(TRISTAN_ROOT)/core/custom/coproc/rtl/rshifter32.sv
+// 4. Instruction Set Extension
+$(TRISTAN_ROOT)/core/custom/ise/rtl/ise_pkg.sv
+$(TRISTAN_ROOT)/core/custom/ise/rtl/ise_cv32a60x.sv
+$(TRISTAN_ROOT)/core/custom/ise/rtl/rshifter32.sv
 
 // 5. WFG Peripherals (connected via Wishbone)
 $(WFG_ROOT)/design/wfg/wfg_timer/rtl/wfg_timer_wishbone_reg.sv
@@ -171,6 +171,6 @@ $(TRISTAN_ROOT)/core/custom/wb_ram_interface/rtl/wb_ram_interface.sv
 // $(TRISTAN_ROOT)/core/core_sram.sv
 $(TRISTAN_ROOT)/core/core_sram_patched.sv
 // $(TRISTAN_ROOT)/core/core_sram_xpm.sv
-$(TRISTAN_ROOT)/core/cva6_soc.sv
+$(TRISTAN_ROOT)/core/cv32a60x_soc.sv
 
 

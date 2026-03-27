@@ -1,5 +1,5 @@
 `default_nettype none
-module coproc_cv32a60x import coproc_pkg::*;
+module ise_cv32a60x import ise_pkg::*;
 #(
   // CVXIF struct types — passed as type parameters from the SoC wrapper.
   // All XIF capability parameters (X_NUM_RS, X_ID_WIDTH, X_MEM_WIDTH, XLEN, etc.) that
@@ -16,13 +16,13 @@ module coproc_cv32a60x import coproc_pkg::*;
   output cvxif_resp_t   cvxif_resp_o,
 
   /* ========== Sideband OBI to DRAM port B ============ */
-  output logic          obi_coproc_req,
-  input  wire           obi_coproc_gnt,
-  output logic          obi_coproc_we,
-  output logic [31:0]   obi_coproc_addr,
-  output logic [31:0]   obi_coproc_wdata,
-  input  wire           obi_coproc_rvalid,
-  input  wire  [31:0]   obi_coproc_rdata
+  output logic          obi_ise_req,
+  input  wire           obi_ise_gnt,
+  output logic          obi_ise_we,
+  output logic [31:0]   obi_ise_addr,
+  output logic [31:0]   obi_ise_wdata,
+  input  wire           obi_ise_rvalid,
+  input  wire  [31:0]   obi_ise_rdata
 
 // For reference, here is the translation from the old cv32e40x CVXIF:
 // cv32e40x_if_xif.coproc_compressed   xif_compressed_if,
@@ -58,7 +58,7 @@ module coproc_cv32a60x import coproc_pkg::*;
 // xif_result_if.result.we                    -> cvxif_resp_o.result.we
 // xif_result_if.result.exc/exccode/err/dbg   -> REMOVED (not in x_result_t)
 // xif_result_if.result.ecsdata/ecswe         -> REMOVED (not in x_result_t)
-// xif_mem_if.* / xif_mem_result_if.*         -> obi_coproc_req/gnt/we/be/addr/wdata/rvalid/rdata (OBI sideband)
+// xif_mem_if.* / xif_mem_result_if.*         -> obi_ise_req/gnt/we/addr/wdata/rvalid/rdata (OBI sideband)
 );
 
   /* ====================== Control API Registers ====================== */
@@ -108,7 +108,7 @@ module coproc_cv32a60x import coproc_pkg::*;
 
   /**
   *   NOTES:
-  *     - for now, do not pipeline the coprocessor. This means the input id, rs1, rs2, rd
+  *     - for now, do not pipeline the Instruction Set Extension. This means the input id, rs1, rs2, rd
   *       will always be the output id, rs1, rs2, rd
   */
   logic [31:0]    instr;
@@ -131,8 +131,8 @@ module coproc_cv32a60x import coproc_pkg::*;
   // rvalid that was never preceded by a gnt (e.g. during reset glitches or
   // future arbiter changes).
   //
-  // obi_coproc_rvalid_guarded is used everywhere in the state machine
-  // instead of the raw obi_coproc_rvalid.  The extra term (|| obi_coproc_gnt)
+  // obi_ise_rvalid_guarded is used everywhere in the state machine
+  // instead of the raw obi_ise_rvalid.  The extra term (|| obi_ise_gnt)
   // handles zero-wait-state targets where gnt and rvalid can arrive on the
   // same cycle, before gnt_received_ff has a chance to register.
   logic           gnt_received_ff;
@@ -141,24 +141,24 @@ module coproc_cv32a60x import coproc_pkg::*;
     if (~rst_ni) begin
       gnt_received_ff <= '0;
     end else begin
-      if (obi_coproc_gnt) begin
+      if (obi_ise_gnt) begin
         gnt_received_ff <= '1;
-      end else if (obi_coproc_rvalid) begin
+      end else if (obi_ise_rvalid) begin
         gnt_received_ff <= '0;
       end
     end
   end : obi_gnt_tracker
 
-  wire obi_coproc_rvalid_guarded = obi_coproc_rvalid && (gnt_received_ff || obi_coproc_gnt);
+  wire obi_ise_rvalid_guarded = obi_ise_rvalid && (gnt_received_ff || obi_ise_gnt);
 
 
   /* ============== Submodule & Type Instatiations =============== */
-  coproc_opcode_e opcode;
+  ise_opcode_e opcode;
   rmst_funct3_e   funct3;
   // FSM
-  coproc_state_e state_ff, next_state_ff;
+  ise_state_e state_ff, next_state_ff;
 
-  assign opcode = coproc_opcode_e'(cvxif_req_i.issue_valid ? cvxif_req_i.issue_req.instr[6: 0] : instr[6: 0]);
+  assign opcode = ise_opcode_e'(cvxif_req_i.issue_valid ? cvxif_req_i.issue_req.instr[6: 0] : instr[6: 0]);
   assign funct3 =  rmst_funct3_e'(cvxif_req_i.issue_valid ? cvxif_req_i.issue_req.instr[14:12] : instr[14:12]);
 
   assign bit_idx      = rs1[4:0];
@@ -365,11 +365,11 @@ module coproc_cv32a60x import coproc_pkg::*;
             next_state_ff = RETIRE;
           end
         MEM_RD1:
-          if(obi_coproc_rvalid_guarded) begin    // advance only when read response is valid (rvalid), not at gnt
+          if(obi_ise_rvalid_guarded) begin    // advance only when read response is valid (rvalid), not at gnt
             next_state_ff = MEM_RD2;
           end
         MEM_RD2:
-          if(obi_coproc_rvalid_guarded) begin    // advance only when second read response is valid
+          if(obi_ise_rvalid_guarded) begin    // advance only when second read response is valid
             next_state_ff = UPDATE;
           end
         UPDATE:
@@ -377,11 +377,11 @@ module coproc_cv32a60x import coproc_pkg::*;
             next_state_ff = op_load ? RETIRE : MEM_WR1;
           end
         MEM_WR1:
-          if(obi_coproc_rvalid_guarded) begin    // advance only when first write response is valid (rvalid), not at gnt
+          if(obi_ise_rvalid_guarded) begin    // advance only when first write response is valid (rvalid), not at gnt
             next_state_ff = MEM_WR2;
           end
         MEM_WR2:
-          if(obi_coproc_rvalid_guarded) begin    // advance only when second write response is valid
+          if(obi_ise_rvalid_guarded) begin    // advance only when second write response is valid
             next_state_ff = STALL;
           end
         STALL:
@@ -407,14 +407,14 @@ module coproc_cv32a60x import coproc_pkg::*;
       cvxif_resp_o.result.rd               <= '0;
       // cvxif_resp_o.result.we and cvxif_resp_o.result.data driven in data_state_actions
       /* OBI sideband */
-      obi_coproc_req                               <= '0;
-      obi_coproc_we                                <= '0;
-      obi_coproc_addr                              <= '0;
+      obi_ise_req                               <= '0;
+      obi_ise_we                                <= '0;
+      obi_ise_addr                              <= '0;
     end else begin
       case(next_state_ff)
         IDLE: begin
           cvxif_resp_o.issue_ready         <= '1;
-          obi_coproc_req                   <= '0;
+          obi_ise_req                   <= '0;
           cvxif_resp_o.result_valid        <= '0;
         end
         CFG: begin
@@ -423,34 +423,34 @@ module coproc_cv32a60x import coproc_pkg::*;
         MEM_RD1: begin
           cvxif_resp_o.issue_ready         <= '0;
           // initiate first OBI read (word 0)
-          obi_coproc_req                           <= '1;
-          obi_coproc_we                            <= '0;
-          obi_coproc_addr                          <= op_load ? ld_addr : st_addr;
+          obi_ise_req                           <= '1;
+          obi_ise_we                            <= '0;
+          obi_ise_addr                          <= op_load ? ld_addr : st_addr;
           // no byte enable needed on the OBI sideband anymore
         end
         MEM_RD2: begin
           // first read complete (rvalid) — issue second read (word 1, addr+4)
-          if(obi_coproc_rvalid_guarded) begin
-            obi_coproc_addr                        <= (op_load ? ld_addr : st_addr) + 32'd4;
+          if(obi_ise_rvalid_guarded) begin
+            obi_ise_addr                        <= (op_load ? ld_addr : st_addr) + 32'd4;
           end
         end
         UPDATE: begin
-          obi_coproc_req                           <= '0;          // both reads issued; stop OBI
+          obi_ise_req                           <= '0;          // both reads issued; stop OBI
         end
         MEM_WR1: begin
           // initiate first OBI write (word 0)
-          obi_coproc_req                           <= '1;
-          obi_coproc_we                            <= '1;
-          obi_coproc_addr                          <= st_addr;
+          obi_ise_req                           <= '1;
+          obi_ise_we                            <= '1;
+          obi_ise_addr                          <= st_addr;
         end
         MEM_WR2: begin
           // first write complete (rvalid) — set up second write address (word 1, addr+4)
-          if(obi_coproc_rvalid_guarded) begin
-            obi_coproc_addr                        <= st_addr + 32'd4;
+          if(obi_ise_rvalid_guarded) begin
+            obi_ise_addr                        <= st_addr + 32'd4;
           end
         end
         STALL: begin
-          obi_coproc_req                           <= '0;          // both writes issued; stop OBI
+          obi_ise_req                           <= '0;          // both writes issued; stop OBI
         end
         RETIRE: begin
           // Do NOT set issue_ready here. CVA6 pipelines aggressively: asserting
@@ -485,7 +485,7 @@ module coproc_cv32a60x import coproc_pkg::*;
       rs2                       <= '0;
       rd                        <= '0;
       id                        <= '0;
-      obi_coproc_wdata          <= '0;
+      obi_ise_wdata          <= '0;
       cvxif_resp_o.result.data  <= '0;
       cvxif_resp_o.result.we    <= '0;
     end else begin
@@ -515,23 +515,23 @@ module coproc_cv32a60x import coproc_pkg::*;
         end
         MEM_RD2: begin
           // first read response valid (rvalid) — capture word 0 read data
-          if(obi_coproc_rvalid_guarded) begin
-            rbuf[31:0]              <= obi_coproc_rdata;
+          if(obi_ise_rvalid_guarded) begin
+            rbuf[31:0]              <= obi_ise_rdata;
           end
         end
         UPDATE: begin
           // second read response valid (rvalid) — capture word 1 read data
-          if(obi_coproc_rvalid_guarded) begin
-            rbuf[63:32]             <= obi_coproc_rdata;
+          if(obi_ise_rvalid_guarded) begin
+            rbuf[63:32]             <= obi_ise_rdata;
           end
         end
         MEM_WR1: begin
-          obi_coproc_wdata                  <= wbuf[31:0];
+          obi_ise_wdata                  <= wbuf[31:0];
         end
         MEM_WR2: begin
           // first write complete (rvalid) — load second word into wdata register
-          if(obi_coproc_rvalid_guarded) begin
-            obi_coproc_wdata                <= wbuf[63:32];
+          if(obi_ise_rvalid_guarded) begin
+            obi_ise_wdata                <= wbuf[63:32];
           end
         end
         STALL: begin
@@ -540,7 +540,7 @@ module coproc_cv32a60x import coproc_pkg::*;
           // latch last OBI read-back diagnostics (store path only, not used)
           case(opcode)
             OPCODE_RMST: begin
-              mem_rdata   <= obi_coproc_rdata;
+              mem_rdata   <= obi_ise_rdata;
             end
           endcase
         end

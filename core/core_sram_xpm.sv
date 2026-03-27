@@ -86,7 +86,7 @@ module soc_sram_dualport #(
     // BYTE_WRITE_WIDTH_A = 8 → WEA width = DATAWIDTH/8 bits (one per byte)
     .BYTE_WRITE_WIDTH_A      (8),
     // 1-cycle latency: address/data registered on posedge clk, output valid next cycle.
-    // Matches the behavior cva6_soc.sv already accounts for (iram_rvalid delayed 1 cycle).
+    // Matches the behavior cv32a60x_soc.sv already accounts for (iram_rvalid delayed 1 cycle).
     .READ_LATENCY_A          (1),
 
     // ---------------------------------------------------------------

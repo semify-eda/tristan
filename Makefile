@@ -7,15 +7,17 @@ endif
 
 PYTHON ?= python3
 TOOLCHAIN_PREFIX ?= riscv32-unknown-elf-
-CORE ?= cv32e40x
+CORE     ?= cv32a60x
+FIRMWARE ?= custom_ext
+FIRMWARE_FILE := $(WFG_ROOT)/firmware/build/$(FIRMWARE)/firmware.mem
 
 # ── Source files ───────────────────────────────────────────────────────────────
 CV32E40X_SRC_FILES += $(TRISTAN_ROOT)/core/cv32e40x_soc.f
-CVA6_SRC_FILES += $(TRISTAN_ROOT)/core/cva6_soc.f
+CV32A60X_SRC_FILES += $(TRISTAN_ROOT)/core/cv32a60x_soc.f
 # Print only when actually running a simulation target, not for clean/firmware.
 # $(MAKECMDGOALS) is empty when the default target is invoked.
 ifeq ($(filter clean firmware,$(MAKECMDGOALS)),)
-  _ := $(info Running with Core: $(CORE))
+  _ := $(info Running with Core: $(CORE) FIRMWARE=$(FIRMWARE))
 endif
 
 # ── Testbench ──────────────────────────────────────────────────────────────────
@@ -36,7 +38,7 @@ ifeq ($(CORE),cv32e40x)
     EXTRA_ARGS    +=  -DCV32E40X
 endif
 ifeq ($(CORE),cv32a60x)
-	SRC_FILES := $(CVA6_SRC_FILES)
+	SRC_FILES := $(CV32A60X_SRC_FILES)
 	EXTRA_ARGS    +=  -DCV32A60X
 endif
 
@@ -53,10 +55,11 @@ include $(shell cocotb-config --makefiles)/Makefile.sim
 
 # ── Firmware ───────────────────────────────────────────────────────────────────
 firmware:
-	cd $(WFG_ROOT)/firmware && $(MAKE) riscv && cp riscv/firmware.mem $(TRISTAN_ROOT)/
+	$(MAKE) -C $(WFG_ROOT)/firmware $(FIRMWARE)
+	cp $(FIRMWARE_FILE) $(TRISTAN_ROOT)/firmware.mem
 
 # ── Cleanup ────────────────────────────────────────────────────────────────────
 clean::
-	rm -rf sim_build results.xml *.vcd *.fst *.fst.hier *.log
+	rm -rf sim_build results.xml *.vcd *.fst *.fst.hier *.log *.dasm
 
 .PHONY: firmware
