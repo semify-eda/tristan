@@ -96,6 +96,11 @@ module ise_cv32a60x import ise_pkg::*;
   logic         capture_shadow_reg_ff;
 
   /* ====================== Alias Signals ====================== */
+  // Declare opcode/funct3 here so they are in scope for the assigns below.
+  // (Vivado requires declaration before first use; Verilator allows forward refs.)
+  ise_opcode_e    opcode;
+  rmst_funct3_e   funct3;
+
   logic         cfg;
   logic         op_load;
   logic         op_store;
@@ -153,8 +158,6 @@ module ise_cv32a60x import ise_pkg::*;
 
 
   /* ============== Submodule & Type Instatiations =============== */
-  ise_opcode_e opcode;
-  rmst_funct3_e   funct3;
   // FSM
   ise_state_e state_ff, next_state_ff;
 
@@ -405,6 +408,7 @@ module ise_cv32a60x import ise_pkg::*;
       cvxif_resp_o.result_valid            <= '0;
       cvxif_resp_o.result.id               <= '0;
       cvxif_resp_o.result.rd               <= '0;
+      cvxif_resp_o.result.hartid           <= '0;  // single hart, always 0
       // cvxif_resp_o.result.we and cvxif_resp_o.result.data driven in data_state_actions
       /* OBI sideband */
       obi_ise_req                               <= '0;

@@ -61,7 +61,7 @@ $(TRISTAN_ROOT)/core/cva6/core/store_unit.sv
 $(TRISTAN_ROOT)/core/cva6/core/commit_stage.sv
 $(TRISTAN_ROOT)/core/cva6/core/axi_shim.sv
 $(TRISTAN_ROOT)/core/cva6/core/cva6_accel_first_pass_decoder_stub.sv
-$(TRISTAN_ROOT)/core/cva6/core/acc_dispatcher.sv
+// acc_dispatcher.sv excluded: never instantiated, requires fpnew submodule for fpnew_pkg
 $(TRISTAN_ROOT)/core/cva6/core/cva6_fifo_v3.sv
 
 //OBI

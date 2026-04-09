@@ -330,6 +330,8 @@ module tristan_soc
 
   logic fetch_gnt;
   logic fetch_rvalid;
+  // Declared here (used in always_comb below before IRAM signals block — Vivado requires declaration before first use)
+  logic [RAM_DATA_WIDTH-1:0] iram_rdata_a;
 
   always_ff @(posedge clk_i, negedge rst_ni) begin
     if (!rst_ni) begin
@@ -472,7 +474,7 @@ module tristan_soc
   logic                        iram_we_a;
   logic [RAM_DATA_WIDTH/8-1:0] iram_be_a;
   logic [RAM_DATA_WIDTH-1:0]   iram_wdata_a;
-  logic [RAM_DATA_WIDTH-1:0]   iram_rdata_a;
+  // iram_rdata_a declared earlier (before first use in always_comb fetch block)
 
   // DRAM port A signals — driven by Data Bus Arbiter
   logic [RAM_ADDR_WIDTH-1:0]   dram_addr_a;
