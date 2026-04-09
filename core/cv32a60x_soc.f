@@ -37,7 +37,7 @@ $(TRISTAN_ROOT)/core/cva6/core/controller.sv
 // $(TRISTAN_ROOT)/core/cva6/core/zcmt_decoder.sv
 $(TRISTAN_ROOT)/core/cva6/core/csr_buffer.sv
 // $(TRISTAN_ROOT)/core/cva6/core/csr_regfile.sv
-$(TRISTAN_ROOT)/core/cva6/core/csr_regfile_patched.sv
+$(TRISTAN_ROOT)/core/csr_regfile_patched.sv
 $(TRISTAN_ROOT)/core/cva6/core/decoder.sv
 $(TRISTAN_ROOT)/core/cva6/core/ex_stage.sv
 $(TRISTAN_ROOT)/core/cva6/core/instr_realign.sv
