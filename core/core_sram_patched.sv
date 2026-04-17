@@ -6,13 +6,11 @@
 //
 // Changes from core_sram.sv:
 //   - Memory split into per-byte-lane sub-RAMs (generate for with genvar)
-//   - $readmemh in synthesis translate_off (simulation-only) - Currently we can NOT preload the SRAM
-//   - Both ports have a byte enable now, that cannot be turned off. 
-//     (he BYTE_ENABLE parameter is kept, for compatibility with core:sram.sv)
+//   - Firmware is loaded from the testbench via the byte-lane arrays (not via $readmemh here)
+//   - Both ports have a byte enable now, that cannot be turned off.
+//     (the BYTE_ENABLE parameter is kept, for compatibility with core_sram.sv)
 
 module soc_sram_dualport #(
-  parameter                   INITFILEEN   = 0,
-  parameter                   INITFILE     = "init.mem",
   parameter                   DATAWIDTH    = 32,
   parameter                   ADDRWIDTH    = 14,
   parameter                   BYTE_ENABLE  = 0,
@@ -41,23 +39,13 @@ module soc_sram_dualport #(
   genvar gi;
   generate
     for (gi = 0; gi < NB_COL; gi = gi + 1) begin : byte_lane
+      // RAM preloading (firmware/data) is done hierarchically from the testbench top
+      // at time 0, e.g.: i_tristan_soc.i_instr_sram.byte_lane[N].ram[k] = ...
+      // See the IRAM/DRAM loading initial blocks in ise_test_tb.sv or sim_basic_showcase.sv.
       (* ram_style = "block" *)
       reg [COL_WIDTH-1:0] ram [MEMSIZE-1:0];
       reg [COL_WIDTH-1:0] dout_a;
       reg [COL_WIDTH-1:0] dout_b;
-
-      // Simulation-only: load firmware into this byte lane
-      // synthesis translate_off
-      reg [DATAWIDTH-1:0] _init_tmp [MEMSIZE-1:0];
-      integer _k;
-      initial begin
-        if (INITFILEEN) begin
-          $readmemh(INITFILE, _init_tmp);
-          for (_k = 0; _k < MEMSIZE; _k = _k + 1)
-            ram[_k] = _init_tmp[_k][gi*COL_WIDTH +: COL_WIDTH];
-        end
-      end
-      // synthesis translate_on
 
       // Port A: CPU access — write enabled per byte lane
       always @(posedge clk) begin

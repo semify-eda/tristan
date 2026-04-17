@@ -2,7 +2,8 @@
 module top_tb;
 
     localparam SOC_ADDR_WIDTH    = 32;
-    localparam RAM_ADDR_WIDTH    = 14;
+    localparam DRAM_ADDR_WIDTH   = 12;  // 4K words (16 KB) data memory
+    localparam IRAM_ADDR_WIDTH   = 13;  // 8K words (32 KB) — 4 × 2K firmware slots
     localparam INSTR_RDATA_WIDTH = 32;
     localparam BOOT_ADDR         = 32'h00020000;
     parameter int CLK_FREQ       = 25_000_000;
@@ -30,14 +31,41 @@ module top_tb;
     logic                    cyc_wb;
 
     // ----------------------------------
+    //  IRAM firmware loading
+    // ----------------------------------
+    // Firmware is loaded here at simulation time, not inside the SRAM module.
+    // For multi-slot loading (FW0–FW3) see software/simulation/sim_basic_showcase.sv.
+    //
+    // CV32A60X: core_sram_patched.sv stores memory as per-byte-lane 8-bit arrays;
+    //   $readmemh of a 32-bit hex file into an 8-bit array truncates each word to the
+    //   lowest byte. Load via a 32-bit temp array, then distribute into byte lanes.
+    // CV32E40X: core_sram.sv has a flat 32-bit ram[] array; direct $readmemh works.
+`ifdef CV32A60X
+    initial begin
+        logic [31:0] _iram_tmp [0:(1<<IRAM_ADDR_WIDTH)-1];
+        $readmemh("firmware.mem", _iram_tmp);
+        for (int _k = 0; _k < (1<<IRAM_ADDR_WIDTH); _k++) begin
+            i_tristan_soc.i_instr_sram.byte_lane[0].ram[_k] = _iram_tmp[_k][ 7: 0];
+            i_tristan_soc.i_instr_sram.byte_lane[1].ram[_k] = _iram_tmp[_k][15: 8];
+            i_tristan_soc.i_instr_sram.byte_lane[2].ram[_k] = _iram_tmp[_k][23:16];
+            i_tristan_soc.i_instr_sram.byte_lane[3].ram[_k] = _iram_tmp[_k][31:24];
+        end
+    end
+`else
+    initial begin
+        $readmemh("firmware.mem", i_tristan_soc.instr_dualport_i.ram);
+    end
+`endif
+
+    // ----------------------------------
     //           Tristan Core
     // ----------------------------------
     tristan_soc
     #(
-        .SOC_ADDR_WIDTH    (SOC_ADDR_WIDTH),
-        .RAM_ADDR_WIDTH    (RAM_ADDR_WIDTH),
-        .BOOT_ADDR         (BOOT_ADDR),
-        .FIRMWARE_INITFILE ("firmware.mem")
+        .SOC_ADDR_WIDTH    (SOC_ADDR_WIDTH  ),
+        .DRAM_ADDR_WIDTH   (DRAM_ADDR_WIDTH ),
+        .IRAM_ADDR_WIDTH   (IRAM_ADDR_WIDTH ),
+        .BOOT_ADDR         (BOOT_ADDR       )
     )
     i_tristan_soc
     (

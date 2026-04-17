@@ -29,7 +29,7 @@ module obi_data_bus_arbiter
   parameter type obi_store_rsp_t = logic,
   parameter type obi_load_req_t  = logic,
   parameter type obi_load_rsp_t  = logic,
-  parameter int  RAM_ADDR_WIDTH  = 12,
+  parameter int  DRAM_ADDR_WIDTH  = 12,
   parameter int  RAM_DATA_WIDTH  = 32,
   parameter int  ALIGNMENT_OFFSET = 2
 )
@@ -53,7 +53,7 @@ module obi_data_bus_arbiter
   output logic [31:0] obi_ise_rdata_o,
 
   // -- OBI Slave: D-MEM port A (raw RAM signals) --
-  output logic [RAM_ADDR_WIDTH-1:0]     obi_dmem_addr_o,
+  output logic [DRAM_ADDR_WIDTH-1:0]     obi_dmem_addr_o,
   output logic                          obi_dmem_we_o,
   output logic [RAM_DATA_WIDTH/8-1:0]   obi_dmem_be_o,
   output logic [RAM_DATA_WIDTH-1:0]     obi_dmem_wdata_o,
@@ -207,7 +207,7 @@ module obi_data_bus_arbiter
   /* =====================================================================
   *                  D-MEM Port A
   * ====================================================================== */
-  assign obi_dmem_addr_o  = flat_addr_active[RAM_ADDR_WIDTH + ALIGNMENT_OFFSET - 1 : ALIGNMENT_OFFSET];
+  assign obi_dmem_addr_o  = flat_addr_active[DRAM_ADDR_WIDTH + ALIGNMENT_OFFSET - 1 : ALIGNMENT_OFFSET];
   assign obi_dmem_we_o    = flat_gnt & flat_select_dmem_active & flat_we_active;
   assign obi_dmem_be_o    = flat_be_active;
   assign obi_dmem_wdata_o = flat_wdata_active;

@@ -18,10 +18,14 @@ module tristan_soc
   import ariane_pkg::*;
 #(
   parameter SOC_ADDR_WIDTH    = 32,
-  parameter RAM_ADDR_WIDTH    = 12,
+  parameter DRAM_ADDR_WIDTH   = 12,  // DRAM word-address width → 4K words (16 KB)
+  // IRAM is wider than DRAM to hold 4 firmware slots of 2048 words each (8K words total).
+  // 13 bits is the maximum: the external WB bank-select sits at io_wbs_adr[13];
+  // io_wbs_adr[12] (previously unused) gives one free extra address bit.
+  // Going beyond 13 would move the bank-select bit and break IRAM_BASE_ADDR = 0xC2000.
+  parameter IRAM_ADDR_WIDTH   = 13,  // IRAM word-address width → 8K words (32 KB = 4 × 2K slots)
   parameter RAM_DATA_WIDTH    = 32,
   parameter BOOT_ADDR         = 32'h00020000,
-  parameter FIRMWARE_INITFILE = "../firmware.mem",
   parameter HART_ID           = 32'h0000_0000
   // Removed CV32E40X-era parameters not used in CVA6 SoC:
   //   SOC_DATA_WIDTH    — no data-width parameterisation needed (fixed 32-bit)
@@ -39,6 +43,7 @@ module tristan_soc
   // Core control signals
   input  wire                         soc_fetch_enable_i,
   output logic                        soc_core_sleep_o,
+  input wire [31:0]                    boot_offset_i,
 
   // WB output interface for external modules
   output logic [SOC_ADDR_WIDTH-1:0]   wb_addr_o,
@@ -64,6 +69,9 @@ module tristan_soc
   input  wire                         wb_cyc_i
 );
 
+  logic [31:0] boot_address;
+  assign boot_address = BOOT_ADDR+boot_offset_i;
+
   /* =====================================================================
   *                  cv32a60x Configuration
   * ====================================================================== */
@@ -74,10 +82,10 @@ module tristan_soc
       cva6_config_pkg::cva6_cfg
   );
 
-  // 16kb
-  // RAM_ADDR_WIDTH is directly tied to the DATAWIDTH. Having an addr width of 12 does not mean that you address the
-  // 12 LSB of the address, since if the data width is 32, then the 2 LSB are omitted, and you therefore must address
-  // bits 13 to 2, due to alignment since the 2 LSB correspond to (32/8) = 4 bytes.
+  // IRAM: 8K words (32 KB), DRAM: 4K words (16 KB).
+  // The *_ADDR_WIDTH parameters count 32-bit word addresses — the 2 LSBs (byte lanes) are
+  // stripped by ALIGNMENT_OFFSET = clog2(32/8) = 2.  Example for IRAM_ADDR_WIDTH=13:
+  //   CPU fetch addr[14:2] → 13-bit IRAM word index (byte addr range 0x20000–0x27FFF).
   localparam ALIGNMENT_OFFSET = $clog2(RAM_DATA_WIDTH / 8);
 
   /* =====================================================================
@@ -254,7 +262,7 @@ module tristan_soc
   ) i_cv32a60x_pipeline (
       .clk_i                   (clk_i          ),
       .rst_ni                  (rst_ni         ),
-      .boot_addr_i             (BOOT_ADDR      ),  // VLEN=32 = BOOT_ADDR width
+      .boot_addr_i             (boot_address   ),  // VLEN=32 = BOOT_ADDR width
       .hart_id_i               (HART_ID        ),
 
       .irq_i                   (2'b00          ),
@@ -387,7 +395,7 @@ module tristan_soc
     .obi_store_rsp_t (obi_store_rsp_t),
     .obi_load_req_t  (obi_load_req_t ),
     .obi_load_rsp_t  (obi_load_rsp_t ),
-    .RAM_ADDR_WIDTH  (RAM_ADDR_WIDTH ),
+    .DRAM_ADDR_WIDTH (DRAM_ADDR_WIDTH),
     .RAM_DATA_WIDTH  (RAM_DATA_WIDTH ),
     .ALIGNMENT_OFFSET(ALIGNMENT_OFFSET)
   ) i_data_bus_arbiter (
@@ -461,8 +469,10 @@ module tristan_soc
   *                  Dual-Port BRAM + WB-RAM Interface
   * ====================================================================== */
 
-  // Interconnect between wb_ram_interface and BRAM port B
-  logic [RAM_ADDR_WIDTH-1:0]   wb2ram_addr;
+  // Interconnect between wb_ram_interface and BRAM port B.
+  // wb2ram_addr is IRAM_ADDR_WIDTH wide (the wider of the two); DRAM port B
+  // uses only the lower DRAM_ADDR_WIDTH bits (see i_data_sram instantiation).
+  logic [IRAM_ADDR_WIDTH-1:0]  wb2ram_addr;
   logic [RAM_DATA_WIDTH-1:0]   wb2ram_data;
   logic [RAM_DATA_WIDTH-1:0]   iram2wb_data;
   logic [RAM_DATA_WIDTH-1:0]   dram2wb_data;
@@ -470,21 +480,21 @@ module tristan_soc
   logic                        wb2dram_we;
 
   // IRAM port A signals — driven by Fetch Bus
-  logic [RAM_ADDR_WIDTH-1:0]   iram_addr_a;
+  logic [IRAM_ADDR_WIDTH-1:0]  iram_addr_a;
   logic                        iram_we_a;
   logic [RAM_DATA_WIDTH/8-1:0] iram_be_a;
   logic [RAM_DATA_WIDTH-1:0]   iram_wdata_a;
   // iram_rdata_a declared earlier (before first use in always_comb fetch block)
 
   // DRAM port A signals — driven by Data Bus Arbiter
-  logic [RAM_ADDR_WIDTH-1:0]   dram_addr_a;
+  logic [DRAM_ADDR_WIDTH-1:0]  dram_addr_a;
   logic                        dram_we_a;
   logic [RAM_DATA_WIDTH/8-1:0] dram_be_a;
   logic [RAM_DATA_WIDTH-1:0]   dram_wdata_a;
   logic [RAM_DATA_WIDTH-1:0]   dram_rdata_a;
 
   // IRAM port A — driven by fetch bus
-  assign iram_addr_a  = obi_fetch_req.a.addr[RAM_ADDR_WIDTH + ALIGNMENT_OFFSET - 1 : ALIGNMENT_OFFSET];
+  assign iram_addr_a  = obi_fetch_req.a.addr[IRAM_ADDR_WIDTH + ALIGNMENT_OFFSET - 1 : ALIGNMENT_OFFSET];
   assign iram_we_a    = 1'b0;   // instruction fetch is always read
   assign iram_be_a    = '0;     // don't care (read-only port)
   assign iram_wdata_a = '0;     // don't care (read-only port)
@@ -496,8 +506,8 @@ module tristan_soc
   *   Drives BRAM port B on both IRAM and DRAM
   * ================================================================= */
   wb_ram_interface #(
-    .RAM_ADDR_WIDTH (RAM_ADDR_WIDTH),
-    .RAM_DATA_WIDTH (RAM_DATA_WIDTH)
+    .RAM_ADDR_WIDTH (IRAM_ADDR_WIDTH),  // pass the wider IRAM width; DRAM port B is truncated in soc top
+    .RAM_DATA_WIDTH (RAM_DATA_WIDTH )
   ) i_wb_ram_interface (
     .ram_clk_i   (clk_i       ),
     .wb_clk_i    (wfg_clk_i   ),
@@ -524,11 +534,12 @@ module tristan_soc
   *   Port A: CPU fetch bus (read-only)
   *   Port B: WB RAM interface (firmware loading)
   * ================================================================= */
+  // Firmware is loaded by the testbench top at time 0 via the byte-lane arrays.
+  // See the IRAM loading initial block in the testbench (e.g. ise_test_tb.sv or
+  // sim_basic_showcase.sv) for the byte-lane temp+distribute pattern.
   soc_sram_dualport #(
-    .INITFILEEN  (1                ),
-    .INITFILE    (FIRMWARE_INITFILE),
     .DATAWIDTH   (RAM_DATA_WIDTH   ),
-    .ADDRWIDTH   (RAM_ADDR_WIDTH   ),
+    .ADDRWIDTH   (IRAM_ADDR_WIDTH  ),  // 8K words — 4 firmware slots of 2K words each
     .BYTE_ENABLE (1                )
   ) i_instr_sram (
     .clk    (clk_i       ),
@@ -551,9 +562,9 @@ module tristan_soc
   *   Port B: WB RAM interface (firmware loading)
   * ================================================================= */
   soc_sram_dualport #(
-    .DATAWIDTH   (RAM_DATA_WIDTH),
-    .ADDRWIDTH   (RAM_ADDR_WIDTH),
-    .BYTE_ENABLE (1             )
+    .DATAWIDTH   (RAM_DATA_WIDTH  ),
+    .ADDRWIDTH   (DRAM_ADDR_WIDTH ),  // 4K words — data memory (heap + stack)
+    .BYTE_ENABLE (1               )
   ) i_data_sram (
     .clk    (clk_i       ),
 
@@ -563,7 +574,11 @@ module tristan_soc
     .d_a    (dram_wdata_a),
     .q_a    (dram_rdata_a),
 
-    .addr_b (wb2ram_addr ),
+    // wb2ram_addr is IRAM_ADDR_WIDTH (13-bit) wide; DRAM is only DRAM_ADDR_WIDTH
+    // (12-bit) — truncate to the lower bits.  The bank-select bit that
+    // differentiates IRAM from DRAM lives above bit DRAM_ADDR_WIDTH-1, so the
+    // slice is always a valid DRAM word address.
+    .addr_b (wb2ram_addr[DRAM_ADDR_WIDTH-1:0]),
     .we_b   (wb2dram_we  ),
     .d_b    (wb2ram_data ),
     .q_b    (dram2wb_data)

@@ -3,6 +3,11 @@ import soc_pkg::*;
 module wb_ram_interface
 #(
     parameter WB_ADDR_WIDTH  = 32,
+    // Word-address width for ram_addr_o and the bank-select bit.
+    // This module drives both IRAM (wider) and DRAM (narrower) port B.
+    // Set to the IRAM width (the larger of the two) so that ram_addr_o is
+    // wide enough to address any IRAM word; DRAM port B in the SoC top
+    // truncates to its own DRAM_ADDR_WIDTH-bit slice.
     parameter RAM_ADDR_WIDTH = 32,
     parameter RAM_DATA_WIDTH = 32
 )(
