@@ -116,7 +116,7 @@ Both cores connect to the ISE via the **eXtension Interface (XIF)**:
 - CV32E40X uses `coproc.sv` (XIF 0.9 subset)
 - CVA6 uses `ise_cv32a60x.sv` (CVXIF protocol)
 
-The ISE implements a right-shift / rotate-right accelerator (`rshifter32.sv`) used for RLE compression in firmware. Custom instructions reduce code size by ~33% and improve throughput by ~50%.
+The ISE implements a right-shift / rotate-right accelerator (`rshifter32.sv`) used for RLE compression in firmware. Hardware-measured on the sine demo (2026-05-07): custom instructions roughly **double** RLE decompression throughput (~2×) and shrink the decode firmware to **~64 % of the base size** (~36 % smaller). See root `CLAUDE.md` § Firmware for full numbers.
 
 ## Coding Conventions
 
