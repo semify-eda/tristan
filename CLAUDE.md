@@ -65,7 +65,7 @@ make                        # CVA6 core, Verilator (default)
 make CORE=cv32e40x          # CV32E40X core
 make SIM=icarus             # Icarus Verilog (CV32E40X only)
 make TESTCASE=<fn>          # single test
-make FIRMWARE=ise_test      # override firmware variant (default: custom_ext)
+make FIRMWARE=ise_test      # override firmware variant (default: custom_ext_spi)
 make clean
 ```
 

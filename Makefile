@@ -8,7 +8,7 @@ endif
 PYTHON ?= python3
 TOOLCHAIN_PREFIX ?= riscv32-unknown-elf-
 CORE     ?= cv32a60x
-FIRMWARE ?= custom_ext
+FIRMWARE ?= custom_ext_spi
 FIRMWARE_FILE := $(WFG_ROOT)/firmware/build/$(FIRMWARE)/firmware.mem
 
 # ── Source files ───────────────────────────────────────────────────────────────
