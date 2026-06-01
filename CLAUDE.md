@@ -184,6 +184,44 @@ The CVA6+XIF Vivado project lives under `vivado/wfg_cv32a60x/cva6_with_xif/` (re
 
 ## Known Issues
 
+### CVA6 CVXIF `rd` writeback unreliable — **OPEN**
+
+**File:** `core/custom/ise/rtl/ise_cv32a60x.sv`
+
+**Symptom:** `RMLD` is the only R-type ISE instruction with an `rd` field. The shadow register loads correctly (verified via `RMCS` readback), but the value written back to the integer register file via the CVXIF result channel is wrong (often 0). Documented in `firmware/src/rle.c:608, 644` ("the xif doesnt allow for correct writebacks into rd"). Standalone test: `verif/testbench_avl/rd_field_test/` (firmware `firmware/main/rd_field_test_main.c`). CVA6 maintainers say the host side works, so the bug is on our coprocessor side — likely a handshake/state-machine issue, not the host.
+
+**Spec reference:** https://docs.openhwgroup.org/projects/cva6-user-manual/01_cva6_user/CVX_Interface_Coprocessor.html
+
+#### Candidate root causes (not yet confirmed)
+
+**1. Asymmetric else-branch in UPDATE (`ise_cv32a60x.sv:602-606`)**
+
+```sv
+end else begin                                                  // capture_rbuf63_32_ff = 0
+  shadow_reg                   <= shadow_reg_spec;              // full value
+  cvxif_resp_o.result.data     <= op_load ? shadow_reg_spec & wmask : '0;  // <<< masked
+  cvxif_resp_o.result.we       <= op_load;
+end
+```
+
+The if-branch (capture_rbuf63_32_ff=1) on lines 598-601 writes the SAME expression to both `shadow_reg` and `result.data`. The else-branch writes different expressions: `shadow_reg` gets the full `shadow_reg_spec`, but `result.data` gets `shadow_reg_spec & wmask`. The `& wmask` here looks like a copy-paste bug — `wmask` is the merge mask for the upper memory word, not a valid-bits mask. If this branch ever fires for a load, `rd` receives a masked-out subset (often 0).
+
+**Combined with the bit_idx=0 quirk:** `shift_amount = 7'b100_0000 - bit_idx` for op_load. For `bit_idx=0` this is 64, but `shift_amount` is declared `logic [4:0]` → truncates to 0. The downstream `count_unary << shift_amount` then computes `0xFFFFFFFF << 0 = 0xFFFFFFFF` instead of the intended 0. Whether this actually zeros `wmask` depends on exact synthesis truncation of intermediate expressions — the firmware comment in `rd_field_test_main.c:24-29` claims `wmask=0` for this case; my static read says `0xFFFFFFFF`. Worth measuring in waveform.
+
+**2. `issue_ready` deassertion is one cycle too late (`ise_cv32a60x.sv:420, 428`)**
+
+`issue_ready` is a registered output: set in the `next_state_ff=IDLE` branch, cleared in `next_state_ff=MEM_RD1`. With CVA6 synchronous-commit (`X_ISSUE_REGISTER_SPLIT=0` per `build_config_pkg.sv:192`), `issue_valid` + `register_valid` + `commit_valid` all assert on the SAME cycle that `issue_ready=1` is observed. But our state machine takes one extra cycle in IDLE before transitioning to MEM_RD1 (because `issue_valid_ff` needs to clock in before `next_state` evaluates as MEM_RD1). During that extra cycle, `issue_ready` is still 1 — opening a **1-cycle double-issue window**. If the CPU has a second CVXIF instruction ready (e.g. firmware sequences like `RMLD; RMCS;`), it would be accepted by the host but the data_state_actions IDLE branch would overwrite `id/instr/rd/rs1/rs2` from the first instruction.
+
+Symptom would be: result.id matches one instruction but result.rd / result.data correspond to a different one → host writes wrong register.
+
+**Likely fix:** make `issue_ready` combinational, e.g. `assign cvxif_resp_o.issue_ready = (state_ff == IDLE) && !issue_valid_ff;` (and remove the registered assignments in `control_state_actions`).
+
+#### Verification next steps
+
+1. Capture FST waveform of `verif/testbench_avl/rd_field_test/` and confirm whether `cvxif_req_i.issue_valid` ever fires in two consecutive cycles. If yes → candidate (2) is the bug.
+2. In the same waveform, confirm which branch (if/else) of UPDATE fires when commit fires, and read out the actual `wmask` value at that posedge. If else-branch fires → candidate (1) is at least contributing.
+3. CV32E40X port (`coproc.sv`) likely has the same patterns — re-audit there too if (2) lands.
+
 ### CVA6 `obi_data_bus_arbiter`: Flat bus corruption — **FIXED**
 
 **File:** `core/custom/data_bus_arbiter/rtl/obi_data_bus_arbiter.sv`
