@@ -10,8 +10,8 @@ Tristan is a RISC-V SoC that supports two core variants selectable via `CORE=`:
 
 | `CORE=` | Core | ISA | Source list |
 |---|---|---|---|
-| `cv32e40x` (default) | CV32E40X | RV32IA | `core/cv32e40x_soc.f` |
-| `cv32a60x` | CVA6 cv32a60x | RV32IMA | `core/cv32a60x_soc.f` |
+| `cv32a60x` (default) | CVA6 cv32a60x | RV32IMA | `core/cv32a60x_soc.f` |
+| `cv32e40x` | CV32E40X | RV32IA | `core/cv32e40x_soc.f` |
 
 It is integrated into SmartWave to run firmware that drives the WFG peripheral bus. The SoC connects to WFG peripherals (e.g. `wfg_timer`) via a Wishbone bus.
 
