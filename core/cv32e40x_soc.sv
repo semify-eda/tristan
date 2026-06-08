@@ -6,11 +6,15 @@ module tristan_soc import cv32e40x_pkg::*;
 #(
   parameter SOC_ADDR_WIDTH    = 32,
   parameter SOC_DATA_WIDTH    = 32,
-  parameter RAM_ADDR_WIDTH    = 12,
+  parameter DRAM_ADDR_WIDTH   = 12,  // DRAM word-address width → 4K words (16 KB, data memory)
+  // IRAM is wider than DRAM to hold 4 firmware slots of 2048 words each (8K words total).
+  // 13 bits is the maximum: the external WB bank-select sits at io_wbs_adr[13];
+  // io_wbs_adr[12] (previously unused) gives one free extra address bit.
+  // Going beyond 13 would move the bank-select bit and break IRAM_BASE_ADDR = 0xC2000.
+  parameter IRAM_ADDR_WIDTH   = 13,  // IRAM word-address width → 8K words (32 KB = 4 × 2K slots)
   parameter RAM_DATA_WIDTH    = 32,
   parameter BOOT_ADDR         = 32'h00020000,
   parameter DATA_START_ADDR   = 32'h00000000,
-  parameter FIRMWARE_INITFILE = "firmware.mem",
   parameter DM_HALTADDRESS    = 32'h1A11_0800,
   parameter NUM_MHPMCOUNTERS  = 1,
   parameter HART_ID           = 32'h0000_0000
@@ -25,6 +29,9 @@ module tristan_soc import cv32e40x_pkg::*;
   //core control signals
   input  wire                         soc_fetch_enable_i,
   output logic                        soc_core_sleep_o,
+  // Firmware slot select: added to BOOT_ADDR before releasing the core.
+  // slot 0 = 0x00000000, slot 1 = 0x00002000, slot 2 = 0x00004000, slot 3 = 0x00006000
+  input  wire [31:0]                  boot_offset_i,
 
   // WB output interface for external modules
   output logic [SOC_ADDR_WIDTH-1:0]   wb_addr_o,
@@ -36,12 +43,15 @@ module tristan_soc import cv32e40x_pkg::*;
   input  wire                         wb_ack_i,
   output logic                        wb_cyc_o,
 
-  // WB input interface to access SoC RAM
+  // WB input interface to access SoC RAM (firmware and data pre-loading only)
+  // All writes are full 32-bit words; wb_byte_en_i is declared for port
+  // compatibility but intentionally not connected — wb_ram_interface and
+  // core_sram do not support sub-word byte enables on the WB port.
   input  wire  [SOC_ADDR_WIDTH-1:0]   wb_addr_i,
   output logic [31: 0]                wb_rdata_o,
   input  wire  [31: 0]                wb_wdata_i,
   input  wire                         wb_wr_en_i,
-  input  wire  [ 3: 0]                wb_byte_en_i,
+  input  wire  [ 3: 0]                wb_byte_en_i, /* unused — see comment above */
   input  wire                         wb_stb_i,
   output logic                        wb_ack_o,
   input  wire                         wb_cyc_i
@@ -164,7 +174,7 @@ module tristan_soc import cv32e40x_pkg::*;
   /* ================================================================
   *                         Arbiter
   * ================================================================= */
-  ram_arbiter i_ram_arbiter // !TODO: remove this arbiter -- its completely unnessary and an artifact
+  ram_arbiter i_ram_arbiter // !TODO: remove this arbiter -- it can be done much simplier
   (
     .clk_i                  (clk_i              ),
     .rst_ni                 (rst_ni             ),
@@ -217,7 +227,7 @@ module tristan_soc import cv32e40x_pkg::*;
     .scan_cg_en_i           ('0                     ),
 
     // Static configuration
-    .boot_addr_i            (BOOT_ADDR              ),
+    .boot_addr_i            (BOOT_ADDR + boot_offset_i),
     .dm_exception_addr_i    ('0                     ),
     .dm_halt_addr_i         (DM_HALTADDRESS         ),
     .mhartid_i              (HART_ID                ),
@@ -375,19 +385,20 @@ module tristan_soc import cv32e40x_pkg::*;
     .wb_cyc_o       (wb_cyc_o             )
   );
 
-  logic [RAM_ADDR_WIDTH-1 : 0] wb2ram_addr;
-  logic [RAM_DATA_WIDTH-1 : 0] wb2ram_data;
-  logic [RAM_DATA_WIDTH-1 : 0] iram2wb_data;
-  logic [RAM_DATA_WIDTH-1 : 0] dram2wb_data;
-  logic                        wb2iram_we;
-  logic                        wb2dram_we;
+  // wb2ram_addr is IRAM_ADDR_WIDTH wide (wider); DRAM port B uses the lower DRAM_ADDR_WIDTH bits.
+  logic [IRAM_ADDR_WIDTH-1 : 0] wb2ram_addr;
+  logic [RAM_DATA_WIDTH-1  : 0] wb2ram_data;
+  logic [RAM_DATA_WIDTH-1  : 0] iram2wb_data;
+  logic [RAM_DATA_WIDTH-1  : 0] dram2wb_data;
+  logic                         wb2iram_we;
+  logic                         wb2dram_we;
 
 
   /* ================================================================
   *                     Wishbone - RAM interface
   * ================================================================= */
   wb_ram_interface #(
-    .RAM_ADDR_WIDTH (RAM_ADDR_WIDTH ),
+    .RAM_ADDR_WIDTH (IRAM_ADDR_WIDTH),  // pass the wider IRAM width; DRAM port B is truncated in soc top
     .RAM_DATA_WIDTH (RAM_DATA_WIDTH )
   ) i_wb_ram_interface (
     .ram_clk_i      (clk_i          ),
@@ -416,20 +427,19 @@ module tristan_soc import cv32e40x_pkg::*;
   /* ================================================================
   *                     Dualport BRAM - Instr
   * ================================================================= */
+  // Firmware is loaded by the testbench top at time 0 via direct $readmemh into
+  // the flat ram[] array.  Example: $readmemh("firmware.mem", instr_dualport_i.ram)
   soc_sram_dualport #(
-    .INITFILEEN     (1                  ),
-    .INITFILE       (FIRMWARE_INITFILE  ),
     .DATAWIDTH      (RAM_DATA_WIDTH     ),
-    .ADDRWIDTH      (RAM_ADDR_WIDTH     ),
+    .ADDRWIDTH      (IRAM_ADDR_WIDTH    ),  // 8K words — 4 firmware slots of 2K words each
     .BYTE_ENABLE    (1                  )
   ) instr_dualport_i (
     .clk      (clk_i                            ),
 
-    // 16kb
-    // RAM_ADDR_WIDTH is directly tied to the DATAWIDTH. Having an addr width of 12 does not mean that you address the
-    // 12 LSB of the address, since if the data width is 32, then the 2 LSB are omitted, and you therefore must address
-    // bits 13 to 2, due to alignment since the 2 LSB correspond to (32/8) = 4 bytes.
-    .addr_a   (addr[RAM_ADDR_WIDTH + ALIGNMENT_OFFSET - 1 : ALIGNMENT_OFFSET]),
+    // IRAM_ADDR_WIDTH is the word-address width.  The 2 LSBs of the byte address are
+    // dropped (ALIGNMENT_OFFSET = log2(32/8) = 2) because each 32-bit word spans 4 bytes.
+    // addr[IRAM_ADDR_WIDTH + ALIGNMENT_OFFSET - 1 : ALIGNMENT_OFFSET] = addr[14:2] (13-bit word index).
+    .addr_a   (addr[IRAM_ADDR_WIDTH + ALIGNMENT_OFFSET - 1 : ALIGNMENT_OFFSET]),
     .we_a     (gnt && select_iram && we         ),
     .be_a     (be                               ),
     .d_a      (wdata                            ),
@@ -447,18 +457,21 @@ module tristan_soc import cv32e40x_pkg::*;
   * ================================================================= */
   soc_sram_dualport #(
     .DATAWIDTH      (RAM_DATA_WIDTH     ),
-    .ADDRWIDTH      (RAM_ADDR_WIDTH     ),
+    .ADDRWIDTH      (DRAM_ADDR_WIDTH    ),  // 4K words — data memory (heap + stack)
     .BYTE_ENABLE    (1                  )
   ) data_dualport_i (
     .clk      (clk_i                      ),
 
-    .addr_a   (addr[RAM_ADDR_WIDTH + ALIGNMENT_OFFSET - 1 : ALIGNMENT_OFFSET]),
+    .addr_a   (addr[DRAM_ADDR_WIDTH + ALIGNMENT_OFFSET - 1 : ALIGNMENT_OFFSET]),
     .we_a     (gnt && select_dram && we   ),
     .be_a     (be                         ),
     .d_a      (wdata                      ),
     .q_a      (ram_rdata                  ),
 
-    .addr_b   (wb2ram_addr                ),
+    // wb2ram_addr is IRAM_ADDR_WIDTH (13-bit) wide; DRAM is only DRAM_ADDR_WIDTH
+    // (12-bit) — the bank-select bit lives above DRAM_ADDR_WIDTH-1, so the lower
+    // bits are always a valid DRAM word address.
+    .addr_b   (wb2ram_addr[DRAM_ADDR_WIDTH-1:0]),
     .we_b     (wb2dram_we                 ),
     .d_b      (wb2ram_data                ),
     .q_b      (dram2wb_data               )

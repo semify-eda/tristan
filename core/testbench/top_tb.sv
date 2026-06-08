@@ -2,16 +2,17 @@
 module top_tb;
 
     localparam SOC_ADDR_WIDTH    = 32;
-    localparam RAM_ADDR_WIDTH    = 14;
+    localparam DRAM_ADDR_WIDTH   = 12;  // 4K words (16 KB) data memory
+    localparam IRAM_ADDR_WIDTH   = 13;  // 8K words (32 KB) — 4 × 2K firmware slots
     localparam INSTR_RDATA_WIDTH = 32;
-    localparam BOOT_ADDR         = 32'h02000000;
+    localparam BOOT_ADDR         = 32'h00020000;
     parameter int CLK_FREQ       = 25_000_000;
 
     logic core_clk;
     logic core_rst_n;
     logic wfg_clk;
 
-    // allow fst dump
+    // VCD waveform dump (open with gtkwave top_tb.vcd)
     initial begin
         $dumpfile("top_tb.vcd");
         $dumpvars();
@@ -28,18 +29,66 @@ module top_tb;
     logic                    stb_wb;
     logic                    ack_wb;
     logic                    cyc_wb;
-    logic [31: 0]            wb_rdata_o; // dummy
-    logic                    wb_ack_o; // dummy
+
+    // ----------------------------------
+    //  IRAM firmware loading
+    // ----------------------------------
+    // Firmware is loaded here at simulation time, not inside the SRAM module.
+    // For multi-slot loading (FW0–FW3) see software/simulation/sim_basic_showcase.sv.
+    //
+    // CV32A60X: core_sram_patched.sv stores memory as per-byte-lane 8-bit arrays;
+    //   $readmemh of a 32-bit hex file into an 8-bit array truncates each word to the
+    //   lowest byte. Load via a 32-bit temp array, then distribute into byte lanes.
+    // CV32E40X: core_sram.sv has a flat 32-bit ram[] array; direct $readmemh works.
+`ifdef CV32A60X
+    initial begin
+        logic [31:0] _iram_tmp [0:(1<<IRAM_ADDR_WIDTH)-1];
+        $readmemh("firmware/firmware.mem", _iram_tmp);
+        for (int _k = 0; _k < (1<<IRAM_ADDR_WIDTH); _k++) begin
+            i_tristan_soc.i_instr_sram.byte_lane[0].ram[_k] = _iram_tmp[_k][ 7: 0];
+            i_tristan_soc.i_instr_sram.byte_lane[1].ram[_k] = _iram_tmp[_k][15: 8];
+            i_tristan_soc.i_instr_sram.byte_lane[2].ram[_k] = _iram_tmp[_k][23:16];
+            i_tristan_soc.i_instr_sram.byte_lane[3].ram[_k] = _iram_tmp[_k][31:24];
+        end
+    end
+`else
+    initial begin
+        $readmemh("firmware/firmware.mem", i_tristan_soc.instr_dualport_i.ram);
+    end
+`endif
+
+    // ----------------------------------
+    //  DRAM data loading
+    // ----------------------------------
+    // Loads the dmem image produced by `make firmware FW_GOAL=dmem` —
+    // a packed view of firmware/signals/encoded.txt at the addresses the
+    // firmware reads from (stream_t header at byte 0x3E00, payload after).
+`ifdef CV32A60X
+    initial begin
+        logic [31:0] _dram_tmp [0:(1<<DRAM_ADDR_WIDTH)-1];
+        $readmemh("firmware/signals/dmem.mem", _dram_tmp);
+        for (int _k = 0; _k < (1<<DRAM_ADDR_WIDTH); _k++) begin
+            i_tristan_soc.i_data_sram.byte_lane[0].ram[_k] = _dram_tmp[_k][ 7: 0];
+            i_tristan_soc.i_data_sram.byte_lane[1].ram[_k] = _dram_tmp[_k][15: 8];
+            i_tristan_soc.i_data_sram.byte_lane[2].ram[_k] = _dram_tmp[_k][23:16];
+            i_tristan_soc.i_data_sram.byte_lane[3].ram[_k] = _dram_tmp[_k][31:24];
+        end
+    end
+`else
+    initial begin
+        $readmemh("firmware/signals/dmem.mem", i_tristan_soc.data_dualport_i.ram);
+    end
+`endif
 
     // ----------------------------------
     //           Tristan Core
     // ----------------------------------
     tristan_soc
     #(
-        .SOC_ADDR_WIDTH    (SOC_ADDR_WIDTH),
-        .RAM_ADDR_WIDTH    (RAM_ADDR_WIDTH),
-        .BOOT_ADDR         (BOOT_ADDR),
-        .FIRMWARE_INITFILE ("firmware.mem")
+        .SOC_ADDR_WIDTH    (SOC_ADDR_WIDTH  ),
+        .DRAM_ADDR_WIDTH   (DRAM_ADDR_WIDTH ),
+        .IRAM_ADDR_WIDTH   (IRAM_ADDR_WIDTH ),
+        .BOOT_ADDR         (BOOT_ADDR       )
     )
     i_tristan_soc
     (
@@ -60,21 +109,26 @@ module top_tb;
         .wb_ack_i       (ack_wb),
         .wb_cyc_o       (cyc_wb),
 
-        // WB input interface to access RAM
+        // WB input interface: allows external Wishbone master to access SRAM directly.
+        // Tied to '0 in this testbench — not exercised by the obi_wb_bridge_test.
         .wb_addr_i      ('0),
         .wb_wdata_i     ('0),
         .wb_wr_en_i     ('0),
         .wb_byte_en_i   ('0),
         .wb_stb_i       ('0),
         .wb_cyc_i       ('0),
-        .wb_rdata_o     (),
-        .wb_ack_o     ()
+        .wb_rdata_o     (   ),  // WB-to-RAM port unused in this testbench
+        .wb_ack_o       (   )   // WB-to-RAM port unused in this testbench
     );
 
+    // WFG timer wishbone base: bits [19:8] == 0xE00 (from wfg_pkg address map)
+    localparam logic [11:0] WFG_TIMER_ADDR_MSB = 12'b111000000000;
+
     logic timer_sel;
-    assign timer_sel = addr_wb[19:8] == 12'b111000000000;
+    assign timer_sel = addr_wb[19:8] == WFG_TIMER_ADDR_MSB;
 
-
+    // Default wishbone responder for non-timer addresses.
+    // Driven by the cocotb WishboneSlave in top_tb.py (immediate ACK, zero read-data).
     logic default_ack;
     logic [31:0] default_dat;
     logic timer_ack;
@@ -89,7 +143,7 @@ module top_tb;
         .wbs_cyc_i   (cyc_wb & timer_sel),
         .wbs_we_i    (wr_en_wb),
         .wbs_dat_i   (data_o_wb),
-        .wbs_adr_i   (addr_wb),
+        .wbs_adr_i   (addr_wb[19:0]),
         .wbs_ack_o   (timer_ack),
         .wbs_dat_o   (timer_dat),
 

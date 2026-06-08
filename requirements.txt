@@ -1,0 +1,5 @@
+# Python deps for the Tristan cocotb testbenches.
+# Tested versions — install with: pip install -r requirements.txt
+cocotb==1.9.2
+cocotbext-wishbone==0.2.2
+find-libpython==0.3.1

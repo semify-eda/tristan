@@ -1,9 +1,11 @@
 ifndef TRISTAN_ROOT
-  $(error TRISTAN_ROOT is not set. Source sourceme.bash first: source sourceme.bash)
+  $(error TRISTAN_ROOT is not set. Run: export TRISTAN_ROOT=$$(pwd)  (from the repo root))
 endif
-ifndef WFG_ROOT
-  $(error WFG_ROOT is not set. Source sourceme.bash first: source sourceme.bash)
-endif
+
+# WFG_ROOT defaults to the vendored mirror so this sim runs standalone.
+# When integrated into wfg-fpga, sourceme.bash sets WFG_ROOT explicitly.
+# Must be exported — Verilator expands $(WFG_ROOT) from the environment.
+export WFG_ROOT ?= $(TRISTAN_ROOT)/vendor/wfg
 
 PYTHON ?= python3
 
@@ -23,9 +25,9 @@ VERILOG_SOURCES += $(TRISTAN_ROOT)/core/core_sram.sv
 VERILOG_SOURCES += $(TRISTAN_ROOT)/core/cv32e40x_soc.sv
 
 # Custom extensions
-VERILOG_SOURCES += $(TRISTAN_ROOT)/core/custom/coproc/rtl/coproc_pkg.sv
-VERILOG_SOURCES += $(TRISTAN_ROOT)/core/custom/coproc/rtl/coproc.sv
-VERILOG_SOURCES += $(TRISTAN_ROOT)/core/custom/coproc/rtl/rshifter32.sv
+VERILOG_SOURCES += $(TRISTAN_ROOT)/core/custom/ise/rtl/ise_pkg.sv
+VERILOG_SOURCES += $(TRISTAN_ROOT)/core/custom/ise/rtl/coproc.sv
+VERILOG_SOURCES += $(TRISTAN_ROOT)/core/custom/ise/rtl/rshifter32.sv
 VERILOG_SOURCES += $(TRISTAN_ROOT)/core/custom/obi_wb_bridge/rtl/obi_wb_bridge.sv
 VERILOG_SOURCES += $(TRISTAN_ROOT)/core/custom/ram_arbiter/rtl/ram_arbiter.sv
 VERILOG_SOURCES += $(TRISTAN_ROOT)/core/custom/wb_ram_interface/rtl/wb_ram_interface.sv
@@ -52,11 +54,6 @@ TOPLEVEL_LANG ?= verilog
 TOPLEVEL = obi_wb_bridge_tb
 MODULE = obi_wb_bridge_test
 export PYTHONPATH := $(PYTHONPATH):$(TRISTAN_ROOT)/core/custom/obi_wb_bridge/testbench/
-
-ifeq ($(SIM),icarus)
-  COMPILE_ARGS := $(addprefix -I,$(INCLUDE_DIRS))
-  COMPILER_ARGS ?= -g2012
-endif
 
 ifeq ($(SIM),verilator)
   COMPILE_ARGS  := $(addprefix +incdir+,$(INCLUDE_DIRS))

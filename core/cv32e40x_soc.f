@@ -53,10 +53,10 @@ $(TRISTAN_ROOT)/core/cv32e40x/rtl/cv32e40x_wb_stage.sv
 $(TRISTAN_ROOT)/core/cv32e40x/rtl/cv32e40x_wpt.sv
 $(TRISTAN_ROOT)/core/cv32e40x/rtl/cv32e40x_write_buffer.sv
 
-// 4. Co-processor
-$(TRISTAN_ROOT)/core/custom/coproc/rtl/coproc_pkg.sv
-$(TRISTAN_ROOT)/core/custom/coproc/rtl/coproc.sv
-$(TRISTAN_ROOT)/core/custom/coproc/rtl/rshifter32.sv
+// 4. Instruction Set Extension
+$(TRISTAN_ROOT)/core/custom/ise/rtl/ise_pkg.sv
+$(TRISTAN_ROOT)/core/custom/ise/rtl/coproc.sv
+$(TRISTAN_ROOT)/core/custom/ise/rtl/rshifter32.sv
 
 // 5. WFG Peripherals (connected via Wishbone)
 $(WFG_ROOT)/design/wfg/wfg_timer/rtl/wfg_timer_wishbone_reg.sv
@@ -71,12 +71,6 @@ $(TRISTAN_ROOT)/core/core_sram.sv
 $(TRISTAN_ROOT)/core/cv32e40x_soc.sv
 
 // 7. Include directories
-<<<<<<< HEAD
-// +incdir+$(TRISTAN_ROOT)/core/cv32e40x/rtl/include/
-// +incdir+$(TRISTAN_ROOT)/core/include/
-// +incdir+$(WFG_ROOT)/design/pkg/
-=======
 +incdir+$(TRISTAN_ROOT)/core/cv32e40x/rtl/include/
 +incdir+$(TRISTAN_ROOT)/core/include/
 +incdir+$(WFG_ROOT)/design/pkg/
->>>>>>> f946147 (fixing compile issue)

@@ -4,7 +4,8 @@ module obi_wb_bridge_tb;
 
     localparam BAUDRATE          = 115200;
     localparam SOC_ADDR_WIDTH    = 32;
-    localparam RAM_ADDR_WIDTH    = 14;
+    localparam DRAM_ADDR_WIDTH   = 12;  // 4K words (16 KB) data memory
+    localparam IRAM_ADDR_WIDTH   = 13;  // 8K words (32 KB) — 4 × 2K firmware slots
     localparam INSTR_RDATA_WIDTH = 32;
     localparam BOOT_ADDR         = 32'h00080000;
     parameter int CLK_FREQ       = 25_000_000;
@@ -95,9 +96,10 @@ module obi_wb_bridge_tb;
     // ----------------------------------
     cv32e40x_soc
     #(
-        .SOC_ADDR_WIDTH    (SOC_ADDR_WIDTH),
-        .RAM_ADDR_WIDTH    (RAM_ADDR_WIDTH),
-        .BOOT_ADDR         (BOOT_ADDR),
+        .SOC_ADDR_WIDTH    (SOC_ADDR_WIDTH  ),
+        .DRAM_ADDR_WIDTH   (DRAM_ADDR_WIDTH ),
+        .IRAM_ADDR_WIDTH   (IRAM_ADDR_WIDTH ),
+        .BOOT_ADDR         (BOOT_ADDR       ),
         .FIRMWARE_INITFILE ("../../../../../../firmware/firmware.mem")
     )
     cv32e40x_soc

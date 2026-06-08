@@ -1,8 +1,8 @@
 
 module wb_ram_tb;
 
-    localparam RAM_ADDR_WIDTH = 12;
-    localparam RAM_DATA_WIDTH = 32;
+    localparam RAM_ADDR_WIDTH = 12;  // 4K words for this isolated testbench
+    localparam RAM_DATA_WIDTH  = 32;
 
     logic [31 : 0]               wb2ram_addr; 
     logic [RAM_DATA_WIDTH-1 : 0] wb2ram_data;
@@ -34,7 +34,7 @@ module wb_ram_tb;
     //         WB - RAM Interface
     // ----------------------------------
     wb_ram_interface #(
-        .RAM_ADDR_WIDTH (12)
+        .RAM_ADDR_WIDTH (RAM_ADDR_WIDTH)
     ) i_wb_ram_interface (
         .ram_clk_i      (ram_clk_i      ),
         .wb_clk_i       (clk_i          ),
@@ -62,7 +62,6 @@ module wb_ram_tb;
     //              IRAM
     // ----------------------------------
     soc_sram_dualport #(
-        .INITFILEEN     (1),
         .DATAWIDTH      (RAM_DATA_WIDTH),
         .ADDRWIDTH      (RAM_ADDR_WIDTH),
         .BYTE_ENABLE    (1)
@@ -87,7 +86,6 @@ module wb_ram_tb;
     logic [31:0] ram_rdata;
     
     soc_sram_dualport #(
-        .INITFILEEN     (1),
         .DATAWIDTH      (RAM_DATA_WIDTH),
         .ADDRWIDTH      (RAM_ADDR_WIDTH),
         .BYTE_ENABLE    (1)

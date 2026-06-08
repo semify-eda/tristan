@@ -1,5 +1,5 @@
 ifndef TRISTAN_ROOT
-  $(error TRISTAN_ROOT is not set. Source sourceme.bash first: source sourceme.bash)
+  $(error TRISTAN_ROOT is not set. Run: export TRISTAN_ROOT=$$(pwd)  (from the repo root))
 endif
 
 PYTHON ?= python3
@@ -19,11 +19,6 @@ TOPLEVEL_LANG ?= verilog
 TOPLEVEL = wb_ram_tb
 MODULE = wb_ram_test
 export PYTHONPATH := $(PYTHONPATH):$(TRISTAN_ROOT)/core/custom/wb_ram_interface/testbench/
-
-ifeq ($(SIM),icarus)
-  COMPILE_ARGS := $(addprefix -I,$(INCLUDE_DIRS))
-  COMPILER_ARGS ?= -g2012
-endif
 
 ifeq ($(SIM),verilator)
   COMPILE_ARGS  := $(addprefix +incdir+,$(INCLUDE_DIRS))

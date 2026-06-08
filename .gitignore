@@ -65,6 +65,8 @@ preprocessed.v
 *.gtkw
 results.xml
 top_tb.vcd
+trace_hart_0.dasm
+firmware.mem
 
 # Claude: CLAUDE.md should be checked in, not the rest
 .claude/*
@@ -72,3 +74,10 @@ top_tb.vcd
 __pycache__
 sim_build
 abc.history
+
+# Firmware build outputs
+firmware/build/
+*.lst
+
+# Editor / IDE
+.vscode/
