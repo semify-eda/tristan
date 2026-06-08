@@ -43,7 +43,7 @@ module top_tb;
 `ifdef CV32A60X
     initial begin
         logic [31:0] _iram_tmp [0:(1<<IRAM_ADDR_WIDTH)-1];
-        $readmemh("firmware.mem", _iram_tmp);
+        $readmemh("firmware/firmware.mem", _iram_tmp);
         for (int _k = 0; _k < (1<<IRAM_ADDR_WIDTH); _k++) begin
             i_tristan_soc.i_instr_sram.byte_lane[0].ram[_k] = _iram_tmp[_k][ 7: 0];
             i_tristan_soc.i_instr_sram.byte_lane[1].ram[_k] = _iram_tmp[_k][15: 8];
@@ -53,7 +53,30 @@ module top_tb;
     end
 `else
     initial begin
-        $readmemh("firmware.mem", i_tristan_soc.instr_dualport_i.ram);
+        $readmemh("firmware/firmware.mem", i_tristan_soc.instr_dualport_i.ram);
+    end
+`endif
+
+    // ----------------------------------
+    //  DRAM data loading
+    // ----------------------------------
+    // Loads the dmem image produced by `make firmware FW_GOAL=dmem` —
+    // a packed view of firmware/signals/encoded.txt at the addresses the
+    // firmware reads from (stream_t header at byte 0x3E00, payload after).
+`ifdef CV32A60X
+    initial begin
+        logic [31:0] _dram_tmp [0:(1<<DRAM_ADDR_WIDTH)-1];
+        $readmemh("firmware/signals/dmem.mem", _dram_tmp);
+        for (int _k = 0; _k < (1<<DRAM_ADDR_WIDTH); _k++) begin
+            i_tristan_soc.i_data_sram.byte_lane[0].ram[_k] = _dram_tmp[_k][ 7: 0];
+            i_tristan_soc.i_data_sram.byte_lane[1].ram[_k] = _dram_tmp[_k][15: 8];
+            i_tristan_soc.i_data_sram.byte_lane[2].ram[_k] = _dram_tmp[_k][23:16];
+            i_tristan_soc.i_data_sram.byte_lane[3].ram[_k] = _dram_tmp[_k][31:24];
+        end
+    end
+`else
+    initial begin
+        $readmemh("firmware/signals/dmem.mem", i_tristan_soc.data_dualport_i.ram);
     end
 `endif
 
