@@ -1,27 +1,27 @@
 # CLAUDE.md — Tristan (RISC-V Subsystem)
 
-This file provides guidance to Claude Code when working in the `design/tristan/` subdirectory.
+This file provides guidance to Claude Code when working in the `design/tristan/` repository.
 
 > **Keep this file up to date.** Update it whenever the SoC structure, Makefile conventions, or simulation flow changes.
 
 ## Subsystem Overview
 
-Tristan is a RISC-V SoC that supports two core variants selectable via `CORE=`:
+Tristan is a self-contained RISC-V SoC that supports two core variants selectable via `CORE=`:
 
 | `CORE=` | Core | ISA | Source list |
 |---|---|---|---|
 | `cv32a60x` (default) | CVA6 cv32a60x | RV32IMA | `core/cv32a60x_soc.f` |
 | `cv32e40x` | CV32E40X | RV32IA | `core/cv32e40x_soc.f` |
 
-It is integrated into SmartWave to run firmware that drives the WFG peripheral bus. The SoC connects to WFG peripherals (e.g. `wfg_timer`) via a Wishbone bus.
+The SoC connects to Wishbone peripherals via an OBI → WB bridge. For the integration product (SmartWave) and the benchmark/coverage data, see `README.md` § "Larger verification & demo framework".
 
 **Shared components (both cores):**
 
 | Component | Path | Description |
 |---|---|---|
-| ISE package | `core/custom/ise/rtl/ise_pkg.sv` | Types and enums for XIF Instruction Set Extension |
+| ISE package | `core/custom/ise/rtl/ise_pkg.sv` | Types and enums for the XIF / CVXIF Instruction Set Extension |
 | Rotate-shift unit | `core/custom/ise/rtl/rshifter32.sv` | 32-bit right-shift / rotate-right primitive |
-| OBI→WB bridge | `core/custom/obi_wb_bridge/rtl/` | Connects core data bus to Wishbone peripherals |
+| OBI → WB bridge | `core/custom/obi_wb_bridge/rtl/` | Connects core data bus to Wishbone peripherals |
 | WB RAM interface | `core/custom/wb_ram_interface/rtl/` | Wishbone slave for SRAM access |
 | SoC package | `core/include/soc_pkg.sv` | Address map, type definitions |
 | Testbench top | `core/testbench/top_tb.sv` | Connects SoC + WFG timer for sim |
@@ -30,12 +30,11 @@ It is integrated into SmartWave to run firmware that drives the WFG peripheral b
 
 | Component | Path | Description |
 |---|---|---|
-| CV32E40X core | `core/cv32e40x/rtl/` | 45-file RISC-V CPU RTL |
+| CV32E40X core | `core/cv32e40x/rtl/` | RISC-V CPU RTL (submodule) |
 | SoC top | `core/cv32e40x_soc.sv` | Integrates core + SRAM + ISE + bridge |
 | SRAM | `core/core_sram.sv` | Shared instruction/data memory |
 | ISE | `core/custom/ise/rtl/coproc.sv` | XIF Instruction Set Extension (CV32E40X port) |
 | RAM arbiter | `core/custom/ram_arbiter/rtl/` | Arbitrates CPU vs. Wishbone access to SRAM |
-| Core package | `core/cv32e40x/rtl/include/cv32e40x_pkg.sv` | Core parameters, enums |
 
 **CVA6-specific:**
 
@@ -44,85 +43,91 @@ It is integrated into SmartWave to run firmware that drives the WFG peripheral b
 | CVA6 core | `core/cva6/` | CVA6 cv32a60x RISC-V CPU RTL (submodule) |
 | SoC top | `core/cv32a60x_soc.sv` | Integrates CVA6 + SRAM + ISE + bridge |
 | SRAM | `core/core_sram_patched.sv` | Per-byte-lane dual-port BRAM (Vivado-friendly) |
-| ISE | `core/custom/ise/rtl/ise_cv32a60x.sv` | XIF Instruction Set Extension (CVA6/CVXIF port) |
+| Patched CSR file | `core/csr_regfile_patched.sv` | Local patch of CVA6's `csr_regfile.sv` (referenced directly from `cv32a60x_soc.f`; the upstream submodule file is commented out in that filelist) |
+| ISE | `core/custom/ise/rtl/ise_cv32a60x.sv` | XIF Instruction Set Extension (CVA6 / CVXIF port) |
 | Data bus arbiter | `core/custom/data_bus_arbiter/rtl/` | Arbitrates instruction vs. data OBI access |
 
 ## Environment Setup
 
 ```bash
-source sourceme.bash    # sets $WFG_ROOT and $TRISTAN_ROOT
+export TRISTAN_ROOT=$(pwd)        # from the repo root
 ```
 
-Both variables are required by all Makefiles. If they are unset, make will abort with an error message.
+`WFG_ROOT` defaults to `$(TRISTAN_ROOT)/vendor/wfg` (the vendored mirror — see **Vendoring** below). If integrating with the upstream wfg-fpga project, `export WFG_ROOT=/path/to/wfg-fpga` before running `make` to override.
+
+Python deps for the testbench: `pip install -r requirements.txt`.
 
 ## Simulation
 
 ### Root-level simulation (full SoC)
 
 ```bash
-cd design/tristan
-make                        # CVA6 core, Verilator (default)
-make CORE=cv32e40x          # CV32E40X core
-make SIM=icarus             # Icarus Verilog (CV32E40X only)
-make TESTCASE=<fn>          # single test
-make FIRMWARE=ise_test      # override firmware variant (default: custom_ext_spi)
-make clean
+make                       # CVA6 core (default), Verilator
+make CORE=cv32e40x         # CV32E40X core variant
+make clean                 # remove sim_build/, traces, staged firmware.mem
 ```
 
-The Python testbench module is `top_tb` in `core/testbench/`.
+The testbench is shared by both cores — `core/testbench/top_tb.{sv,py}` instantiates `tristan_soc` (the module name in both `cv32e40x_soc.sv` and `cv32a60x_soc.sv`). At sim start it `$readmemh`s `firmware/firmware.mem` into IRAM and `firmware/signals/dmem.mem` into DRAM.
 
-The same `top_tb.sv` / `top_tb.py` testbench is shared by both cores. It instantiates `tristan_soc` (the SoC top module name in both `cv32e40x_soc.sv` and `cv32a60x_soc.sv`).
+A cocotb `WishboneSlave` provides default `ack`/`dat` for non-timer addresses, and a small coroutine (`_wb_write_monitor`) prints `[MMIO] W @ <adr>  data=<dat>` on each WB write — sampled directly from the bus signals at the cycle where `cyc & stb & we & ack` are all high.
 
 ### Module-level simulations
 
-```bash
-# ISE shifter
-cd design/tristan/core/custom/ise/sim
-make
-
-# OBI → Wishbone bridge (full SoC context)
-cd design/tristan/core/custom/obi_wb_bridge/sim
-make
-
-# Wishbone RAM interface
-cd design/tristan/core/custom/wb_ram_interface/sim
-make
-```
-
-### Firmware
+Three independent cocotb testbenches:
 
 ```bash
-cd design/tristan
-make firmware                       # build custom_ext (default) → firmware.mem
-make firmware FIRMWARE=ise_test     # build ise_test variant instead
+cd core/custom/ise/sim              && make
+cd core/custom/obi_wb_bridge/sim    && make
+cd core/custom/wb_ram_interface/sim && make
 ```
 
-Runs `make $(FIRMWARE)` in `$(WFG_ROOT)/firmware/` and copies the result to `$(TRISTAN_ROOT)/firmware.mem`. The RISC-V GNU toolchain must be on `PATH` (see README.md).
+## Firmware
+
+A minimum-working-example firmware lives under `firmware/`. Single source `main/main.c`, built twice — once without and once with `-DCUSTOM_EXT` — producing `base` and `ise` variants. Both decode three BRLE-encoded 16-bit words from DMEM and write them to a Wishbone-mapped sink at `0x00100000`.
+
+```bash
+make firmware                       # build all + stage base/firmware.mem as firmware/firmware.mem
+make firmware FW_VARIANT=ise        # stage ise variant instead
+make firmware FW_GOAL=base          # only build base
+make firmware FW_GOAL=dmem          # only build dmem image from signals/encoded.txt
+make firmware FW_GOAL=clean         # clean firmware/
+```
+
+The top-level `firmware` target wraps `$(MAKE) -C firmware $(FW_GOAL)` and (for non-clean goals) `cp`s `firmware/build/$(FW_VARIANT)/firmware.mem` to `firmware/firmware.mem` for the testbench to pick up.
+
+Build chain inside `firmware/`: `main.c + rle.c + start.S → firmware.elf → firmware.bin → firmware.mem (via scripts/makehex.py)`. The `dmem` target runs `scripts/generate_dmem.py` over `signals/encoded.txt` to produce `signals/dmem.mem` (header at byte 0x3E00, payload right after).
+
+The base/ise distinction is purely a compile-time flag — `firmware/src/rle.c` has `#ifdef CUSTOM_EXT` branches in `extend_value()` and `copy_segment()` that emit ISE inline asm (RMLD / RMCS / RMXR / RMXS, defined in `firmware/include/instr.h`) instead of the software bit-manipulation path.
 
 ## Architecture
 
-### Memory Map (from `core/include/soc_pkg.sv`)
+### Memory map
 
-The SoC boot address is `0x0200_0000`. Wishbone peripherals (including WFG) are mapped above the SRAM range.
+From `core/cv32a60x_soc.sv` (CV32E40X uses the same scheme):
+
+- `addr[20] = 0` → INTERNAL: DRAM (block_sel 0, `0x000000–0x01FFFF`) / IRAM (block_sel 1, `0x020000–0x03FFFF`)
+- `addr[20] = 1` → EXTERNAL: routes through OBI → WB bridge to peripherals at `0x100000+`
+
+The bridge strips bit 20 on the way out, so a CPU write to `0x00100000` appears on the WB bus as `wb_addr_o = 0x00000000`.
 
 ### Clock domains
 
-- `core_clk` — CV32E40X and SRAM (25 MHz in testbench)
-- `wfg_clk` — WFG Wishbone peripherals (same clock in testbench)
+- `core_clk` — CPU + SRAM (25 MHz in testbench)
+- `wfg_clk` — Wishbone peripherals (100 MHz in testbench)
 
-### XIF Instruction Set Extension Interface
+### ISE interface
 
-Both cores connect to the ISE via the **eXtension Interface (XIF)**:
+Both cores connect to the ISE via the **eXtension Interface (XIF / CVXIF)**:
 - CV32E40X uses `coproc.sv` (XIF 0.9 subset)
 - CVA6 uses `ise_cv32a60x.sv` (CVXIF protocol)
 
-The ISE implements a right-shift / rotate-right accelerator (`rshifter32.sv`) used for RLE compression in firmware. Hardware-measured on the sine demo (2026-05-07): custom instructions roughly **double** RLE decompression throughput (~2×) and shrink the decode firmware to **~64 % of the base size** (~36 % smaller). See root `CLAUDE.md` § Firmware for full numbers.
+The ISE implements a right-shift / rotate-right accelerator (`rshifter32.sv`) used by the BRLE decoder. Hardware-measured speed-up on the larger framework's RLE-decompression workload: ~2× throughput, ~36 % smaller decode firmware (see `README.md` § Benchmark for full numbers).
 
 ## Coding Conventions
 
 ### `` `default_nettype `` guard
 
-Every RTL file that opens with `` `default_nettype none `` **must** close with `` `default_nettype wire `` after `endmodule`. Without the footer, the `none` directive bleeds into every subsequently compiled file (both in Verilator and Vivado), causing spurious "net type must be explicitly specified" errors in files that are otherwise correctly written.
+Every RTL file that opens with `` `default_nettype none `` **must** close with `` `default_nettype wire `` after `endmodule`. Without the footer, the `none` directive bleeds into every subsequently compiled file (both in Verilator and Vivado), causing spurious "net type must be explicitly specified" errors in unrelated files.
 
 ```sv
 `default_nettype none     // ← top of file
@@ -132,154 +137,74 @@ endmodule
 `default_nettype wire     // ← mandatory footer, always present
 ```
 
-Files in this project that use this pattern: `ise_cv32a60x.sv`, `cv32a60x_soc.sv`, `obi_wb_bridge.sv`, `obi_data_bus_arbiter.sv`.
-
 ### Testbench: cocotb WishboneSlave is an active driver
 
 `cocotbext-wishbone`'s `WishboneSlave` **drives** the signals listed in its `signals_dict` — it is not a passive monitor. In `top_tb.sv`, `default_ack` and `default_dat` are driven exclusively by the cocotb slave. **Do not assign these signals from RTL** (`assign default_ack = ...`). A multi-driver conflict causes Verilator's RTL assignment to win every evaluation cycle, preventing cocotb from ever deasserting `ack`, which stalls the slave's state machine and records 0 transactions.
 
 ## Makefile Conventions
 
-All Makefiles follow the same pattern as `design/wfg/*/sim/Makefile`:
+- `SIM ?= verilator` — Verilator is the only supported simulator. Other backends are not tested.
+- `EXTRA_ARGS += --no-timing --trace --Wno-fatal` — required; see *Known Issues* below.
+- `COMPILE_ARGS := $(addprefix +incdir+,$(INCLUDE_DIRS))` — Verilator include-path style.
+- `ifndef TRISTAN_ROOT` guards abort make with a clear error if the env var isn't exported.
+- `WFG_ROOT` is defaulted via `?= $(TRISTAN_ROOT)/vendor/wfg` and `export`ed so the `.f` filelists' `$(WFG_ROOT)/...` paths expand from the environment.
 
-- `SIM ?= verilator` — Verilator is the default
-- `EXTRA_ARGS += --no-timing --trace --Wno-fatal` — required; see Known Issues below
-- `COMPILE_ARGS := $(addprefix +incdir+,$(INCLUDE_DIRS))` — for Verilator
-- `ifndef TRISTAN_ROOT` / `ifndef WFG_ROOT` guards abort make with a clear error if environment is not sourced
+### Source file ordering in the `.f` filelists
 
-### Source file ordering
-
-Packages must be listed before any module that imports them. The `.f` filelists (`cv32e40x_soc.f`, `cv32a60x_soc.f`) define the canonical order. For CV32E40X:
+Packages must be listed before any module that imports them. For CV32E40X (`cv32e40x_soc.f`):
 
 1. Packages: `soc_pkg.sv`, `cv32e40x_pkg.sv`, `wfg_pkg.sv`
-2. `cv32e40x/bhv/cv32e40x_sim_clock_gate.sv` (behavioral clock gate — simulation only)
+2. `cv32e40x/bhv/cv32e40x_sim_clock_gate.sv` (simulation only)
 3. `cv32e40x/rtl/*.sv` (all core modules, explicitly listed)
 4. ISE: `ise_pkg.sv`, `coproc.sv`, `rshifter32.sv`
 5. WFG peripherals: `wfg_timer_wishbone_reg.sv`, `wfg_timer.sv`, `wfg_timer_top.sv`
 6. SoC modules: `obi_wb_bridge.sv`, `ram_arbiter.sv`, `wb_ram_interface.sv`, `core_sram.sv`, `cv32e40x_soc.sv`
 7. `+incdir+` entries last
-8. Testbench last (not in `.f` — added by Makefile)
+8. Testbench last (not in `.f` — added by the Makefile)
 
 ### Files intentionally excluded from simulation
 
-| File/directory | Reason |
+| File / directory | Reason |
 |---|---|
 | `core/cv32e40x/sva/` | Formal verification assertions — not needed for simulation, can cause Verilator issues |
 | `core/cv32e40x/bhv/cv32e40x_rvfi*.sv` | RVFI verification trace — verification-only, not part of DUT |
-| `core/cv32e40x_yosys.v` | Legacy sv2v artifact — no longer generated or used |
 | `core/cva6/corev_apu/`, `core/cva6/verif/` | CVA6 subsystem-level testbenches — not part of this SoC sim flow |
-| `core/riscv-dbg/` | Debug transport — not instantiated in testbench |
 
-## Vivado Synthesis (CVA6 variant)
+## Vendoring
 
-The CVA6+XIF Vivado project lives under `vivado/wfg_cv32a60x/cva6_with_xif/` (relative to the repo root). Steps:
+A few SystemVerilog files are vendored from the upstream wfg-fpga project into `vendor/wfg/`, mirroring the upstream directory layout so the build's `$(WFG_ROOT)/...` paths resolve locally without source edits:
 
-1. **Build firmware** — `cd design/tristan && make firmware` (copies `firmware.mem` here; see BRAM preload limitation below)
-2. **Open Vivado 2023.2** and create or open the project
-3. **Add sources** — in the Tcl console: `source vivado/wfg_cv32a60x/cva6_with_xif/vivado_add_sources.tcl`
-   - Edit `TRISTAN_ROOT` and `WFG_ROOT` at the top of the script to match your machine before sourcing
-   - This adds all RTL sources in the correct order and sets `tristan_soc` as the synthesis top
-4. **Run implementation** — Flow Navigator → Generate Bitstream (or use the make-release-bitstream.tcl script)
-5. **Package release** — `python make-release.py` from the repo root
+| Vendored file | Purpose |
+|---|---|
+| `design/pkg/wfg_pkg.sv` | Slimmed Wishbone-bus parameter package (`BUSW`, `ADDRW`, `BLOCK_SEL_ADDRW`, …) |
+| `design/wfg/wfg_timer/rtl/*.sv` | Wishbone-attached timer peripheral instantiated by the testbench |
+| `design/semify_common/wishbone/arbiter/rtl/wb_arbiter_2.sv` | Wishbone master arbiter used by the OBI ↔ WB bridge unit sim |
+
+The `.f` filelists and module-sim Makefiles use `$(WFG_ROOT)/...` paths verbatim. With `WFG_ROOT` defaulted to `$(TRISTAN_ROOT)/vendor/wfg` and `export`ed, these resolve to the vendored copies in standalone use.
 
 ## Known Issues
-
-### CVA6 CVXIF `rd` writeback unreliable — **OPEN**
-
-**File:** `core/custom/ise/rtl/ise_cv32a60x.sv`
-
-**Symptom:** `RMLD` is the only R-type ISE instruction with an `rd` field. The shadow register loads correctly (verified via `RMCS` readback), but the value written back to the integer register file via the CVXIF result channel is wrong (often 0). Documented in `firmware/src/rle.c:608, 644` ("the xif doesnt allow for correct writebacks into rd"). Standalone test: `verif/testbench_avl/rd_field_test/` (firmware `firmware/main/rd_field_test_main.c`). CVA6 maintainers say the host side works, so the bug is on our coprocessor side — likely a handshake/state-machine issue, not the host.
-
-**Spec reference:** https://docs.openhwgroup.org/projects/cva6-user-manual/01_cva6_user/CVX_Interface_Coprocessor.html
-
-#### Candidate root causes (not yet confirmed)
-
-**1. Asymmetric else-branch in UPDATE (`ise_cv32a60x.sv:602-606`)**
-
-```sv
-end else begin                                                  // capture_rbuf63_32_ff = 0
-  shadow_reg                   <= shadow_reg_spec;              // full value
-  cvxif_resp_o.result.data     <= op_load ? shadow_reg_spec & wmask : '0;  // <<< masked
-  cvxif_resp_o.result.we       <= op_load;
-end
-```
-
-The if-branch (capture_rbuf63_32_ff=1) on lines 598-601 writes the SAME expression to both `shadow_reg` and `result.data`. The else-branch writes different expressions: `shadow_reg` gets the full `shadow_reg_spec`, but `result.data` gets `shadow_reg_spec & wmask`. The `& wmask` here looks like a copy-paste bug — `wmask` is the merge mask for the upper memory word, not a valid-bits mask. If this branch ever fires for a load, `rd` receives a masked-out subset (often 0).
-
-**Combined with the bit_idx=0 quirk:** `shift_amount = 7'b100_0000 - bit_idx` for op_load. For `bit_idx=0` this is 64, but `shift_amount` is declared `logic [4:0]` → truncates to 0. The downstream `count_unary << shift_amount` then computes `0xFFFFFFFF << 0 = 0xFFFFFFFF` instead of the intended 0. Whether this actually zeros `wmask` depends on exact synthesis truncation of intermediate expressions — the firmware comment in `rd_field_test_main.c:24-29` claims `wmask=0` for this case; my static read says `0xFFFFFFFF`. Worth measuring in waveform.
-
-**2. `issue_ready` deassertion is one cycle too late (`ise_cv32a60x.sv:420, 428`)**
-
-`issue_ready` is a registered output: set in the `next_state_ff=IDLE` branch, cleared in `next_state_ff=MEM_RD1`. With CVA6 synchronous-commit (`X_ISSUE_REGISTER_SPLIT=0` per `build_config_pkg.sv:192`), `issue_valid` + `register_valid` + `commit_valid` all assert on the SAME cycle that `issue_ready=1` is observed. But our state machine takes one extra cycle in IDLE before transitioning to MEM_RD1 (because `issue_valid_ff` needs to clock in before `next_state` evaluates as MEM_RD1). During that extra cycle, `issue_ready` is still 1 — opening a **1-cycle double-issue window**. If the CPU has a second CVXIF instruction ready (e.g. firmware sequences like `RMLD; RMCS;`), it would be accepted by the host but the data_state_actions IDLE branch would overwrite `id/instr/rd/rs1/rs2` from the first instruction.
-
-Symptom would be: result.id matches one instruction but result.rd / result.data correspond to a different one → host writes wrong register.
-
-**Likely fix:** make `issue_ready` combinational, e.g. `assign cvxif_resp_o.issue_ready = (state_ff == IDLE) && !issue_valid_ff;` (and remove the registered assignments in `control_state_actions`).
-
-#### Verification next steps
-
-1. Capture FST waveform of `verif/testbench_avl/rd_field_test/` and confirm whether `cvxif_req_i.issue_valid` ever fires in two consecutive cycles. If yes → candidate (2) is the bug.
-2. In the same waveform, confirm which branch (if/else) of UPDATE fires when commit fires, and read out the actual `wmask` value at that posedge. If else-branch fires → candidate (1) is at least contributing.
-3. CV32E40X port (`coproc.sv`) likely has the same patterns — re-audit there too if (2) lands.
-
-### CVA6 `obi_data_bus_arbiter`: Flat bus corruption — **FIXED**
-
-**File:** `core/custom/data_bus_arbiter/rtl/obi_data_bus_arbiter.sv`
-
-**Symptom (resolved):** When running with `CORE=cv32a60x`, the ISE's RMST instruction wrote 0 to DRAM instead of the computed value. This caused the wfg stimuli SRAM to receive wrong sample data, producing incorrect DAC output (`d_a=5` instead of `d_a=4`). CV32E40X was unaffected.
-
-#### Root cause
-
-CVA6 exposes separate OBI store and load buses. The arbiter's `flat_wdata` mux is combinatorial and priority-driven: `store > load > ISE`. When the ISE entered state MEM_WR1 and asserted `obi_ise_req_i=1`, it presented `obi_ise_wdata_i=0` on the first cycle — this is **OBI-compliant**: the protocol only requires wdata to be stable at the grant cycle, not at the request cycle.
-
-The arbiter latched the entire flat bus (including wdata) at the **request-acceptance cycle** (cycle N), capturing `wdata=0`. One cycle later (cycle N+1, when `flat_gnt=1`), the ISE had updated `obi_ise_wdata_i` to the correct value (`0x0ebe0000`), but the SRAM write used the already-frozen latch value of 0.
-
-On CV32E40X there is no latch — its `ram_arbiter` drives SRAM signals combinatorially — so the SRAM always sees the live wdata at the write edge, which happens to be the cycle when the ISE's data is ready.
-
-#### Simulation evidence
-
-Both cores write `0x000000000ebe0000` to `wbuf` at an earlier RMLD. Wbuf resets to 0 one to two clocks before the critical MEM_WR1. At MEM_WR1: CV32E40X's `d_a` (SRAM write data) = `0x0ebe0000`; CVA6's `d_a` = 0 — confirming the write used the stale latch value. The subsequent MEM_RD1 of the same address then reads back 0, and `rbuf`/`wbuf` stay 0 for all later iterations, producing wrong sample data.
-
-#### Fix applied
-
-`flat_wdata_active` now reads the **live signal from the owning master** while `arb_busy=1`, identified by `arb_sel_*_q`, instead of the latched value. This is safe because `flat_req` is suppressed while busy (no competing master can change the mux), and the owning master is guaranteed to hold wdata stable from req until gnt per OBI protocol.
-
-`addr`, `be`, `we`, and `select` signals continue to use the latch — they are correct from the request cycle and must be frozen to prevent address/control corruption if a higher-priority request arrives while busy.
-
-```sv
-// addr/be/we/select: latched at accept cycle — frozen against concurrent requests
-assign flat_addr_active        = arb_busy ? flat_addr_latch        : flat_addr;
-assign flat_be_active          = arb_busy ? flat_be_latch          : flat_be;
-assign flat_we_active          = arb_busy ? flat_we_latch          : flat_we;
-assign flat_select_dmem_active = arb_busy ? flat_select_dmem_latch : flat_select_dmem;
-assign flat_select_wb_active   = arb_busy ? flat_select_wb_latch   : flat_select_wb;
-
-// wdata: live signal from owning master — valid at gnt cycle (one cycle after req)
-assign flat_wdata_active = arb_busy ?
-    (arb_sel_store_q  ? obi_cpudata_store_req_i.a.wdata :
-     arb_sel_ise_q    ? obi_ise_wdata_i                  :
-                        obi_cpudata_load_req_i.a.wdata)  :
-    flat_wdata;
-```
-
-**Priority order:** Store (highest) > Load > ISE (lowest).
-
-**Note:** This only affects CVA6. CV32E40X uses `ram_arbiter` (single data bus) and `core_sram.sv`, so this race cannot occur.
 
 ### Verilator 5.046 `--timing` bug
 
 **Never use `--timing`.** Use `--no-timing --Wno-fatal` instead.
 
-Verilator 5.046 generates a `std::process` coroutine wrapper with member `m_process`, but the bundled `verilated_std.sv` comparison operators reference `__PVT__m_process`, causing a C++ compile error whenever `fork`/`join`, `disable`, or `#delay` constructs are present. This affects the CV32E40X RTL.
+Verilator 5.046 generates a `std::process` coroutine wrapper with member `m_process`, but the bundled `verilated_std.sv` comparison operators reference `__PVT__m_process`, causing a C++ compile error whenever `fork`/`join`, `disable`, or `#delay` constructs are present. The CV32E40X RTL contains these constructs.
 
-**Workaround:** `--no-timing` silently skips all `#delay` statements (zero delay). This is safe for the CV32E40X simulation flow.
+**Workaround:** `--no-timing` silently skips all `#delay` statements (zero delay). Safe for this SoC simulation flow.
 
-See also: root `CLAUDE.md` § Known Issues for full background.
+### CVA6 CVXIF `rd` writeback unreliable (OPEN)
 
-### Missing `cv32e40x_yosys.v`
-
-This file was a legacy artifact generated by running `sv2v` on the CV32E40X RTL for Icarus Verilog compatibility. It is no longer needed: Verilator handles SystemVerilog natively. The file should not be generated or checked in.
+The CVA6 / CVXIF path of `RMLD` correctly loads the shadow register (verified via `RMCS` readback), but the value written back to the integer register file via the CVXIF result channel is occasionally wrong (often 0). The firmware works around this by reading the result via `RMCS` from the shadow register instead of via the `rd` field. Comments in `firmware/src/rle.c` reference this limitation. Spec: <https://docs.openhwgroup.org/projects/cva6-user-manual/01_cva6_user/CVX_Interface_Coprocessor.html>.
+This will be tested in the upstream smartwave repo.
 
 ### BRAM preload not supported in synthesis (`core_sram_patched.sv`)
 
-The CVA6 SRAM (`core_sram_patched.sv`) splits memory into per-byte-lane 8-bit BRAMs via a `generate` loop. The `$readmemh` call is wrapped in `// synthesis translate_off / // synthesis translate_on` and is **simulation-only**. Vivado cannot follow the intermediate temp-array + for-loop pattern to initialize the inferred BRAMs, so the SRAM always powers up as zero in hardware. The firmware must be loaded via another mechanism (e.g. JTAG, UART bootloader, or a BRAM IP with a `.coe` file).
+The CVA6 SRAM splits memory into per-byte-lane 8-bit BRAMs via a `generate` loop, with `$readmemh` wrapped in `// synthesis translate_off / translate_on` (**simulation-only**). Vivado cannot follow the intermediate temp-array + for-loop pattern to initialize the inferred BRAMs, so the SRAM always powers up as zero in hardware. Synthesis flows must load firmware via another mechanism (JTAG, UART bootloader, BRAM IP with a `.coe` file, …).
+
+## Known TODOs
+
+### Refactor `extend_value` CUSTOM_EXT branch to use `xset_stream_bits()`
+
+**File:** `firmware/src/rle.c` — the `#ifdef CUSTOM_EXT` branch inside `extend_value()` currently inlines the size/`s_bits` bookkeeping and then calls `RMXS` / `RMXR` directly. The intent (documented in a `TODO` comment in the source) is to extract this into a helper analogous to `xset_stream_bits()` — ideally split into two helpers, one for shadow-register copies (today's `xset_stream_bits` wrapping `RMCS`) and a new one for value-extend stamps (wrapping `RMXS` / `RMXR`).
+
+Cosmetic refactor: no functional change. After it lands, the `extend_value()` body shrinks and the CUSTOM_EXT branch reads more like the equivalent helper-using line in `copy_segment()`.
