@@ -181,6 +181,8 @@ Verilator 5.046 with the default `CORE=cv32a60x` configuration.
 
 ### Larger verification & demo framework
 
+![SmartWave block diagram](block_diagram.png)
+
 The benchmark and functional-coverage data shown below come from
 semify's **SmartWave** framework — an FPGA-based waveform-generator
 and protocol-analyzer product that integrates this RISC-V SoC. There,
