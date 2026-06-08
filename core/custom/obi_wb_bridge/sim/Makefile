@@ -1,9 +1,11 @@
 ifndef TRISTAN_ROOT
-  $(error TRISTAN_ROOT is not set. Source sourceme.bash first: source sourceme.bash)
+  $(error TRISTAN_ROOT is not set. Run: export TRISTAN_ROOT=$$(pwd)  (from the repo root))
 endif
-ifndef WFG_ROOT
-  $(error WFG_ROOT is not set. Source sourceme.bash first: source sourceme.bash)
-endif
+
+# WFG_ROOT defaults to the vendored mirror so this sim runs standalone.
+# When integrated into wfg-fpga, sourceme.bash sets WFG_ROOT explicitly.
+# Must be exported — Verilator expands $(WFG_ROOT) from the environment.
+export WFG_ROOT ?= $(TRISTAN_ROOT)/vendor/wfg
 
 PYTHON ?= python3
 
@@ -52,11 +54,6 @@ TOPLEVEL_LANG ?= verilog
 TOPLEVEL = obi_wb_bridge_tb
 MODULE = obi_wb_bridge_test
 export PYTHONPATH := $(PYTHONPATH):$(TRISTAN_ROOT)/core/custom/obi_wb_bridge/testbench/
-
-ifeq ($(SIM),icarus)
-  COMPILE_ARGS := $(addprefix -I,$(INCLUDE_DIRS))
-  COMPILER_ARGS ?= -g2012
-endif
 
 ifeq ($(SIM),verilator)
   COMPILE_ARGS  := $(addprefix +incdir+,$(INCLUDE_DIRS))

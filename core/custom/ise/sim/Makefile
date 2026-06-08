@@ -1,5 +1,5 @@
 ifndef TRISTAN_ROOT
-  $(error TRISTAN_ROOT is not set. Source sourceme.bash first: source sourceme.bash)
+  $(error TRISTAN_ROOT is not set. Run: export TRISTAN_ROOT=$$(pwd)  (from the repo root))
 endif
 
 # ── Source files ───────────────────────────────────────────────────────────────
@@ -12,10 +12,6 @@ TOPLEVEL_LANG ?= verilog
 TOPLEVEL = shifter_tb
 MODULE = shifter_test
 export PYTHONPATH := $(PYTHONPATH):$(TRISTAN_ROOT)/core/custom/ise/testbench/
-
-ifeq ($(SIM),icarus)
-  COMPILER_ARGS ?= -g2012
-endif
 
 ifeq ($(SIM),verilator)
   EXTRA_ARGS += --no-timing --trace --Wno-fatal
