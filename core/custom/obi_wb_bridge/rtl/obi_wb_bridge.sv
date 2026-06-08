@@ -31,10 +31,6 @@ module obi_wb_bridge
     output logic                    wb_stb_o,       // O - Strobe: held high for the duration of an entire data transfer
     input  wire                     wb_ack_i,       // I - Acknowledge: response from the slave is valid and the transfer is complete
     output logic                    wb_cyc_o        // O - Cycle: held high for the duration of an entire data transaction (multiple transfers)
-
-    /* 
-    * TODO: Add Wishbone slave interface to configure MMU 
-    */
 );
 
 logic       obi_clk_ff;

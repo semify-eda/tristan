@@ -74,3 +74,10 @@ firmware.mem
 __pycache__
 sim_build
 abc.history
+
+# Firmware build outputs
+firmware/build/
+*.lst
+
+# Editor / IDE
+.vscode/

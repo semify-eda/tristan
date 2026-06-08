@@ -174,7 +174,7 @@ module tristan_soc import cv32e40x_pkg::*;
   /* ================================================================
   *                         Arbiter
   * ================================================================= */
-  ram_arbiter i_ram_arbiter // !TODO: remove this arbiter -- its completely unnessary and an artifact
+  ram_arbiter i_ram_arbiter // !TODO: remove this arbiter -- it can be done much simplier
   (
     .clk_i                  (clk_i              ),
     .rst_ni                 (rst_ni             ),
