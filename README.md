@@ -287,4 +287,9 @@ are overridden.
 
 ---
 
+## License
+
+Released under the [Solderpad Hardware License v 2.1](LICENSE)
+(SPDX `Apache-2.0 WITH SHL-2.1`).
+
 For questions, contributions, or collaboration interest, contact us any time at <office@semify-eda.com>.
