@@ -1,5 +1,62 @@
 `default_nettype none
 
+// ============================================================================
+// CDC capture redesign (2026-06-12) — root-cause fix for the stim_mem ±2 slip
+// ============================================================================
+// The original bridge sampled the RAW OBI bus directly in the wb_clk domain,
+// gated by a `capture` pulse derived from a toggling obi_clk_ff:
+//
+//     bufr[0] <= obi_clk_ff;
+//     bufr[1] <= bufr[0] ^ obi_clk_ff;   // raw obi_clk_ff used AGAIN here
+//     capture <= bufr[1];
+//     ...
+//     if (obi_req_i & obi_state == OBI_IDLE & capture)
+//         wb_addr_o <= {12'h0, obi_addr_i[19:0]};   // raw CPU bus sampled
+//
+// That scheme had three structural CDC hazards, confirmed on hardware as rare
+// spurious WB writes with a corrupted low address byte (firmware write to stim
+// SWAP_GRANT 0x6002C, data 0x1, executed as stim CTRL 0x60000, data 0x1 —
+// ~1 per 25 s, host-independent; see CLAUDE.md "stim_mem ±2 half-buffer slip"):
+//
+//  1. The capture-pulse synchroniser mixed raw and synchronised signals:
+//     obi_clk_ff entered the wb domain at TWO flops over two different routes
+//     (bufr[0] and the XOR into bufr[1]). A marginal capture / metastable
+//     resolution shifts or doubles the capture pulse. This is an *alignment*
+//     property, invisible to STA — and the deliberate set_max_delay
+//     -datapath_only on the 25<->100 MHz crossing drops the hold check on
+//     exactly these paths, so the tool was structurally blind to it.
+//
+//  2. obi_addr_i / obi_wdata_i are NOT flop outputs at this boundary — they
+//     arrive through the CPU LSU / bus-arbiter mux logic and can GLITCH while
+//     settling (a 0xA8 -> 0x2C low-byte transition can transiently read 0x00).
+//     A capture pulse landing early (hazard 1) latches such a glitch. STA only
+//     checks final settling, never glitching, so no constraint can fix this.
+//
+//  3. The 2-bit obi_state was decoded raw in the wb domain; its GNT(01) ->
+//     AWAIT(10) transition passes through 11 (VALID) / 00 (IDLE) if the two
+//     bits skew. obi_req_i was likewise sampled raw.
+//
+// New scheme — every remaining crossing is either a 2-FF-synchronised single
+// bit or a bus that is provably stable when sampled:
+//
+//     obi_clk domain                          wb_clk domain
+//     --------------                          -------------
+//     obi_*_q <= raw OBI bus (same-clock      req_sync[1:0] (2-FF sync of
+//       sample, fully STA-covered)              req_toggle, ASYNC_REG)
+//     req_toggle flips on the SAME edge  -->  wb_pending = sync != seen
+//       the obi_*_q regs are captured           (one transaction per toggle)
+//                                             WB FSM samples obi_*_q only
+//                                               when wb_pending — by then the
+//                                               bus has been stable >= 1 full
+//                                               wb cycle (>= 10 ns even in a
+//                                               worst-case hold race, because
+//                                               the toggle passes two extra wb
+//                                               flops while the data passes
+//                                               none)
+//
+// Cost: +1 obi_clk cycle of latency per transaction. No port changes.
+// ============================================================================
+
 module obi_wb_bridge
 #(
     parameter ADDR_W      = 32,
@@ -33,14 +90,23 @@ module obi_wb_bridge
     output logic                    wb_cyc_o        // O - Cycle: held high for the duration of an entire data transaction (multiple transfers)
 );
 
-logic       obi_clk_ff;
-logic       capture;
-logic [1:0] bufr;
-logic       resp_gate;
-logic       wb_resp;
-logic       wb_resp_ff;
-logic       obi_trans;
-logic       obi_trans_ff;
+// OBI-domain copy of the request — the ONLY place the raw CPU bus is sampled
+// (same-clock, so the sampling is a normal STA-covered 25 MHz path).
+// Only addr[19:0] is captured: that is all the WB side ever forwarded.
+logic [19 : 0]           obi_addr_q;
+logic [DATA_W-1 : 0]     obi_wdata_q;
+logic                    obi_wr_en_q;
+logic [(DATA_W/8)-1 : 0] obi_byte_en_q;
+logic                    obi_pend;        // a captured request is in flight (capture .. rvalid)
+logic                    req_toggle;      // flips once per captured request
+
+// wb-domain receive side of the toggle handshake
+(* ASYNC_REG = "TRUE" *) logic [1:0] req_sync;  // 2-FF synchroniser for req_toggle
+logic                    req_toggle_seen; // last toggle value consumed by the WB FSM
+logic                    wb_pending;      // new request waiting (level, held until consumed)
+
+logic                    resp_gate;
+logic                    wb_resp_ff;      // WB ack recorded for the slower OBI layer
 
 enum logic [1:0] {
     WB_IDLE,    // no data being transfered to/from WB master
@@ -57,6 +123,8 @@ enum logic [1:0] {
 
 /********** Reset Handler          ***********/
 // gate the responses to the OBI master based on whether a reset invalidated data
+// (wb_stb_o / wb_cyc_o are held levels; a marginal 25 MHz sample only moves the
+// gate release by one obi cycle, which is harmless)
 always_ff @(posedge obi_clk_i, negedge soc_rst_ni) begin
     if (~soc_rst_ni) begin
         resp_gate <= '1;
@@ -64,30 +132,65 @@ always_ff @(posedge obi_clk_i, negedge soc_rst_ni) begin
         /* if a reset happens when there is no transaction taking place */
         if(~wb_stb_o & ~wb_cyc_o) begin
             resp_gate <= '0;
-        end else if (wb_resp) begin
+        end else if (wb_resp_ff) begin
             resp_gate <= '0;
         end
     end
 end
 
-/********** Multicycle Path Timing ***********/
-always_ff @(posedge obi_clk_i, negedge soc_rst_ni) begin
+/********** OBI-domain request capture ********/
+// Replaces the old "Multicycle Path Timing" obi_clk_ff/bufr/capture scheme
+// (hazards 1+2 above): the raw, potentially-glitching CPU bus is sampled by
+// obi_clk flops here, and only these clean flop outputs — which change at
+// most once per transaction — are ever seen by the wb domain.
+always_ff @(posedge obi_clk_i, negedge soc_rst_ni) begin : obi_request_capture
     if (~soc_rst_ni) begin
-       obi_clk_ff <= '0;
-    end else begin 
-        obi_clk_ff <= ~obi_clk_ff;
-    end
-end
-always_ff @(posedge wb_clk_i, negedge soc_rst_ni) begin
-    if (~soc_rst_ni) begin
-        bufr    <= '0;
-        capture <= '0;
+        obi_addr_q    <= '0;
+        obi_wdata_q   <= '0;
+        obi_wr_en_q   <= '0;
+        obi_byte_en_q <= '0;
+        obi_pend      <= '0;
+        req_toggle    <= '0;
     end else begin
-        bufr[0] <= obi_clk_ff;
-        bufr[1] <= bufr[0] ^ obi_clk_ff;
-        capture <= bufr[1];
+        // ~obi_pend implies obi_state == OBI_IDLE (pend spans capture..VALID),
+        // so this fires exactly once per OBI transaction
+        if (obi_req_i & ~obi_pend) begin
+            obi_addr_q    <= obi_addr_i[19:0];
+            obi_wdata_q   <= obi_wdata_i;
+            obi_wr_en_q   <= obi_wr_en_i;
+            obi_byte_en_q <= obi_byte_en_i;
+            obi_pend      <= '1;
+            req_toggle    <= ~req_toggle;   // same edge as the data capture
+        end else if (obi_state == OBI_VALID) begin
+            obi_pend      <= '0;            // response handed to the master
+        end
     end
-end
+end : obi_request_capture
+
+/********** wb-domain toggle synchroniser *****/
+// req_toggle is the only obi->wb control crossing left. Unlike the old bufr
+// chain, the edge detect compares two REGISTERED values (req_sync[1] vs
+// req_toggle_seen) — never the raw input — so a marginal/metastable capture
+// can only delay the request by one wb cycle, never split/double the pulse
+// or fire it before the obi_*_q data has settled.
+// Reset by soc_rst_ni (same reset as req_toggle) so a CPU-only reset cannot
+// leave a phantom toggle inequality (= phantom transaction) behind.
+always_ff @(posedge wb_clk_i, negedge soc_rst_ni) begin : req_toggle_cdc
+    if (~soc_rst_ni) begin
+        req_sync        <= '0;
+        req_toggle_seen <= '0;
+    end else begin
+        req_sync <= {req_sync[0], req_toggle};
+        if (wb_pending & (wb_state == WB_IDLE)) begin
+            req_toggle_seen <= req_sync[1];  // consumed on the same edge the FSM starts
+        end
+    end
+end : req_toggle_cdc
+
+// Level, not a pulse: stays asserted until the WB FSM consumes it, so a busy
+// FSM (e.g. still draining a pre-reset transaction) defers the request
+// instead of losing it.
+assign wb_pending = req_sync[1] ^ req_toggle_seen;
 
 /*************** OBI Layer     ****************/
 always_ff @(posedge obi_clk_i, negedge soc_rst_ni) begin : obi_state_assignment
@@ -98,33 +201,23 @@ always_ff @(posedge obi_clk_i, negedge soc_rst_ni) begin : obi_state_assignment
     end
 end : obi_state_assignment
 
-// ensures that the wb response is recorded so that the slower OBI layer can accurately detect it
-assign wb_resp   = wb_resp_ff   | wb_ack_i;
-assign obi_trans = obi_trans_ff | obi_req_i;
-
-always_ff @(posedge wb_clk_i, negedge soc_rst_ni) begin : obi_transaction_detection
-    if(~soc_rst_ni) begin
-        obi_trans_ff <= '0;
-    end else begin
-        if(obi_req_i) begin
-            obi_trans_ff <= '1;
-        end else if (wb_state == WB_IDLE) begin
-            obi_trans_ff <= '0;
-        end
-    end
-end : obi_transaction_detection
-
 always_ff @(posedge wb_clk_i, negedge soc_rst_ni) begin : wb_resp_logic
     if(~soc_rst_ni) begin
         wb_resp_ff <= '0;
     end else begin
-        if(obi_trans) begin
-            // reset the wb valid flag when it is handed off to the OBI rvalid signal            
-            if(obi_rvalid_o) begin
-                wb_resp_ff <= '0;
-            end else if(wb_ack_i) begin
-                wb_resp_ff <= '1;
-            end
+        // Was: cleared by decoding obi_state == OBI_VALID across the CDC
+        // (hazard 3) and gated by a raw obi_req_i (via obi_trans). Now it is
+        // cleared when the NEXT request is accepted — a pure wb-domain
+        // condition. It therefore stays high between transactions; that is
+        // safe because the OBI FSM only samples it in GNT/AWAIT, which it
+        // reaches >= 2 obi cycles (80 ns) after the toggle, while the
+        // accept-clear lands <= ~4 wb cycles (40 ns) after the same toggle.
+        if (wb_pending & (wb_state == WB_IDLE)) begin
+            wb_resp_ff <= '0;
+        end else if (wb_ack_i & wb_cyc_o) begin
+            // qualified with our own wb_cyc_o so an ack meant for another
+            // master on a shared bus segment can never set it
+            wb_resp_ff <= '1;
         end
     end
 end : wb_resp_logic
@@ -133,19 +226,28 @@ always_comb begin : obi_next_state_logic
     obi_next_state = OBI_IDLE;
     case(obi_state)
         OBI_IDLE: begin
-            if((wb_cyc_o & wb_stb_o) | wb_resp) 
+            // Was: (wb_cyc_o & wb_stb_o) | wb_resp — an AND of two raw
+            // wb-domain flops, whose skewed arrivals could be sampled
+            // inconsistently. obi_pend is an obi-domain flop instead. The
+            // grant may now precede the WB bus phase, which is fine: the
+            // obi_*_q copy keeps the request valid after the master drops it.
+            if(obi_pend)
                 obi_next_state = OBI_GNT;
             else
                 obi_next_state = OBI_IDLE;
         end
         OBI_GNT: begin
-            if(wb_resp)
+            // Was: wb_resp = wb_resp_ff | wb_ack_i — the raw wb_ack_i term
+            // came combinationally from the slave and could glitch into this
+            // slow-domain sample. wb_resp_ff is a held level (stable until
+            // the next accepted request); worst case is +1 obi cycle latency.
+            if(wb_resp_ff)
                 obi_next_state = OBI_VALID;
             else
                 obi_next_state = OBI_AWAIT;
-        end 
+        end
         OBI_AWAIT: begin
-            if(wb_resp)
+            if(wb_resp_ff)
                 obi_next_state = OBI_VALID;
             else
                 obi_next_state = OBI_AWAIT;
@@ -176,15 +278,21 @@ always_ff @(posedge wb_clk_i, negedge gbl_rst_ni) begin : wb_state_assignment
     end else begin
         case(wb_state)
             WB_IDLE: begin
-                if(obi_req_i & obi_state == OBI_IDLE & capture) begin
+                // Was: if(obi_req_i & obi_state == OBI_IDLE & capture) with the
+                // raw obi_addr_i/obi_wdata_i sampled here (hazards 1-3). With
+                // wb_pending the obi_*_q copies are stable by construction:
+                // they were captured on the same obi edge that flipped
+                // req_toggle, and the toggle needs two extra wb flops to get
+                // here while the data path needs none.
+                if(wb_pending) begin
                     wb_state     <= WB_AWAIT;
                     wb_stb_o     <= '1;
                     wb_cyc_o     <= '1;
-                    wb_wdata_o   <= obi_wdata_i;
-                    wb_wr_en_o   <= obi_wr_en_i;
-                    wb_byte_en_o <= obi_byte_en_i;
-                    wb_addr_o    <= {12'h0, obi_addr_i[19:0]};
-                end   
+                    wb_wdata_o   <= obi_wdata_q;
+                    wb_wr_en_o   <= obi_wr_en_q;
+                    wb_byte_en_o <= obi_byte_en_q;
+                    wb_addr_o    <= {12'h0, obi_addr_q};
+                end
             end
             WB_AWAIT: begin
                 if(wb_ack_i) begin

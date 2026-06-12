@@ -7,7 +7,8 @@ module obi_wb_bridge_tb;
     localparam DRAM_ADDR_WIDTH   = 12;  // 4K words (16 KB) data memory
     localparam IRAM_ADDR_WIDTH   = 13;  // 8K words (32 KB) — 4 × 2K firmware slots
     localparam INSTR_RDATA_WIDTH = 32;
-    localparam BOOT_ADDR         = 32'h00080000;
+    // IRAM base (block_sel = addr[19:17] == 1), matches wfg_top.sv
+    localparam BOOT_ADDR         = 32'h00020000;
     parameter int CLK_FREQ       = 25_000_000;
     parameter int  SER_BIT_PERIOD_NS = 1_000_000_000 / BAUDRATE;
 
@@ -94,13 +95,15 @@ module obi_wb_bridge_tb;
     // ----------------------------------
     //           CV32E40X Core
     // ----------------------------------
-    cv32e40x_soc
+    tristan_soc
     #(
         .SOC_ADDR_WIDTH    (SOC_ADDR_WIDTH  ),
         .DRAM_ADDR_WIDTH   (DRAM_ADDR_WIDTH ),
         .IRAM_ADDR_WIDTH   (IRAM_ADDR_WIDTH ),
         .BOOT_ADDR         (BOOT_ADDR       ),
-        .FIRMWARE_INITFILE ("../../../../../../firmware/firmware.mem")
+        // $readmemh resolves this at runtime relative to sim/ — 4 levels up is the
+        // tristan root in both the standalone and the wfg-fpga (design/tristan) layout
+        .FIRMWARE_INITFILE ("../../../../firmware/build/base/firmware.mem")
     )
     cv32e40x_soc
     (
@@ -109,6 +112,7 @@ module obi_wb_bridge_tb;
         .rst_ni         ( core_rst_n   ),
         .gbl_rst_ni     ( core_rst_n   ),
         .soc_fetch_enable_i ('1),
+        .boot_offset_i  ('0),           // slot 0
         // .ser_tx,
         // .ser_rx,
 
