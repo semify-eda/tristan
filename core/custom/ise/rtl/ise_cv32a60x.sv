@@ -243,6 +243,13 @@ module ise_cv32a60x import ise_pkg::*;
   assign mirror_en              = bit_idx == '0;
   assign addr_overflow          = |shift_output;
 
+  // Mask of the low result bits sourced from word0 (NOT word1): the low
+  // (32 - bit_idx) bits.  Used to build the load word1-merge mask below.
+  // Computed in 64-bit width so the (1 << 32) case for bit_idx==0 does not
+  // truncate to 0 (which is the whole point — it must become all-ones there).
+  logic [31:0] word1_lowmask;
+  assign word1_lowmask          = (64'd1 << (6'd32 - {1'b0, bit_idx})) - 64'd1;
+
   always_comb begin
     wmask_store = {{wmask_left}, {wmask_right}};
     if(mirror_en) begin
@@ -578,7 +585,20 @@ module ise_cv32a60x import ise_pkg::*;
         end
         MEM_RD1: begin
           if(capture_cnt_unary_ff) begin
-            wmask           <= op_load & addr_overflow ? count_unary << shift_amount : shift_output;
+            // For a LOAD, `wmask` selects the result bits taken from the UPPER
+            // source word (word1) in the UPDATE merge below — result positions
+            // [32-bit_idx, count-1], i.e. count_unary with its low (32-bit_idx)
+            // bits cleared.  This is 0 unless the read actually spans the 32-bit
+            // word boundary (bit_idx + count > 32).
+            //
+            // BUGFIX: the old `count_unary << shift_amount` was wrong — shift_amount
+            // is only 5 bits, so the intended (64-bit_idx) shift was truncated mod 32
+            // and never shifted the mask fully out for a non-spanning read, leaving
+            // wmask = count_unary.  That OR-ed word1's low bits into the shadow
+            // register, corrupting copy_segment decodes (the ISE ramp ±sample bug:
+            // sample 14 = 0xDEBB instead of 0xC0A3).  Build the high-word mask
+            // directly instead so it is exactly 0 when the read does not span.
+            wmask           <= op_load ? (count_unary & ~word1_lowmask) : shift_output;
           end
         end
         MEM_RD2: begin
