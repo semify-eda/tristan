@@ -235,8 +235,9 @@ wmask <= op_load ? (count_unary & ~word1_lowmask) : shift_output;
 ```
 → `wmask = 0` when the read stays in one word (the fix); `= [32-bit_idx, count-1]` when it
 genuinely spans (behavior preserved). Store path (`op_load=0` → `shift_output`), `RMXS`/`RMXR`
-extend, 32-bit copies, and the `mirror_en` case are all untouched. Sim-verified: ramp sample
-14 = 49315, sine regression clean (peak 55050), `test_basic_showcase passed`.
+extend, 32-bit copies, and the `mirror_en` case are all untouched. **Sim- and HW-verified
+(2026-06-15):** ramp sample 14 = 49315 and sine clean (peak 55050) in the Verilator showcase
+(`test_basic_showcase passed`), and both sine + ramp clean on the production bitstream on hardware.
 
 ### BRAM preload not supported in synthesis (`core_sram_patched.sv`)
 
