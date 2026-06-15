@@ -197,6 +197,47 @@ Verilator 5.046 generates a `std::process` coroutine wrapper with member `m_proc
 The CVA6 / CVXIF path of `RMLD` correctly loads the shadow register (verified via `RMCS` readback), but the value written back to the integer register file via the CVXIF result channel is occasionally wrong (often 0). The firmware works around this by reading the result via `RMCS` from the shadow register instead of via the `rd` field. Comments in `firmware/src/rle.c` reference this limitation. Spec: <https://docs.openhwgroup.org/projects/cva6-user-manual/01_cva6_user/CVX_Interface_Coprocessor.html>.
 This will be tested in the upstream smartwave repo.
 
+### ISE `RMLD` word1-merge mask — non-spanning loads OR'd in the next word — ✅ FIXED 2026-06-15
+
+> **Status: FIXED** in both ISE cores — [`coproc.sv`](core/custom/ise/rtl/coproc.sv) (CV32E40X)
+> and [`ise_cv32a60x.sv`](core/custom/ise/rtl/ise_cv32a60x.sv) (CVA6, the SmartWave demo core).
+> The pre-fix bitstream corrupts `copy_segment` decodes; the description is kept because the
+> failure mode is subtle and only certain data exposes it.
+
+**Symptom.** With the ISE (`custom_ext`, hardware-accelerated RLE) firmware, occasional decoded
+values came out wrong — extra `1`-bits OR'd into the result. The software (`base`) decode path
+was bit-perfect. The production **sine** signal worked on both paths; only a less-compressible
+signal (the diagnostic **ramp**, `make dmem SIGNAL=ramp`) exposed it: ramp sample 14 decoded as
+`0xDEBB` (57019) instead of `0xC0A3` (49315). Reproducible in the Verilator showcase sim — no HW.
+
+**Root cause.** `RMLD` (stream load) does a two-word read-modify-merge so a read can straddle a
+32-bit word boundary: it reads `word0` (low part) + `word1` (high/wrapped part) and, in the
+`UPDATE` state, merges word1 via `shadow_reg_spec | (shift_output & wmask)`, where `wmask` is
+supposed to select **only** the result bits that genuinely come from word1 — positions
+`[32-bit_idx, count-1]`, which is empty unless `bit_idx + count > 32`.
+
+That mask was built (`MEM_RD1`) as `count_unary << shift_amount` with `shift_amount = 64 - bit_idx`.
+Intent: when the read does not span the boundary (`64 - bit_idx ≥ 32`), shifting the 32-bit mask
+left by ≥32 yields 0 → no word1 contribution. **But `shift_amount` is declared `logic [4:0]`
+(5 bits)**, so `64 - bit_idx` was truncated mod 32 (e.g. `bit_idx=0` → `64 & 0x1F = 0`). The
+shift-by-0 left `wmask = count_unary` instead of 0, so **every non-spanning load OR'd word1's low
+bits (the *next* source word) into the shadow register**, and `RMCS` then faithfully stored it.
+Hidden for ~a year because corruption only shows where the wrongly-OR'd next-word bits are `1` and
+the real bits are `0`; verified exactly — `shadow = word0 | word1_low16`, the spurious bits
+matching `enc[448:463]`.
+
+**Fix.** Build the high-word mask directly, in full width, instead of via the truncated shift:
+```sv
+logic [31:0] word1_lowmask;
+assign word1_lowmask = (64'd1 << (6'd32 - {1'b0, bit_idx})) - 64'd1;   // 64-bit so 1<<32 (bit_idx==0) ≠ 0
+...
+wmask <= op_load ? (count_unary & ~word1_lowmask) : shift_output;
+```
+→ `wmask = 0` when the read stays in one word (the fix); `= [32-bit_idx, count-1]` when it
+genuinely spans (behavior preserved). Store path (`op_load=0` → `shift_output`), `RMXS`/`RMXR`
+extend, 32-bit copies, and the `mirror_en` case are all untouched. Sim-verified: ramp sample
+14 = 49315, sine regression clean (peak 55050), `test_basic_showcase passed`.
+
 ### BRAM preload not supported in synthesis (`core_sram_patched.sv`)
 
 The CVA6 SRAM splits memory into per-byte-lane 8-bit BRAMs via a `generate` loop, with `$readmemh` wrapped in `// synthesis translate_off / translate_on` (**simulation-only**). Vivado cannot follow the intermediate temp-array + for-loop pattern to initialize the inferred BRAMs, so the SRAM always powers up as zero in hardware. Synthesis flows must load firmware via another mechanism (JTAG, UART bootloader, BRAM IP with a `.coe` file, …).
